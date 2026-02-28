@@ -109,6 +109,7 @@ pub(crate) struct TuneConfig {
 pub(crate) struct CompileConfig {
     pub release: Option<bool>,
     pub lto: Option<bool>,
+    pub strip: Option<bool>,
     pub output: Option<String>,
 }
 
@@ -266,6 +267,7 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
             &model_path,
             comp.release.unwrap_or(false),
             comp.lto.unwrap_or(false),
+            comp.strip.unwrap_or(false),
             comp.output.as_deref(),
         )?;
     }

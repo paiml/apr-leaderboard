@@ -117,7 +117,7 @@ fn test_cli_parse_compile() {
         "apr-leaderboard", "compile", "--model", "m.apr", "--release", "--lto", "-o", "binary",
     ]).unwrap();
     match cli.command {
-        Commands::Compile { model, release, lto, output } => {
+        Commands::Compile { model, release, lto, output, .. } => {
             assert_eq!(model, "m.apr");
             assert!(release);
             assert!(lto);

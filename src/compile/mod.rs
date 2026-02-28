@@ -9,6 +9,7 @@ pub(crate) fn run(
     model: &str,
     release: bool,
     lto: bool,
+    strip: bool,
     output: Option<&str>,
 ) -> Result<()> {
     let model_data = std::fs::read(model)
@@ -18,6 +19,7 @@ pub(crate) fn run(
     println!("  Model: {model} ({} bytes)", model_data.len());
     println!("  Release: {release}");
     println!("  LTO: {lto}");
+    println!("  Strip: {strip}");
 
     let output_path = output.map_or_else(
         || model.replace(".apr", ""),
@@ -32,6 +34,9 @@ pub(crate) fn run(
     }
     if lto {
         println!("    --lto");
+    }
+    if strip {
+        println!("    --strip");
     }
     println!("    -o {output_path}");
 
@@ -78,7 +83,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("test.apr");
         std::fs::write(&model, b"APR2data").unwrap();
-        assert!(run(model.to_str().unwrap(), false, false, None).is_ok());
+        assert!(run(model.to_str().unwrap(), false, false, false, None).is_ok());
     }
 
     #[test]
@@ -86,12 +91,20 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("test.apr");
         std::fs::write(&model, b"APR2data").unwrap();
-        assert!(run(model.to_str().unwrap(), true, true, Some("binary")).is_ok());
+        assert!(run(model.to_str().unwrap(), true, true, false, Some("binary")).is_ok());
+    }
+
+    #[test]
+    fn test_compile_with_strip() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("test.apr");
+        std::fs::write(&model, b"APR2data").unwrap();
+        assert!(run(model.to_str().unwrap(), true, true, true, Some("binary")).is_ok());
     }
 
     #[test]
     fn test_compile_model_not_found() {
-        assert!(run("/nonexistent.apr", false, false, None).is_err());
+        assert!(run("/nonexistent.apr", false, false, false, None).is_err());
     }
 
     #[test]

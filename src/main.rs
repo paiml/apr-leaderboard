@@ -350,6 +350,12 @@ enum Commands {
         /// Enable link-time optimization
         #[arg(long)]
         lto: bool,
+        /// Strip debug symbols from output
+        #[arg(long)]
+        strip: bool,
+        /// Target triple (e.g., x86_64-unknown-linux-musl)
+        #[arg(long)]
+        target: Option<String>,
         /// Output binary path
         #[arg(long, short)]
         output: Option<String>,
@@ -485,8 +491,8 @@ fn main() -> anyhow::Result<()> {
         } => inference::chat(&model, batch.as_deref(), prompt.as_deref(), n_samples, temperature, system.as_deref(), json),
         Commands::Check { model } => compile::check(&model),
         Commands::Compile {
-            model, release, lto, output,
-        } => compile::run(&model, release, lto, output.as_deref()),
+            model, release, lto, strip, target: _target, output,
+        } => compile::run(&model, release, lto, strip, output.as_deref()),
     }
 }
 

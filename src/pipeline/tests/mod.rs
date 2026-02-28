@@ -302,6 +302,7 @@ fn test_count_steps_all_sections() {
     config.compile = Some(CompileConfig {
         release: Some(true),
         lto: None,
+        strip: None,
         output: None,
     });
     config.submit = true;

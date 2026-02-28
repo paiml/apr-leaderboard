@@ -174,3 +174,23 @@ fn test_cli_quantize_plan_batch_format() {
         _ => panic!("Expected Quantize"),
     }
 }
+
+#[test]
+fn test_cli_compile_strip_and_target() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "compile", "--model", "m.apr",
+        "--release", "--lto", "--strip",
+        "--target", "x86_64-unknown-linux-musl", "-o", "binary",
+    ]).unwrap();
+    match cli.command {
+        Commands::Compile { model, release, lto, strip, target, output } => {
+            assert_eq!(model, "m.apr");
+            assert!(release);
+            assert!(lto);
+            assert!(strip);
+            assert_eq!(target, Some("x86_64-unknown-linux-musl".into()));
+            assert_eq!(output, Some("binary".into()));
+        }
+        _ => panic!("Expected Compile"),
+    }
+}
