@@ -1,0 +1,23 @@
+# Recipe A: "Quick LoRA" — fast iteration with a single LoRA pass.
+#
+# Matches spec §9.1: import → LoRA finetune → eval
+#
+# Usage:
+#   apr-leaderboard pipeline --config configs/recipe-a-quick-lora.toml
+
+model_id = "Qwen/Qwen2.5-Coder-7B-Instruct"
+output_dir = "models"
+quantization = "fp16"
+submit = false
+leaderboard = "bigcode"
+
+benchmarks = [
+    "humaneval",
+    "mbpp",
+]
+
+[finetune]
+dataset = "data/code-instruct.jsonl"
+rank = 16
+lr = 1e-4
+epochs = 3
