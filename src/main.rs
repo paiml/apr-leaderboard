@@ -44,6 +44,12 @@ enum Commands {
         /// Output results file
         #[arg(long, default_value = "results/")]
         output: String,
+        /// Prompt strategy (standard, scot, few-shot, cgo, reflexion)
+        #[arg(long, default_value = "standard")]
+        prompt_strategy: String,
+        /// Generate N completions per problem for best-of-N selection
+        #[arg(long, default_value_t = 1)]
+        n_samples: usize,
     },
     /// Fine-tune a model for improved benchmark performance
     Finetune {
@@ -171,7 +177,16 @@ fn main() -> anyhow::Result<()> {
             benchmark,
             samples,
             output,
-        } => eval::run(&model, &benchmark, samples, &output),
+            prompt_strategy,
+            n_samples,
+        } => {
+            let strategy = eval::PromptStrategy::from_str(&prompt_strategy)?;
+            let config = eval::EvalConfig {
+                prompt_strategy: strategy,
+                n_samples,
+            };
+            eval::run_with_config(&model, &benchmark, samples, &output, &config)
+        }
         Commands::Finetune {
             model,
             dataset,
@@ -251,14 +266,31 @@ mod tests {
     #[test]
     fn test_cli_parse_eval() {
         let cli = Cli::try_parse_from([
-            "apr-leaderboard", "eval", "--model", "m.apr", "--benchmark", "humaneval", "--samples", "10",
+            "apr-leaderboard", "eval", "--model", "m.apr", "--benchmark", "humaneval",
+            "--samples", "10", "--prompt-strategy", "scot", "--n-samples", "20",
         ]).unwrap();
         match cli.command {
-            Commands::Eval { model, benchmark, samples, output } => {
+            Commands::Eval { model, benchmark, samples, prompt_strategy, n_samples, .. } => {
                 assert_eq!(model, "m.apr");
                 assert_eq!(benchmark, "humaneval");
                 assert_eq!(samples, 10);
-                assert_eq!(output, "results/");
+                assert_eq!(prompt_strategy, "scot");
+                assert_eq!(n_samples, 20);
+            }
+            _ => panic!("Expected Eval"),
+        }
+    }
+
+    #[test]
+    fn test_cli_eval_defaults() {
+        let cli = Cli::try_parse_from([
+            "apr-leaderboard", "eval", "--model", "m.apr", "--benchmark", "humaneval",
+        ]).unwrap();
+        match cli.command {
+            Commands::Eval { samples, prompt_strategy, n_samples, .. } => {
+                assert_eq!(samples, 0);
+                assert_eq!(prompt_strategy, "standard");
+                assert_eq!(n_samples, 1);
             }
             _ => panic!("Expected Eval"),
         }
