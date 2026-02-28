@@ -15,6 +15,17 @@ pub(crate) enum Leaderboard {
     Custom(String),
 }
 
+impl std::fmt::Display for Leaderboard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::OpenLlm => write!(f, "open-llm-leaderboard"),
+            Self::BigCode => write!(f, "bigcode"),
+            Self::EvalPlus => write!(f, "evalplus"),
+            Self::Custom(name) => write!(f, "{name}"),
+        }
+    }
+}
+
 impl Leaderboard {
     fn from_str(s: &str) -> Self {
         match s {
@@ -56,7 +67,7 @@ pub(crate) fn run(results_path: &str, model_id: &str, leaderboard: &str) -> Resu
         .map_err(|e| anyhow::anyhow!("Failed to read results {results_path}: {e}"))?;
     let results: serde_json::Value = serde_json::from_str(&results_content)?;
 
-    println!("Submitting to: {:?}", leaderboard);
+    println!("Submitting to: {leaderboard}");
     println!("  Model: {model_id}");
     println!("  Target repo: {}", leaderboard.submission_repo());
 
@@ -226,6 +237,22 @@ mod tests {
         let json = serde_json::to_string_pretty(&sub).unwrap();
         let parsed: Submission = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.results, serde_json::json!({"pass@1": 0.85}));
+    }
+
+    #[test]
+    fn test_leaderboard_display() {
+        assert_eq!(Leaderboard::OpenLlm.to_string(), "open-llm-leaderboard");
+        assert_eq!(Leaderboard::BigCode.to_string(), "bigcode");
+        assert_eq!(Leaderboard::EvalPlus.to_string(), "evalplus");
+        assert_eq!(Leaderboard::Custom("my-board".into()).to_string(), "my-board");
+    }
+
+    #[test]
+    fn test_leaderboard_roundtrip() {
+        for s in &["open-llm-leaderboard", "bigcode", "evalplus"] {
+            let parsed = Leaderboard::from_str(s);
+            assert_eq!(parsed.to_string(), *s);
+        }
     }
 
     #[test]

@@ -9,7 +9,7 @@ fn make_test_result() -> EvalResult {
         samples_evaluated: 164,
         samples_total: 164,
         timestamp: "2026-01-01T00:00:00Z".into(),
-        prompt_strategy: "Standard".into(),
+        prompt_strategy: "standard".into(),
         n_samples: 1,
         details: EvalDetails {
             pass_at_1: 0.75,
@@ -60,7 +60,7 @@ fn test_eval_result_no_pass_at_10() {
         samples_evaluated: 100,
         samples_total: 1140,
         timestamp: "2026-01-01T00:00:00Z".into(),
-        prompt_strategy: "Standard".into(),
+        prompt_strategy: "standard".into(),
         n_samples: 1,
         details: EvalDetails {
             pass_at_1: 0.5,
@@ -85,7 +85,7 @@ fn test_run_benchmark_humaneval() {
     assert_eq!(result.samples_evaluated, 10);
     assert_eq!(result.samples_total, 164);
     assert!(result.details.pass_at_10.is_some());
-    assert_eq!(result.prompt_strategy, "Standard");
+    assert_eq!(result.prompt_strategy, "standard");
     assert_eq!(result.n_samples, 1);
 }
 
@@ -112,9 +112,10 @@ fn test_run_benchmark_with_scot() {
     let config = EvalConfig {
         prompt_strategy: PromptStrategy::SCoT,
         n_samples: 20,
+        ..EvalConfig::default()
     };
     let result = run_benchmark(&spec, "test.apr", 10, &config).unwrap();
-    assert_eq!(result.prompt_strategy, "SCoT");
+    assert_eq!(result.prompt_strategy, "scot");
     assert_eq!(result.n_samples, 20);
 }
 
@@ -138,10 +139,47 @@ fn test_prompt_strategy_aliases() {
 }
 
 #[test]
+fn test_prompt_strategy_display() {
+    assert_eq!(PromptStrategy::Standard.to_string(), "standard");
+    assert_eq!(PromptStrategy::SCoT.to_string(), "scot");
+    assert_eq!(PromptStrategy::FewShot.to_string(), "few-shot");
+    assert_eq!(PromptStrategy::Cgo.to_string(), "cgo");
+    assert_eq!(PromptStrategy::Reflexion.to_string(), "reflexion");
+}
+
+#[test]
+fn test_rerank_strategy_display() {
+    assert_eq!(RerankStrategy::None.to_string(), "none");
+    assert_eq!(RerankStrategy::LogProb.to_string(), "logprob");
+    assert_eq!(RerankStrategy::Majority.to_string(), "majority");
+}
+
+#[test]
+fn test_prompt_strategy_roundtrip() {
+    for s in &["standard", "scot", "few-shot", "cgo", "reflexion"] {
+        let parsed = PromptStrategy::from_str(s).unwrap();
+        assert_eq!(parsed.to_string(), *s);
+    }
+}
+
+#[test]
 fn test_eval_config_default() {
     let config = EvalConfig::default();
     assert!(matches!(config.prompt_strategy, PromptStrategy::Standard));
     assert_eq!(config.n_samples, 1);
+    assert!((config.temperature - 0.0).abs() < f64::EPSILON);
+    assert!((config.top_p - 0.95).abs() < f64::EPSILON);
+    assert!(matches!(config.rerank, RerankStrategy::None));
+}
+
+#[test]
+fn test_rerank_strategy_parsing() {
+    assert!(matches!(RerankStrategy::from_str("none").unwrap(), RerankStrategy::None));
+    assert!(matches!(RerankStrategy::from_str("logprob").unwrap(), RerankStrategy::LogProb));
+    assert!(matches!(RerankStrategy::from_str("log-prob").unwrap(), RerankStrategy::LogProb));
+    assert!(matches!(RerankStrategy::from_str("majority").unwrap(), RerankStrategy::Majority));
+    assert!(matches!(RerankStrategy::from_str("voting").unwrap(), RerankStrategy::Majority));
+    assert!(RerankStrategy::from_str("invalid").is_err());
 }
 
 #[test]
@@ -154,6 +192,7 @@ fn test_run_with_config() {
     let config = EvalConfig {
         prompt_strategy: PromptStrategy::SCoT,
         n_samples: 5,
+        ..EvalConfig::default()
     };
     run_with_config(
         model_path.to_str().unwrap(),
@@ -170,7 +209,7 @@ fn test_run_with_config() {
         .collect();
     let content = std::fs::read_to_string(entries[0].path()).unwrap();
     let result: EvalResult = serde_json::from_str(&content).unwrap();
-    assert_eq!(result.prompt_strategy, "SCoT");
+    assert_eq!(result.prompt_strategy, "scot");
     assert_eq!(result.n_samples, 5);
 }
 

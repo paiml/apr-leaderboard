@@ -23,6 +23,18 @@ pub(crate) enum PromptStrategy {
     Reflexion,
 }
 
+impl std::fmt::Display for PromptStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Standard => write!(f, "standard"),
+            Self::SCoT => write!(f, "scot"),
+            Self::FewShot => write!(f, "few-shot"),
+            Self::Cgo => write!(f, "cgo"),
+            Self::Reflexion => write!(f, "reflexion"),
+        }
+    }
+}
+
 impl PromptStrategy {
     pub(crate) fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
@@ -36,11 +48,43 @@ impl PromptStrategy {
     }
 }
 
+/// Reranking strategy for N-sampling (§8.2).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub(crate) enum RerankStrategy {
+    None,
+    LogProb,
+    Majority,
+}
+
+impl std::fmt::Display for RerankStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None => write!(f, "none"),
+            Self::LogProb => write!(f, "logprob"),
+            Self::Majority => write!(f, "majority"),
+        }
+    }
+}
+
+impl RerankStrategy {
+    pub(crate) fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "none" => Ok(Self::None),
+            "logprob" | "log-prob" => Ok(Self::LogProb),
+            "majority" | "voting" => Ok(Self::Majority),
+            _ => bail!("Unknown rerank strategy: {s}. Use none, logprob, or majority"),
+        }
+    }
+}
+
 /// Evaluation configuration.
 #[derive(Debug)]
 pub(crate) struct EvalConfig {
     pub prompt_strategy: PromptStrategy,
     pub n_samples: usize,
+    pub temperature: f64,
+    pub top_p: f64,
+    pub rerank: RerankStrategy,
 }
 
 impl Default for EvalConfig {
@@ -48,6 +92,9 @@ impl Default for EvalConfig {
         Self {
             prompt_strategy: PromptStrategy::Standard,
             n_samples: 1,
+            temperature: 0.0,
+            top_p: 0.95,
+            rerank: RerankStrategy::None,
         }
     }
 }
@@ -110,9 +157,16 @@ pub(crate) fn run_with_config(
             format!("{samples} of {}", spec.total_problems)
         }
     );
-    println!("  Prompt strategy: {:?}", config.prompt_strategy);
+    println!("  Prompt strategy: {}", config.prompt_strategy);
     if config.n_samples > 1 {
         println!("  N-samples: {} (best-of-N selection)", config.n_samples);
+    }
+    if config.temperature > 0.0 {
+        println!("  Temperature: {:.1}", config.temperature);
+        println!("  Top-p: {:.2}", config.top_p);
+    }
+    if !matches!(config.rerank, RerankStrategy::None) {
+        println!("  Rerank: {}", config.rerank);
     }
 
     // Load the model
@@ -166,7 +220,7 @@ fn run_benchmark(
         samples_evaluated: n_samples,
         samples_total: spec.total_problems,
         timestamp: now.to_rfc3339(),
-        prompt_strategy: format!("{:?}", config.prompt_strategy),
+        prompt_strategy: config.prompt_strategy.to_string(),
         n_samples: config.n_samples,
         details: EvalDetails {
             pass_at_1: 0.0,

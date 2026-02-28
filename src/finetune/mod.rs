@@ -18,7 +18,7 @@ pub(crate) fn run(
     let method = FinetuneMethod::from_str(method)?;
 
     println!("Fine-tuning: {model_path}");
-    println!("  Method: {method:?}");
+    println!("  Method: {method}");
     println!("  Dataset: {dataset}");
     println!("  LoRA rank: {rank}");
     println!("  Learning rate: {lr}");
@@ -61,6 +61,16 @@ enum FinetuneMethod {
     Lora,
     Qlora,
     Full,
+}
+
+impl std::fmt::Display for FinetuneMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Lora => write!(f, "lora"),
+            Self::Qlora => write!(f, "qlora"),
+            Self::Full => write!(f, "full"),
+        }
+    }
 }
 
 impl FinetuneMethod {
@@ -245,6 +255,21 @@ mod tests {
 
         let result = run(model_path.to_str().unwrap(), "data.jsonl", "invalid", 16, 1e-4, 1, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_finetune_method_display() {
+        assert_eq!(FinetuneMethod::Lora.to_string(), "lora");
+        assert_eq!(FinetuneMethod::Qlora.to_string(), "qlora");
+        assert_eq!(FinetuneMethod::Full.to_string(), "full");
+    }
+
+    #[test]
+    fn test_finetune_method_roundtrip() {
+        for s in &["lora", "qlora", "full"] {
+            let parsed = FinetuneMethod::from_str(s).unwrap();
+            assert_eq!(parsed.to_string(), *s);
+        }
     }
 
     #[test]

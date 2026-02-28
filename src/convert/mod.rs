@@ -14,6 +14,17 @@ pub(crate) enum Quantization {
     Q4,
 }
 
+impl std::fmt::Display for Quantization {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FP32 => write!(f, "fp32"),
+            Self::FP16 => write!(f, "fp16"),
+            Self::Q8 => write!(f, "q8"),
+            Self::Q4 => write!(f, "q4"),
+        }
+    }
+}
+
 impl Quantization {
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
@@ -32,7 +43,7 @@ pub(crate) fn run(model_id: &str, output_dir: &str, quantization: &str) -> Resul
 
     println!("Converting model: {model_id}");
     println!("  Output: {output_dir}");
-    println!("  Quantization: {quant:?}");
+    println!("  Quantization: {quant}");
 
     // Step 1: Resolve model files from HF Hub
     let model_files = resolve_model_files(model_id)?;
@@ -106,7 +117,7 @@ fn build_apr_bundle(files: &[String], output_path: &str, quant: Quantization) ->
 
     std::fs::write(output_path, &bundle)?;
     println!(
-        "  Built APR v2 bundle: {} bytes ({quant:?})",
+        "  Built APR v2 bundle: {} bytes ({quant})",
         bundle.len()
     );
 
@@ -239,6 +250,22 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let result = run("test/model", tmp.path().to_str().unwrap(), "invalid");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_quantization_display() {
+        assert_eq!(Quantization::FP32.to_string(), "fp32");
+        assert_eq!(Quantization::FP16.to_string(), "fp16");
+        assert_eq!(Quantization::Q8.to_string(), "q8");
+        assert_eq!(Quantization::Q4.to_string(), "q4");
+    }
+
+    #[test]
+    fn test_quantization_roundtrip() {
+        for s in &["fp32", "fp16", "q8", "q4"] {
+            let parsed = Quantization::from_str(s).unwrap();
+            assert_eq!(parsed.to_string(), *s);
+        }
     }
 
     #[test]
