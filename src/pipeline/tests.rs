@@ -378,3 +378,38 @@ fn test_build_eval_config_with_values() {
     assert!((config.top_p - 0.8).abs() < f64::EPSILON);
     assert!(matches!(config.rerank, eval::RerankStrategy::LogProb));
 }
+
+#[test]
+fn test_recipe_b_toml_parses() {
+    let toml_str = include_str!("../../configs/recipe-b-merge-alchemist.toml");
+    let config: PipelineConfig = toml::from_str(toml_str).unwrap();
+    assert_eq!(config.model_id, "Qwen/Qwen2.5-Coder-7B-Instruct");
+    assert!(config.finetune.is_none());
+    assert!(config.distill.is_none());
+    let merge = config.merge.unwrap();
+    assert_eq!(merge.strategy, "ties");
+    assert!(merge.base_model.is_some());
+    assert!((merge.density.unwrap() - 0.2).abs() < f64::EPSILON);
+    let prune = config.prune.unwrap();
+    assert_eq!(prune.method, "structured");
+    assert!((prune.target_ratio - 0.15).abs() < f64::EPSILON);
+    let quant = config.quantize.unwrap();
+    assert_eq!(quant.scheme, "q4k");
+}
+
+#[test]
+fn test_recipe_d_toml_parses() {
+    let toml_str = include_str!("../../configs/recipe-d-sovereign-binary.toml");
+    let config: PipelineConfig = toml::from_str(toml_str).unwrap();
+    assert_eq!(config.model_id, "Qwen/Qwen2.5-Coder-1.5B");
+    assert!(config.distill.is_none());
+    assert!(config.merge.is_none());
+    let ft = config.finetune.unwrap();
+    assert_eq!(ft.method, Some("qlora".into()));
+    assert_eq!(ft.rank, 16);
+    let prune = config.prune.unwrap();
+    assert_eq!(prune.method, "magnitude");
+    assert!((prune.target_ratio - 0.4).abs() < f64::EPSILON);
+    let quant = config.quantize.unwrap();
+    assert_eq!(quant.scheme, "int4");
+}
