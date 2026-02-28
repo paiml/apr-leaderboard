@@ -2246,7 +2246,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `run` | `--model`, `--prompt` | `--speculative`, `--speculation-k`, `--draft-model`, `--json` | ✅ Complete |
 | `chat` | `--model` | `--batch`, `--prompt`, `--n-samples`, `--temperature`, `--system`, `--json` | ✅ Complete |
 | `check` | `--model` | — | ✅ Complete |
-| `compile` | `--model` | `--release`, `--lto`, `-o` | ✅ Complete |
+| `compile` | `--model` | `--release`, `--lto`, `--strip`, `--target`, `-o` | ✅ Complete |
 
 ### 19.2 Prompt Strategies (§8.3)
 
@@ -2272,11 +2272,11 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 244 | — | `cargo test` |
+| Test count | 251 | — | `cargo test` |
 | CLI subcommands | 19 | — | All spec §6.2 subcommands implemented |
 | Line coverage | 96.5% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
-| Max file size | 494 lines | < 500 | `wc -l src/**/*.rs` |
+| Max file size | 497 lines | < 500 | `wc -l src/**/*.rs` |
 | pmat pre-commit | ✅ Pass | ✅ Pass | git hook |
 | Pipeline configs | 4 | — | `configs/*.toml` (recipes A–D) |
 | Source modules | 11 | — | convert, eval, finetune, optimize, harness, pipeline, submit, align, validate, inference, compile |
