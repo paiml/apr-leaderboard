@@ -380,3 +380,213 @@ roadmap:
   - dpo
   - verification
   notes: null
+- id: PMAT-019
+  github_issue: null
+  item_type: task
+  title: Implement AdaLoRA adapter (dynamic rank allocation)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:52:28Z
+  updated: 2026-02-28T18:52:28Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — AdaLoRA extends LoRA with task-specific dynamic rank allocation across layers. Higher ranks for important layers, lower for redundant ones. Entrenar already has LoRA infrastructure (src/lora/). Add src/lora/adalora.rs with SVD-based rank scheduling. Wire into apr finetune --method adalora. Target: entrenar 0.8.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - adapter
+  - adalora
+  notes: null
+- id: PMAT-020
+  github_issue: null
+  item_type: task
+  title: Implement IA3 adapter (inhibiting/amplifying activations)
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-02-28T18:52:31Z
+  updated: 2026-02-28T18:52:31Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — IA3 rescales keys, values, and FFN activations with learned vectors. Fewer parameters than LoRA (vectors not matrices). Add src/lora/ia3.rs. Wire into apr finetune --method ia3. Lower priority than LoRA/QLoRA — smaller accuracy gains in practice. Target: entrenar 0.8.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - adapter
+  - ia3
+  notes: null
+- id: PMAT-021
+  github_issue: null
+  item_type: task
+  title: Implement DoRA adapter (weight-decomposed LoRA)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:52:33Z
+  updated: 2026-02-28T18:52:33Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — DoRA decomposes pretrained weights into magnitude and direction, applying LoRA only to the direction component. Shows improved training stability and convergence over standard LoRA. Entrenar has LoRA (src/lora/). Add DoRA variant. Wire into apr finetune --method dora. Target: entrenar 0.8.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - adapter
+  - dora
+  notes: null
+- id: PMAT-022
+  github_issue: null
+  item_type: task
+  title: Implement NEFTune (embedding noise injection)
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-02-28T18:52:38Z
+  updated: 2026-02-28T18:52:38Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — NEFTune injects uniform noise into embedding vectors during fine-tuning, controlled by alpha parameter. Simple technique that improves fine-tuning quality at near-zero cost. Add noise injection hook to entrenar training loop. Wire into apr finetune --neftune-alpha 5.0. Target: entrenar 0.8.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - neftune
+  - training
+  notes: null
+- id: PMAT-023
+  github_issue: null
+  item_type: task
+  title: Implement 8-bit and paged optimizers
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-02-28T18:52:42Z
+  updated: 2026-02-28T18:52:42Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — 8-bit Adam reduces optimizer state memory by 4x (32-bit → 8-bit moment estimates with dynamic quantization). Paged optimizers offload states to CPU when GPU OOM approaches. Add 8-bit Adam variant to entrenar optimizers. Lower priority — QLoRA already addresses the VRAM constraint for our target models. Target: entrenar 0.8.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - optimizer
+  - memory
+  notes: null
+- id: PMAT-024
+  github_issue: null
+  item_type: task
+  title: Add contrastive and diverse beam search decoding
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-02-28T18:52:45Z
+  updated: 2026-02-28T18:52:45Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — Contrastive search penalizes degeneration by contrasting candidate tokens against previous context. Diverse beam search adds diversity penalty across beam groups. Aprender already has greedy, temperature, top-k, top-p, beam search. Add ContrastiveSearch and DiverseBeamSearch to generation config. Wire into apr run --decoding-strategy contrastive. Target: aprender 0.28.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - aprender
+  - decoding
+  - generation
+  notes: null
+- id: PMAT-025
+  github_issue: null
+  item_type: task
+  title: Multi-GPU distributed training (DDP)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:52:52Z
+  updated: 2026-02-28T18:52:52Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — Ludwig scales to multi-GPU via PyTorch DDP and Ray. Entrenar currently supports single-GPU only. Add DDP wrapper for data-parallel training across multiple GPUs on a single node. Required for 32B model training (PMAT-012) and faster 7B training. This is the highest-priority Ludwig gap. Target: entrenar 0.9.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - distributed
+  - gpu
+  notes: null
+- id: PMAT-026
+  github_issue: null
+  item_type: task
+  title: DeepSpeed ZeRO-style model sharding
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:52:54Z
+  updated: 2026-02-28T18:52:54Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — DeepSpeed ZeRO shards optimizer states (Stage 1), gradients (Stage 2), and parameters (Stage 3) across GPUs. Enables training models too large for single GPU. Pure Rust implementation — no Microsoft DeepSpeed dependency. Required for 32B full fine-tuning. Blocked by PMAT-025 (DDP foundation). Target: entrenar 0.9.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - distributed
+  - deepspeed
+  notes: null
+- id: PMAT-027
+  github_issue: null
+  item_type: task
+  title: GPTQ quantization format support
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:52:57Z
+  updated: 2026-02-28T18:52:57Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — GPTQ is a popular post-training quantization format (3/4/8-bit). Many HuggingFace models ship pre-quantized as GPTQ. Add GPTQ format reading to aprender import and rosetta chain. Not needed for our own quantization pipeline (we use Q4K/INT4), but needed to import community GPTQ models for merging/comparison. Target: aprender 0.28.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - aprender
+  - quantization
+  - gptq
+  notes: null
+- id: PMAT-028
+  github_issue: null
+  item_type: task
+  title: Experiment tracking callbacks (W&B, MLflow, TensorBoard)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:53:05Z
+  updated: 2026-02-28T18:53:05Z
+  spec: null
+  acceptance_criteria:
+  - '§5.9 Ludwig parity — Ludwig integrates TensorBoard, W&B, MLflow, Comet ML, Aim Stack. Entrenar has MonitorCallback and TUI but no external tracker integration. Add callback adapters: (1) TensorBoard (write tfevents files), (2) W&B (HTTP API), (3) MLflow (REST API). We already exceed Ludwig with TUI monitoring + Prometheus metrics, but external trackers are expected by the community. Target: entrenar 0.8.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - ludwig-parity
+  - entrenar
+  - tracking
+  - observability
+  notes: null
