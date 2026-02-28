@@ -1,0 +1,23 @@
+# Pipeline config for Qwen2.5-Coder-32B leaderboard evaluation.
+#
+# Usage:
+#   apr-leaderboard pipeline --config configs/qwen-coder-32b.toml
+
+model_id = "Qwen/Qwen2.5-Coder-32B"
+output_dir = "models"
+quantization = "q8"
+submit = false
+leaderboard = "bigcode"
+
+benchmarks = [
+    "humaneval",
+    "humaneval-plus",
+    "mbpp",
+    "mbpp-plus",
+    "bigcodebench",
+    "livecodebench",
+    "multipl-e",
+    "crux-eval",
+]
+
+# No finetune — evaluate base model first

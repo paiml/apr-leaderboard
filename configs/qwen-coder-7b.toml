@@ -1,0 +1,25 @@
+# Pipeline config for Qwen2.5-Coder-7B leaderboard evaluation.
+#
+# Usage:
+#   apr-leaderboard pipeline --config configs/qwen-coder-7b.toml
+
+model_id = "Qwen/Qwen2.5-Coder-7B"
+output_dir = "models"
+quantization = "fp16"
+submit = false
+leaderboard = "bigcode"
+
+benchmarks = [
+    "humaneval",
+    "humaneval-plus",
+    "mbpp",
+    "mbpp-plus",
+    "bigcodebench",
+    "multipl-e",
+]
+
+[finetune]
+dataset = "bigcode/starcoderdata"
+rank = 16
+lr = 1e-4
+epochs = 3
