@@ -9,11 +9,16 @@ use anyhow::Result;
 pub(crate) fn run(
     model_path: &str,
     dataset: &str,
+    method: &str,
     rank: usize,
     lr: f64,
     epochs: usize,
+    output: Option<&str>,
 ) -> Result<()> {
+    let method = FinetuneMethod::from_str(method)?;
+
     println!("Fine-tuning: {model_path}");
+    println!("  Method: {method:?}");
     println!("  Dataset: {dataset}");
     println!("  LoRA rank: {rank}");
     println!("  Learning rate: {lr}");
@@ -42,10 +47,31 @@ pub(crate) fn run(
     run_lora_training(&config)?;
 
     // Step 4: Merge adapter and save
-    let output_path = model_path.replace(".apr", "_finetuned.apr");
+    let output_path = output.map_or_else(
+        || model_path.replace(".apr", "_finetuned.apr"),
+        String::from,
+    );
     println!("  Saved fine-tuned model: {output_path}");
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy)]
+enum FinetuneMethod {
+    Lora,
+    Qlora,
+    Full,
+}
+
+impl FinetuneMethod {
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "lora" => Ok(Self::Lora),
+            "qlora" | "q-lora" => Ok(Self::Qlora),
+            "full" => Ok(Self::Full),
+            _ => anyhow::bail!("Unknown finetune method: {s}. Use lora, qlora, or full"),
+        }
+    }
 }
 
 struct LoraTrainConfig {
@@ -156,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_run_model_not_found() {
-        let result = run("/nonexistent/model.apr", "data.jsonl", 16, 1e-4, 3);
+        let result = run("/nonexistent/model.apr", "data.jsonl", "lora", 16, 1e-4, 3, None);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Failed to load model"));
@@ -168,7 +194,7 @@ mod tests {
         let model_path = tmp.path().join("test.apr");
         std::fs::write(&model_path, b"APR2test-model-data").unwrap();
 
-        let result = run(model_path.to_str().unwrap(), "data.jsonl", 16, 1e-4, 1);
+        let result = run(model_path.to_str().unwrap(), "data.jsonl", "lora", 16, 1e-4, 1, None);
         assert!(result.is_ok());
     }
 
@@ -187,9 +213,38 @@ mod tests {
         std::fs::write(&model_path, b"APR2data").unwrap();
 
         for rank in [4, 8, 16, 32, 64] {
-            let result = run(model_path.to_str().unwrap(), "data.jsonl", rank, 1e-4, 1);
+            let result = run(model_path.to_str().unwrap(), "data.jsonl", "lora", rank, 1e-4, 1, None);
             assert!(result.is_ok(), "Failed for rank: {rank}");
         }
+    }
+
+    #[test]
+    fn test_finetune_method_parsing() {
+        assert!(matches!(FinetuneMethod::from_str("lora").unwrap(), FinetuneMethod::Lora));
+        assert!(matches!(FinetuneMethod::from_str("qlora").unwrap(), FinetuneMethod::Qlora));
+        assert!(matches!(FinetuneMethod::from_str("q-lora").unwrap(), FinetuneMethod::Qlora));
+        assert!(matches!(FinetuneMethod::from_str("full").unwrap(), FinetuneMethod::Full));
+        assert!(FinetuneMethod::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_run_with_output_path() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model_path = tmp.path().join("test.apr");
+        std::fs::write(&model_path, b"APR2data").unwrap();
+
+        let result = run(model_path.to_str().unwrap(), "data.jsonl", "lora", 16, 1e-4, 1, Some("custom_out.apr"));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_invalid_method() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model_path = tmp.path().join("test.apr");
+        std::fs::write(&model_path, b"APR2data").unwrap();
+
+        let result = run(model_path.to_str().unwrap(), "data.jsonl", "invalid", 16, 1e-4, 1, None);
+        assert!(result.is_err());
     }
 
     #[test]

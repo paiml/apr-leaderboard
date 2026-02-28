@@ -5,64 +5,92 @@
 
 use anyhow::{bail, Result};
 
+/// Configuration for knowledge distillation.
+pub(crate) struct DistillOpts<'a> {
+    pub teacher: &'a str,
+    pub student: &'a str,
+    pub strategy: &'a str,
+    pub temperature: f64,
+    pub alpha: f64,
+    pub epochs: usize,
+    pub data: Option<&'a str>,
+    pub output: &'a str,
+}
+
 /// Distill knowledge from a teacher model to a student model.
 ///
 /// Maps to: `apr distill teacher.apr --student student.apr --strategy progressive`
-pub(crate) fn distill(
-    teacher: &str,
-    student: &str,
-    strategy: &str,
-    temperature: f64,
-    alpha: f64,
-    output: &str,
-) -> Result<()> {
-    validate_model_path(teacher)?;
-    validate_model_path(student)?;
-    let strategy = DistillStrategy::from_str(strategy)?;
+pub(crate) fn distill(opts: &DistillOpts<'_>) -> Result<()> {
+    validate_model_path(opts.teacher)?;
+    validate_model_path(opts.student)?;
+    let strategy = DistillStrategy::from_str(opts.strategy)?;
 
     println!("Distilling knowledge:");
-    println!("  Teacher: {teacher}");
-    println!("  Student: {student}");
+    println!("  Teacher: {}", opts.teacher);
+    println!("  Student: {}", opts.student);
     println!("  Strategy: {strategy:?}");
-    println!("  Temperature: {temperature}");
-    println!("  Alpha: {alpha}");
+    println!("  Temperature: {}", opts.temperature);
+    println!("  Alpha: {}", opts.alpha);
+    println!("  Epochs: {}", opts.epochs);
+    if let Some(data) = opts.data {
+        println!("  Data: {data}");
+    }
 
     // Scaffold: in production, calls `apr distill`
-    println!("  [scaffold] Would run: apr distill {teacher} --student {student} \\");
-    println!("    --strategy {strategy:?} --temperature {temperature} --alpha {alpha} -o {output}");
-    println!("  Output: {output}");
+    println!("  [scaffold] Would run: apr distill {} --student {} \\", opts.teacher, opts.student);
+    println!("    --strategy {strategy:?} --temperature {} --alpha {} -o {}", opts.temperature, opts.alpha, opts.output);
+    println!("  Output: {}", opts.output);
     Ok(())
+}
+
+/// Configuration for model merging.
+pub(crate) struct MergeOpts<'a> {
+    pub models: &'a [String],
+    pub strategy: &'a str,
+    pub weights: Option<&'a str>,
+    pub base_model: Option<&'a str>,
+    pub density: Option<f64>,
+    pub drop_rate: Option<f64>,
+    pub output: &'a str,
 }
 
 /// Merge two or more models using a merge strategy.
 ///
 /// Maps to: `apr merge model-a.apr model-b.apr --strategy slerp`
-pub(crate) fn merge(
-    models: &[String],
-    strategy: &str,
-    output: &str,
-) -> Result<()> {
-    if models.len() < 2 {
+pub(crate) fn merge(opts: &MergeOpts<'_>) -> Result<()> {
+    if opts.models.len() < 2 {
         bail!("merge requires at least 2 models");
     }
-    for m in models {
+    for m in opts.models {
         validate_model_path(m)?;
     }
-    let strategy = MergeStrategy::from_str(strategy)?;
+    let strategy = MergeStrategy::from_str(opts.strategy)?;
 
-    println!("Merging {} models:", models.len());
-    for m in models {
+    println!("Merging {} models:", opts.models.len());
+    for m in opts.models {
         println!("  - {m}");
     }
     println!("  Strategy: {strategy:?}");
+    if let Some(w) = opts.weights {
+        println!("  Weights: {w}");
+    }
+    if let Some(base) = opts.base_model {
+        println!("  Base model: {base}");
+    }
+    if let Some(d) = opts.density {
+        println!("  Density: {d}");
+    }
+    if let Some(dr) = opts.drop_rate {
+        println!("  Drop rate: {dr}");
+    }
 
     // Scaffold: in production, calls `apr merge`
-    let model_args: Vec<&str> = models.iter().map(String::as_str).collect();
+    let model_args: Vec<&str> = opts.models.iter().map(String::as_str).collect();
     println!(
-        "  [scaffold] Would run: apr merge {} --strategy {strategy:?} -o {output}",
-        model_args.join(" ")
+        "  [scaffold] Would run: apr merge {} --strategy {strategy:?} -o {}",
+        model_args.join(" "), opts.output
     );
-    println!("  Output: {output}");
+    println!("  Output: {}", opts.output);
     Ok(())
 }
 
@@ -73,6 +101,7 @@ pub(crate) fn prune(
     model: &str,
     method: &str,
     target_ratio: f64,
+    calibration: Option<&str>,
     output: &str,
 ) -> Result<()> {
     validate_model_path(model)?;
@@ -86,6 +115,9 @@ pub(crate) fn prune(
     println!("  Model: {model}");
     println!("  Method: {method:?}");
     println!("  Target ratio: {:.0}%", target_ratio * 100.0);
+    if let Some(cal) = calibration {
+        println!("  Calibration: {cal}");
+    }
 
     // Scaffold: in production, calls `apr prune`
     println!("  [scaffold] Would run: apr prune {model} --method {method:?} --target-ratio {target_ratio} -o {output}");
@@ -99,6 +131,7 @@ pub(crate) fn prune(
 pub(crate) fn quantize(
     model: &str,
     scheme: &str,
+    calibration: Option<&str>,
     output: &str,
 ) -> Result<()> {
     validate_model_path(model)?;
@@ -107,6 +140,9 @@ pub(crate) fn quantize(
     println!("Quantizing model:");
     println!("  Model: {model}");
     println!("  Scheme: {scheme:?}");
+    if let Some(cal) = calibration {
+        println!("  Calibration: {cal}");
+    }
 
     // Scaffold: in production, calls `apr quantize`
     println!("  [scaffold] Would run: apr quantize {model} --scheme {scheme:?} -o {output}");
@@ -260,111 +296,162 @@ mod tests {
     }
 
     // --- distill ---
+    fn distill_opts<'a>(teacher: &'a str, student: &'a str, strategy: &'a str) -> DistillOpts<'a> {
+        DistillOpts { teacher, student, strategy, temperature: 3.0, alpha: 0.7, epochs: 5, data: None, output: "o.apr" }
+    }
+
     #[test]
     fn test_distill_runs() {
-        let result = distill("teacher.apr", "student.apr", "standard", 3.0, 0.7, "out.apr");
-        assert!(result.is_ok());
+        assert!(distill(&distill_opts("teacher.apr", "student.apr", "standard")).is_ok());
     }
 
     #[test]
     fn test_distill_empty_teacher() {
-        assert!(distill("", "student.apr", "standard", 3.0, 0.7, "out.apr").is_err());
+        assert!(distill(&distill_opts("", "student.apr", "standard")).is_err());
     }
 
     #[test]
     fn test_distill_empty_student() {
-        assert!(distill("teacher.apr", "", "standard", 3.0, 0.7, "out.apr").is_err());
+        assert!(distill(&distill_opts("teacher.apr", "", "standard")).is_err());
     }
 
     #[test]
     fn test_distill_invalid_strategy() {
-        assert!(distill("t.apr", "s.apr", "invalid", 3.0, 0.7, "o.apr").is_err());
+        assert!(distill(&distill_opts("t.apr", "s.apr", "invalid")).is_err());
     }
 
     #[test]
     fn test_distill_all_strategies() {
         for s in &["standard", "progressive", "ensemble"] {
-            assert!(distill("t.apr", "s.apr", s, 3.0, 0.7, "o.apr").is_ok());
+            assert!(distill(&distill_opts("t.apr", "s.apr", s)).is_ok());
         }
     }
 
+    #[test]
+    fn test_distill_with_data() {
+        let mut opts = distill_opts("t.apr", "s.apr", "progressive");
+        opts.epochs = 10;
+        opts.data = Some("corpus.jsonl");
+        assert!(distill(&opts).is_ok());
+    }
+
     // --- merge ---
+    fn merge_opts<'a>(models: &'a [String], strategy: &'a str) -> MergeOpts<'a> {
+        MergeOpts { models, strategy, weights: None, base_model: None, density: None, drop_rate: None, output: "o.apr" }
+    }
+
     #[test]
     fn test_merge_runs() {
         let models = vec!["a.apr".into(), "b.apr".into()];
-        assert!(merge(&models, "slerp", "out.apr").is_ok());
+        assert!(merge(&merge_opts(&models, "slerp")).is_ok());
     }
 
     #[test]
     fn test_merge_too_few_models() {
         let models = vec!["a.apr".into()];
-        assert!(merge(&models, "slerp", "out.apr").is_err());
+        assert!(merge(&merge_opts(&models, "slerp")).is_err());
     }
 
     #[test]
     fn test_merge_empty_model_path() {
         let models = vec!["a.apr".into(), String::new()];
-        assert!(merge(&models, "slerp", "out.apr").is_err());
+        assert!(merge(&merge_opts(&models, "slerp")).is_err());
     }
 
     #[test]
     fn test_merge_three_models() {
         let models = vec!["a.apr".into(), "b.apr".into(), "c.apr".into()];
-        assert!(merge(&models, "ties", "out.apr").is_ok());
+        assert!(merge(&merge_opts(&models, "ties")).is_ok());
     }
 
     #[test]
     fn test_merge_all_strategies() {
         let models = vec!["a.apr".into(), "b.apr".into()];
         for s in &["slerp", "ties", "dare", "linear"] {
-            assert!(merge(&models, s, "o.apr").is_ok(), "Failed for {s}");
+            assert!(merge(&merge_opts(&models, s)).is_ok(), "Failed for {s}");
         }
+    }
+
+    #[test]
+    fn test_merge_with_weights() {
+        let models = vec!["a.apr".into(), "b.apr".into()];
+        let mut opts = merge_opts(&models, "slerp");
+        opts.weights = Some("0.7,0.3");
+        assert!(merge(&opts).is_ok());
+    }
+
+    #[test]
+    fn test_merge_with_base_model_and_density() {
+        let models = vec!["a.apr".into(), "b.apr".into()];
+        let mut opts = merge_opts(&models, "ties");
+        opts.base_model = Some("base.apr");
+        opts.density = Some(0.2);
+        assert!(merge(&opts).is_ok());
+    }
+
+    #[test]
+    fn test_merge_dare_with_drop_rate() {
+        let models = vec!["a.apr".into(), "b.apr".into()];
+        let mut opts = merge_opts(&models, "dare");
+        opts.base_model = Some("base.apr");
+        opts.drop_rate = Some(0.3);
+        assert!(merge(&opts).is_ok());
     }
 
     // --- prune ---
     #[test]
     fn test_prune_runs() {
-        assert!(prune("model.apr", "wanda", 0.2, "out.apr").is_ok());
+        assert!(prune("model.apr", "wanda", 0.2, None, "out.apr").is_ok());
     }
 
     #[test]
     fn test_prune_invalid_ratio_high() {
-        assert!(prune("model.apr", "wanda", 1.0, "out.apr").is_err());
+        assert!(prune("model.apr", "wanda", 1.0, None, "out.apr").is_err());
     }
 
     #[test]
     fn test_prune_invalid_ratio_negative() {
-        assert!(prune("model.apr", "wanda", -0.1, "out.apr").is_err());
+        assert!(prune("model.apr", "wanda", -0.1, None, "out.apr").is_err());
     }
 
     #[test]
     fn test_prune_empty_model() {
-        assert!(prune("", "wanda", 0.2, "out.apr").is_err());
+        assert!(prune("", "wanda", 0.2, None, "out.apr").is_err());
     }
 
     #[test]
     fn test_prune_all_methods() {
         for m in &["wanda", "magnitude", "sparsegpt"] {
-            assert!(prune("m.apr", m, 0.2, "o.apr").is_ok(), "Failed for {m}");
+            assert!(prune("m.apr", m, 0.2, None, "o.apr").is_ok(), "Failed for {m}");
         }
+    }
+
+    #[test]
+    fn test_prune_with_calibration() {
+        assert!(prune("m.apr", "wanda", 0.3, Some("calib.jsonl"), "o.apr").is_ok());
     }
 
     // --- quantize ---
     #[test]
     fn test_quantize_runs() {
-        assert!(quantize("model.apr", "int4", "out.apr").is_ok());
+        assert!(quantize("model.apr", "int4", None, "out.apr").is_ok());
     }
 
     #[test]
     fn test_quantize_empty_model() {
-        assert!(quantize("", "int4", "out.apr").is_err());
+        assert!(quantize("", "int4", None, "out.apr").is_err());
     }
 
     #[test]
     fn test_quantize_all_schemes() {
         for s in &["int4", "int8", "q4k", "q5k", "q6k"] {
-            assert!(quantize("m.apr", s, "o.apr").is_ok(), "Failed for {s}");
+            assert!(quantize("m.apr", s, None, "o.apr").is_ok(), "Failed for {s}");
         }
+    }
+
+    #[test]
+    fn test_quantize_with_calibration() {
+        assert!(quantize("m.apr", "int4", Some("calib.jsonl"), "o.apr").is_ok());
     }
 
     // --- compare ---

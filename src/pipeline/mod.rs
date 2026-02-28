@@ -27,9 +27,11 @@ pub(crate) struct PipelineConfig {
 #[cfg_attr(test, derive(serde::Serialize))]
 pub(crate) struct FinetuneConfig {
     pub dataset: String,
+    pub method: Option<String>,
     pub rank: usize,
     pub lr: f64,
     pub epochs: usize,
+    pub output: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +41,8 @@ pub(crate) struct DistillConfig {
     pub strategy: String,
     pub temperature: f64,
     pub alpha: f64,
+    pub epochs: Option<usize>,
+    pub data: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,6 +50,10 @@ pub(crate) struct DistillConfig {
 pub(crate) struct MergeConfig {
     pub models: Vec<String>,
     pub strategy: String,
+    pub weights: Option<String>,
+    pub base_model: Option<String>,
+    pub density: Option<f64>,
+    pub drop_rate: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,12 +61,14 @@ pub(crate) struct MergeConfig {
 pub(crate) struct PruneConfig {
     pub method: String,
     pub target_ratio: f64,
+    pub calibration: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(serde::Serialize))]
 pub(crate) struct QuantizeConfig {
     pub scheme: String,
+    pub calibration: Option<String>,
 }
 
 pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
@@ -83,7 +93,16 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
         step += 1;
         println!("[{step}/{total_steps}] Distilling from {}...", dist.teacher);
         let output = format!("{}/distilled.apr", config.output_dir);
-        optimize::distill(&dist.teacher, &model_path, &dist.strategy, dist.temperature, dist.alpha, &output)?;
+        optimize::distill(&optimize::DistillOpts {
+            teacher: &dist.teacher,
+            student: &model_path,
+            strategy: &dist.strategy,
+            temperature: dist.temperature,
+            alpha: dist.alpha,
+            epochs: dist.epochs.unwrap_or(5),
+            data: dist.data.as_deref(),
+            output: &output,
+        })?;
         model_path = output;
     }
 
@@ -91,7 +110,7 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
     if let Some(ft) = &config.finetune {
         step += 1;
         println!("[{step}/{total_steps}] Fine-tuning with LoRA (rank={})...", ft.rank);
-        finetune::run(&model_path, &ft.dataset, ft.rank, ft.lr, ft.epochs)?;
+        finetune::run(&model_path, &ft.dataset, ft.method.as_deref().unwrap_or("lora"), ft.rank, ft.lr, ft.epochs, ft.output.as_deref())?;
     }
 
     // Step: Optional merge
@@ -101,7 +120,15 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
         let mut all_models = vec![model_path.clone()];
         all_models.extend(mg.models.iter().cloned());
         let output = format!("{}/merged.apr", config.output_dir);
-        optimize::merge(&all_models, &mg.strategy, &output)?;
+        optimize::merge(&optimize::MergeOpts {
+            models: &all_models,
+            strategy: &mg.strategy,
+            weights: mg.weights.as_deref(),
+            base_model: mg.base_model.as_deref(),
+            density: mg.density,
+            drop_rate: mg.drop_rate,
+            output: &output,
+        })?;
         model_path = output;
     }
 
@@ -110,7 +137,7 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
         step += 1;
         println!("[{step}/{total_steps}] Pruning ({}, {:.0}%)...", pr.method, pr.target_ratio * 100.0);
         let output = format!("{}/pruned.apr", config.output_dir);
-        optimize::prune(&model_path, &pr.method, pr.target_ratio, &output)?;
+        optimize::prune(&model_path, &pr.method, pr.target_ratio, pr.calibration.as_deref(), &output)?;
         model_path = output;
     }
 
@@ -119,7 +146,7 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
         step += 1;
         println!("[{step}/{total_steps}] Quantizing ({})...", qt.scheme);
         let output = format!("{}/quantized.apr", config.output_dir);
-        optimize::quantize(&model_path, &qt.scheme, &output)?;
+        optimize::quantize(&model_path, &qt.scheme, qt.calibration.as_deref(), &output)?;
         model_path = output;
     }
 
@@ -160,301 +187,4 @@ fn count_steps(config: &PipelineConfig) -> usize {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn base_config(output_dir: &str) -> PipelineConfig {
-        PipelineConfig {
-            model_id: "test/model".into(),
-            output_dir: output_dir.into(),
-            quantization: "fp16".into(),
-            benchmarks: vec![],
-            submit: false,
-            leaderboard: "bigcode".into(),
-            finetune: None,
-            distill: None,
-            merge: None,
-            prune: None,
-            quantize: None,
-        }
-    }
-
-    #[test]
-    fn test_pipeline_config_deserialization() {
-        let toml_str = r#"
-model_id = "Qwen/Qwen2.5-Coder-7B"
-output_dir = "models"
-quantization = "fp16"
-submit = false
-leaderboard = "bigcode"
-benchmarks = ["humaneval", "mbpp"]
-"#;
-        let config: PipelineConfig = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.model_id, "Qwen/Qwen2.5-Coder-7B");
-        assert_eq!(config.output_dir, "models");
-        assert_eq!(config.quantization, "fp16");
-        assert!(!config.submit);
-        assert_eq!(config.leaderboard, "bigcode");
-        assert_eq!(config.benchmarks, vec!["humaneval", "mbpp"]);
-        assert!(config.finetune.is_none());
-    }
-
-    #[test]
-    fn test_pipeline_config_with_finetune() {
-        let toml_str = r#"
-model_id = "Qwen/Qwen2.5-Coder-7B"
-output_dir = "models"
-quantization = "q4"
-submit = true
-leaderboard = "open-llm-leaderboard"
-benchmarks = ["humaneval"]
-
-[finetune]
-dataset = "bigcode/starcoderdata"
-rank = 16
-lr = 1e-4
-epochs = 3
-"#;
-        let config: PipelineConfig = toml::from_str(toml_str).unwrap();
-        assert!(config.submit);
-        let ft = config.finetune.unwrap();
-        assert_eq!(ft.dataset, "bigcode/starcoderdata");
-        assert_eq!(ft.rank, 16);
-        assert!((ft.lr - 1e-4).abs() < f64::EPSILON);
-        assert_eq!(ft.epochs, 3);
-    }
-
-    #[test]
-    fn test_pipeline_config_roundtrip() {
-        let mut config = base_config("out");
-        config.model_id = "test/model".into();
-        config.benchmarks = vec!["humaneval".into()];
-        let serialized = toml::to_string(&config).unwrap();
-        let deserialized: PipelineConfig = toml::from_str(&serialized).unwrap();
-        assert_eq!(deserialized.model_id, config.model_id);
-        assert_eq!(deserialized.benchmarks.len(), 1);
-    }
-
-    #[test]
-    fn test_pipeline_config_real_file() {
-        let content = std::fs::read_to_string("configs/qwen-coder-7b.toml").unwrap();
-        let config: PipelineConfig = toml::from_str(&content).unwrap();
-        assert_eq!(config.model_id, "Qwen/Qwen2.5-Coder-7B");
-        assert_eq!(config.benchmarks.len(), 6);
-        assert!(config.finetune.is_some());
-    }
-
-    #[test]
-    fn test_recipe_a_config() {
-        let content = std::fs::read_to_string("configs/recipe-a-quick-lora.toml").unwrap();
-        let config: PipelineConfig = toml::from_str(&content).unwrap();
-        assert!(config.finetune.is_some());
-        assert!(config.distill.is_none());
-        assert!(config.merge.is_none());
-        assert!(config.prune.is_none());
-        assert!(config.quantize.is_none());
-        assert_eq!(config.benchmarks.len(), 2);
-    }
-
-    #[test]
-    fn test_recipe_c_config() {
-        let content = std::fs::read_to_string("configs/recipe-c-full-pipeline.toml").unwrap();
-        let config: PipelineConfig = toml::from_str(&content).unwrap();
-        assert!(config.distill.is_some());
-        assert!(config.finetune.is_some());
-        assert!(config.merge.is_some());
-        assert!(config.prune.is_some());
-        assert!(config.quantize.is_some());
-        assert_eq!(config.benchmarks.len(), 5);
-        let dist = config.distill.unwrap();
-        assert_eq!(dist.strategy, "progressive");
-        let mg = config.merge.unwrap();
-        assert_eq!(mg.strategy, "ties");
-    }
-
-    #[test]
-    fn test_run_pipeline_with_convert() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let output_dir = tmp.path().to_str().unwrap();
-        let config = base_config(output_dir);
-        let result = run_pipeline(&config);
-        assert!(result.is_ok());
-        let apr_path = format!("{}/test_model.apr", output_dir);
-        assert!(std::path::Path::new(&apr_path).exists());
-    }
-
-    #[test]
-    fn test_run_pipeline_with_benchmarks() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let mut config = base_config(tmp.path().to_str().unwrap());
-        config.benchmarks = vec!["humaneval".into()];
-        let result = run_pipeline(&config);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_run_pipeline_with_finetune() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let mut config = base_config(tmp.path().to_str().unwrap());
-        config.finetune = Some(FinetuneConfig {
-            dataset: "test-data".into(),
-            rank: 8,
-            lr: 1e-4,
-            epochs: 1,
-        });
-        let result = run_pipeline(&config);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_run_pipeline_with_submit() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let mut config = base_config(tmp.path().to_str().unwrap());
-        config.benchmarks = vec!["humaneval".into()];
-        config.submit = true;
-        let _result = run_pipeline(&config);
-    }
-
-    #[test]
-    fn test_run_pipeline_invalid_quantization() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let mut config = base_config(tmp.path().to_str().unwrap());
-        config.quantization = "invalid".into();
-        let result = run_pipeline(&config);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_run_pipeline_with_distill() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let mut config = base_config(tmp.path().to_str().unwrap());
-        config.distill = Some(DistillConfig {
-            teacher: "teacher.apr".into(),
-            strategy: "progressive".into(),
-            temperature: 3.0,
-            alpha: 0.7,
-        });
-        let result = run_pipeline(&config);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_run_pipeline_with_prune_and_quantize() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let mut config = base_config(tmp.path().to_str().unwrap());
-        config.prune = Some(PruneConfig {
-            method: "wanda".into(),
-            target_ratio: 0.2,
-        });
-        config.quantize = Some(QuantizeConfig {
-            scheme: "int4".into(),
-        });
-        let result = run_pipeline(&config);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_count_steps_full_kitchen_sink() {
-        let mut config = base_config("/tmp/test");
-        config.distill = Some(DistillConfig {
-            teacher: "teacher.apr".into(),
-            strategy: "progressive".into(),
-            temperature: 3.0,
-            alpha: 0.7,
-        });
-        config.finetune = Some(FinetuneConfig {
-            dataset: "data.jsonl".into(),
-            rank: 32,
-            lr: 2e-4,
-            epochs: 5,
-        });
-        config.merge = Some(MergeConfig {
-            models: vec!["variant.apr".into()],
-            strategy: "slerp".into(),
-        });
-        config.prune = Some(PruneConfig {
-            method: "wanda".into(),
-            target_ratio: 0.2,
-        });
-        config.quantize = Some(QuantizeConfig {
-            scheme: "int4".into(),
-        });
-        config.benchmarks = vec!["humaneval".into()];
-        config.submit = true;
-        // convert + distill + finetune + merge + prune + quantize + eval + submit = 8
-        assert_eq!(count_steps(&config), 8);
-    }
-
-    #[test]
-    fn test_count_steps() {
-        let config = base_config("out");
-        assert_eq!(count_steps(&config), 1); // just convert
-
-        let mut config2 = base_config("out");
-        config2.benchmarks = vec!["humaneval".into()];
-        config2.submit = true;
-        assert_eq!(count_steps(&config2), 3); // convert + eval + submit
-    }
-
-    #[test]
-    fn test_finetune_config_deserialization() {
-        let toml_str = r#"
-dataset = "data.jsonl"
-rank = 32
-lr = 0.001
-epochs = 5
-"#;
-        let config: FinetuneConfig = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.dataset, "data.jsonl");
-        assert_eq!(config.rank, 32);
-        assert!((config.lr - 0.001).abs() < f64::EPSILON);
-        assert_eq!(config.epochs, 5);
-    }
-
-    #[test]
-    fn test_full_pipeline_toml() {
-        let toml_str = r#"
-model_id = "Qwen/Qwen2.5-Coder-7B"
-output_dir = "models"
-quantization = "fp16"
-submit = false
-leaderboard = "bigcode"
-benchmarks = ["humaneval", "mbpp"]
-
-[distill]
-teacher = "teacher-32b.apr"
-strategy = "progressive"
-temperature = 3.0
-alpha = 0.7
-
-[finetune]
-dataset = "code-instruct.jsonl"
-rank = 32
-lr = 2e-4
-epochs = 5
-
-[merge]
-models = ["variant-b.apr"]
-strategy = "slerp"
-
-[prune]
-method = "wanda"
-target_ratio = 0.2
-
-[quantize]
-scheme = "int4"
-"#;
-        let config: PipelineConfig = toml::from_str(toml_str).unwrap();
-        assert!(config.distill.is_some());
-        assert!(config.finetune.is_some());
-        assert!(config.merge.is_some());
-        assert!(config.prune.is_some());
-        assert!(config.quantize.is_some());
-        let dist = config.distill.unwrap();
-        assert_eq!(dist.teacher, "teacher-32b.apr");
-        assert_eq!(dist.strategy, "progressive");
-        let mg = config.merge.unwrap();
-        assert_eq!(mg.models, vec!["variant-b.apr"]);
-        assert_eq!(mg.strategy, "slerp");
-    }
-}
+mod tests;

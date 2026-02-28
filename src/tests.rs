@@ -80,15 +80,18 @@ fn test_cli_eval_sampling_flags() {
 fn test_cli_parse_finetune() {
     let cli = Cli::try_parse_from([
         "apr-leaderboard", "finetune", "--model", "m.apr", "--dataset", "d.jsonl",
-        "--rank", "32", "--lr", "0.001", "--epochs", "5",
+        "--method", "qlora", "--rank", "32", "--lr", "0.001", "--epochs", "5",
+        "-o", "out.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Finetune { model, dataset, rank, lr, epochs } => {
+        Commands::Finetune { model, dataset, method, rank, lr, epochs, output } => {
             assert_eq!(model, "m.apr");
             assert_eq!(dataset, "d.jsonl");
+            assert_eq!(method, "qlora");
             assert_eq!(rank, 32);
             assert!((lr - 0.001).abs() < f64::EPSILON);
             assert_eq!(epochs, 5);
+            assert_eq!(output, Some("out.apr".into()));
         }
         _ => panic!("Expected Finetune"),
     }
@@ -98,13 +101,16 @@ fn test_cli_parse_finetune() {
 fn test_cli_parse_distill() {
     let cli = Cli::try_parse_from([
         "apr-leaderboard", "distill", "--teacher", "t.apr", "--student", "s.apr",
-        "--strategy", "progressive", "-o", "out.apr",
+        "--strategy", "progressive", "--epochs", "10", "--data", "corpus.jsonl",
+        "-o", "out.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Distill { teacher, student, strategy, output, .. } => {
+        Commands::Distill { teacher, student, strategy, epochs, data, output, .. } => {
             assert_eq!(teacher, "t.apr");
             assert_eq!(student, "s.apr");
             assert_eq!(strategy, "progressive");
+            assert_eq!(epochs, 10);
+            assert_eq!(data, Some("corpus.jsonl".into()));
             assert_eq!(output, "out.apr");
         }
         _ => panic!("Expected Distill"),
@@ -114,12 +120,17 @@ fn test_cli_parse_distill() {
 #[test]
 fn test_cli_parse_merge() {
     let cli = Cli::try_parse_from([
-        "apr-leaderboard", "merge", "a.apr", "b.apr", "--strategy", "ties", "-o", "out.apr",
+        "apr-leaderboard", "merge", "a.apr", "b.apr", "--strategy", "ties",
+        "--weights", "0.7,0.3", "--base-model", "base.apr",
+        "--density", "0.2", "-o", "out.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Merge { models, strategy, output } => {
+        Commands::Merge { models, strategy, weights, base_model, density, output, .. } => {
             assert_eq!(models, vec!["a.apr", "b.apr"]);
             assert_eq!(strategy, "ties");
+            assert_eq!(weights, Some("0.7,0.3".into()));
+            assert_eq!(base_model, Some("base.apr".into()));
+            assert!((density.unwrap() - 0.2).abs() < f64::EPSILON);
             assert_eq!(output, "out.apr");
         }
         _ => panic!("Expected Merge"),
@@ -130,13 +141,14 @@ fn test_cli_parse_merge() {
 fn test_cli_parse_prune() {
     let cli = Cli::try_parse_from([
         "apr-leaderboard", "prune", "--model", "m.apr", "--method", "wanda",
-        "--target-ratio", "0.3", "-o", "out.apr",
+        "--target-ratio", "0.3", "--calibration", "calib.jsonl", "-o", "out.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Prune { model, method, target_ratio, output } => {
+        Commands::Prune { model, method, target_ratio, calibration, output } => {
             assert_eq!(model, "m.apr");
             assert_eq!(method, "wanda");
             assert!((target_ratio - 0.3).abs() < f64::EPSILON);
+            assert_eq!(calibration, Some("calib.jsonl".into()));
             assert_eq!(output, "out.apr");
         }
         _ => panic!("Expected Prune"),
@@ -146,12 +158,14 @@ fn test_cli_parse_prune() {
 #[test]
 fn test_cli_parse_quantize() {
     let cli = Cli::try_parse_from([
-        "apr-leaderboard", "quantize", "--model", "m.apr", "--scheme", "q4k", "-o", "out.apr",
+        "apr-leaderboard", "quantize", "--model", "m.apr", "--scheme", "q4k",
+        "--calibration", "calib.jsonl", "-o", "out.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Quantize { model, scheme, output } => {
+        Commands::Quantize { model, scheme, calibration, output } => {
             assert_eq!(model, "m.apr");
             assert_eq!(scheme, "q4k");
+            assert_eq!(calibration, Some("calib.jsonl".into()));
             assert_eq!(output, "out.apr");
         }
         _ => panic!("Expected Quantize"),
@@ -220,10 +234,12 @@ fn test_cli_defaults_finetune() {
         "apr-leaderboard", "finetune", "--model", "m.apr", "--dataset", "d.json",
     ]).unwrap();
     match cli.command {
-        Commands::Finetune { rank, lr, epochs, .. } => {
+        Commands::Finetune { method, rank, lr, epochs, output, .. } => {
+            assert_eq!(method, "lora");
             assert_eq!(rank, 16);
             assert!((lr - 1e-4).abs() < f64::EPSILON);
             assert_eq!(epochs, 3);
+            assert_eq!(output, None);
         }
         _ => panic!("Expected Finetune"),
     }
@@ -235,10 +251,12 @@ fn test_cli_defaults_distill() {
         "apr-leaderboard", "distill", "--teacher", "t.apr", "--student", "s.apr", "-o", "o.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Distill { strategy, temperature, alpha, .. } => {
+        Commands::Distill { strategy, temperature, alpha, epochs, data, .. } => {
             assert_eq!(strategy, "progressive");
             assert!((temperature - 3.0).abs() < f64::EPSILON);
             assert!((alpha - 0.7).abs() < f64::EPSILON);
+            assert_eq!(epochs, 5);
+            assert_eq!(data, None);
         }
         _ => panic!("Expected Distill"),
     }
@@ -250,9 +268,10 @@ fn test_cli_defaults_prune() {
         "apr-leaderboard", "prune", "--model", "m.apr", "-o", "o.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Prune { method, target_ratio, .. } => {
+        Commands::Prune { method, target_ratio, calibration, .. } => {
             assert_eq!(method, "wanda");
             assert!((target_ratio - 0.2).abs() < f64::EPSILON);
+            assert_eq!(calibration, None);
         }
         _ => panic!("Expected Prune"),
     }
@@ -264,7 +283,10 @@ fn test_cli_defaults_quantize() {
         "apr-leaderboard", "quantize", "--model", "m.apr", "-o", "o.apr",
     ]).unwrap();
     match cli.command {
-        Commands::Quantize { scheme, .. } => assert_eq!(scheme, "int4"),
+        Commands::Quantize { scheme, calibration, .. } => {
+            assert_eq!(scheme, "int4");
+            assert_eq!(calibration, None);
+        }
         _ => panic!("Expected Quantize"),
     }
 }

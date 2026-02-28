@@ -68,6 +68,9 @@ enum Commands {
         /// Training dataset
         #[arg(long)]
         dataset: String,
+        /// Fine-tuning method (lora, qlora, full)
+        #[arg(long, default_value = "lora")]
+        method: String,
         /// LoRA rank
         #[arg(long, default_value_t = 16)]
         rank: usize,
@@ -77,6 +80,9 @@ enum Commands {
         /// Number of epochs
         #[arg(long, default_value_t = 3)]
         epochs: usize,
+        /// Output model path (default: input with _finetuned suffix)
+        #[arg(long, short)]
+        output: Option<String>,
     },
     /// Distill knowledge from a teacher model to a student model
     Distill {
@@ -95,6 +101,12 @@ enum Commands {
         /// Mixing coefficient (0=student only, 1=teacher only)
         #[arg(long, default_value_t = 0.7)]
         alpha: f64,
+        /// Number of distillation epochs
+        #[arg(long, default_value_t = 5)]
+        epochs: usize,
+        /// Training data corpus
+        #[arg(long)]
+        data: Option<String>,
         /// Output model path
         #[arg(long, short)]
         output: String,
@@ -107,6 +119,18 @@ enum Commands {
         /// Merge strategy (slerp, ties, dare, linear)
         #[arg(long, default_value = "slerp")]
         strategy: String,
+        /// Comma-separated merge weights (e.g., "0.7,0.3")
+        #[arg(long)]
+        weights: Option<String>,
+        /// Base model for task-vector merge strategies (ties, dare)
+        #[arg(long)]
+        base_model: Option<String>,
+        /// Sparse mask density for TIES (0.0-1.0)
+        #[arg(long)]
+        density: Option<f64>,
+        /// Drop rate for DARE (0.0-1.0)
+        #[arg(long)]
+        drop_rate: Option<f64>,
         /// Output model path
         #[arg(long, short)]
         output: String,
@@ -122,6 +146,9 @@ enum Commands {
         /// Target sparsity ratio (0.0 to 1.0)
         #[arg(long, default_value_t = 0.2)]
         target_ratio: f64,
+        /// Calibration dataset for Wanda/SparseGPT
+        #[arg(long)]
+        calibration: Option<String>,
         /// Output model path
         #[arg(long, short)]
         output: String,
@@ -134,6 +161,9 @@ enum Commands {
         /// Quantization scheme (int4, int8, q4k, q5k, q6k)
         #[arg(long, default_value = "int4")]
         scheme: String,
+        /// Calibration dataset for quality-aware quantization
+        #[arg(long)]
+        calibration: Option<String>,
         /// Output model path
         #[arg(long, short)]
         output: String,
@@ -206,34 +236,61 @@ fn main() -> anyhow::Result<()> {
         Commands::Finetune {
             model,
             dataset,
+            method,
             rank,
             lr,
             epochs,
-        } => finetune::run(&model, &dataset, rank, lr, epochs),
+            output,
+        } => finetune::run(&model, &dataset, &method, rank, lr, epochs, output.as_deref()),
         Commands::Distill {
             teacher,
             student,
             strategy,
             temperature,
             alpha,
+            epochs,
+            data,
             output,
-        } => optimize::distill(&teacher, &student, &strategy, temperature, alpha, &output),
+        } => optimize::distill(&optimize::DistillOpts {
+            teacher: &teacher,
+            student: &student,
+            strategy: &strategy,
+            temperature,
+            alpha,
+            epochs,
+            data: data.as_deref(),
+            output: &output,
+        }),
         Commands::Merge {
             models,
             strategy,
+            weights,
+            base_model,
+            density,
+            drop_rate,
             output,
-        } => optimize::merge(&models, &strategy, &output),
+        } => optimize::merge(&optimize::MergeOpts {
+            models: &models,
+            strategy: &strategy,
+            weights: weights.as_deref(),
+            base_model: base_model.as_deref(),
+            density,
+            drop_rate,
+            output: &output,
+        }),
         Commands::Prune {
             model,
             method,
             target_ratio,
+            calibration,
             output,
-        } => optimize::prune(&model, &method, target_ratio, &output),
+        } => optimize::prune(&model, &method, target_ratio, calibration.as_deref(), &output),
         Commands::Quantize {
             model,
             scheme,
+            calibration,
             output,
-        } => optimize::quantize(&model, &scheme, &output),
+        } => optimize::quantize(&model, &scheme, calibration.as_deref(), &output),
         Commands::Compare { model } => optimize::compare(&model),
         Commands::Submit {
             results,
