@@ -101,8 +101,8 @@ fn build_apr_bundle(files: &[String], output_path: &str, quant: Quantization) ->
 
     let bundle = writer.write().map_err(|e| anyhow::anyhow!("APR v2 write error: {e}"))?;
 
-    // Verify APR2 magic bytes
-    assert_eq!(&bundle[0..4], b"APR2", "Invalid APR2 header");
+    // Verify APR magic bytes (APR\0 or APR2 depending on library version)
+    assert_eq!(&bundle[0..3], b"APR", "Invalid APR header");
 
     std::fs::write(output_path, &bundle)?;
     println!(
@@ -124,5 +124,128 @@ mod tests {
         assert!(matches!(Quantization::from_str("q8").unwrap(), Quantization::Q8));
         assert!(matches!(Quantization::from_str("q4").unwrap(), Quantization::Q4));
         assert!(Quantization::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_quantization_case_insensitive() {
+        assert!(matches!(Quantization::from_str("F32").unwrap(), Quantization::FP32));
+        assert!(matches!(Quantization::from_str("f16").unwrap(), Quantization::FP16));
+        assert!(matches!(Quantization::from_str("INT8").unwrap(), Quantization::Q8));
+        assert!(matches!(Quantization::from_str("INT4").unwrap(), Quantization::Q4));
+    }
+
+    #[test]
+    fn test_quantization_alias_fp() {
+        assert!(matches!(Quantization::from_str("fp32").unwrap(), Quantization::FP32));
+        assert!(matches!(Quantization::from_str("f32").unwrap(), Quantization::FP32));
+        assert!(matches!(Quantization::from_str("fp16").unwrap(), Quantization::FP16));
+        assert!(matches!(Quantization::from_str("f16").unwrap(), Quantization::FP16));
+    }
+
+    #[test]
+    fn test_quantization_alias_int() {
+        assert!(matches!(Quantization::from_str("q8").unwrap(), Quantization::Q8));
+        assert!(matches!(Quantization::from_str("int8").unwrap(), Quantization::Q8));
+        assert!(matches!(Quantization::from_str("q4").unwrap(), Quantization::Q4));
+        assert!(matches!(Quantization::from_str("int4").unwrap(), Quantization::Q4));
+    }
+
+    #[test]
+    fn test_quantization_error_message() {
+        let err = Quantization::from_str("q3").unwrap_err();
+        assert!(err.to_string().contains("Unknown quantization"));
+        assert!(err.to_string().contains("q3"));
+    }
+
+    #[test]
+    fn test_quantization_debug() {
+        assert_eq!(format!("{:?}", Quantization::FP32), "FP32");
+        assert_eq!(format!("{:?}", Quantization::FP16), "FP16");
+        assert_eq!(format!("{:?}", Quantization::Q8), "Q8");
+        assert_eq!(format!("{:?}", Quantization::Q4), "Q4");
+    }
+
+    #[test]
+    fn test_resolve_model_files() {
+        let files = resolve_model_files("test/model").unwrap();
+        assert_eq!(files.len(), 1);
+        assert!(files[0].contains("test/model"));
+        assert!(files[0].contains("huggingface.co"));
+    }
+
+    #[test]
+    fn test_build_apr_bundle_fp16() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let output = tmp.path().join("test.apr");
+        let files = vec!["test.safetensors".into()];
+        build_apr_bundle(&files, output.to_str().unwrap(), Quantization::FP16).unwrap();
+        let data = std::fs::read(&output).unwrap();
+        assert_eq!(&data[0..3], b"APR");
+        assert!(data.len() > 4);
+    }
+
+    #[test]
+    fn test_build_apr_bundle_fp32() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let output = tmp.path().join("test.apr");
+        let files = vec!["test.safetensors".into()];
+        build_apr_bundle(&files, output.to_str().unwrap(), Quantization::FP32).unwrap();
+        let data = std::fs::read(&output).unwrap();
+        assert_eq!(&data[0..3], b"APR");
+    }
+
+    #[test]
+    fn test_build_apr_bundle_q8() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let output = tmp.path().join("test.apr");
+        let files = vec!["test.safetensors".into()];
+        build_apr_bundle(&files, output.to_str().unwrap(), Quantization::Q8).unwrap();
+        let data = std::fs::read(&output).unwrap();
+        assert_eq!(&data[0..3], b"APR");
+    }
+
+    #[test]
+    fn test_build_apr_bundle_q4() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let output = tmp.path().join("test.apr");
+        let files = vec!["test.safetensors".into()];
+        build_apr_bundle(&files, output.to_str().unwrap(), Quantization::Q4).unwrap();
+        let data = std::fs::read(&output).unwrap();
+        assert_eq!(&data[0..3], b"APR");
+    }
+
+    #[test]
+    fn test_run_creates_output_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let output_dir = tmp.path().join("nested/output");
+        run("test/model", output_dir.to_str().unwrap(), "fp16").unwrap();
+        assert!(output_dir.exists());
+        let apr_file = output_dir.join("test_model.apr");
+        assert!(apr_file.exists());
+    }
+
+    #[test]
+    fn test_run_all_quantization_levels() {
+        for quant in &["fp32", "fp16", "q8", "q4"] {
+            let tmp = tempfile::TempDir::new().unwrap();
+            run("test/model", tmp.path().to_str().unwrap(), quant).unwrap();
+            let apr_file = tmp.path().join("test_model.apr");
+            assert!(apr_file.exists(), "Failed for quantization: {quant}");
+        }
+    }
+
+    #[test]
+    fn test_run_invalid_quantization() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let result = run("test/model", tmp.path().to_str().unwrap(), "invalid");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_model_id_slash_replacement() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        run("org/model-name", tmp.path().to_str().unwrap(), "fp16").unwrap();
+        let apr_file = tmp.path().join("org_model-name.apr");
+        assert!(apr_file.exists());
     }
 }

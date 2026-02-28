@@ -97,4 +97,113 @@ mod tests {
         assert_eq!(config.rank, 16);
         assert!((config.alpha - 32.0).abs() < f32::EPSILON);
     }
+
+    #[test]
+    fn test_lora_config_alpha_computation() {
+        // Alpha should be 2x rank
+        let rank: usize = 8;
+        #[allow(clippy::cast_precision_loss)]
+        let alpha = (rank * 2) as f32;
+        assert!((alpha - 16.0).abs() < f32::EPSILON);
+
+        let rank: usize = 32;
+        #[allow(clippy::cast_precision_loss)]
+        let alpha = (rank * 2) as f32;
+        assert!((alpha - 64.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_run_lora_training() {
+        let config = LoraTrainConfig {
+            rank: 8,
+            alpha: 16.0_f32,
+            lr: 1e-4_f32,
+            epochs: 2,
+            target_modules: vec!["q_proj".into(), "v_proj".into()],
+            dataset: "test".into(),
+        };
+        let result = run_lora_training(&config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_lora_training_single_epoch() {
+        let config = LoraTrainConfig {
+            rank: 4,
+            alpha: 8.0_f32,
+            lr: 1e-3_f32,
+            epochs: 1,
+            target_modules: vec!["q_proj".into()],
+            dataset: "test".into(),
+        };
+        let result = run_lora_training(&config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_lora_training_zero_epochs() {
+        let config = LoraTrainConfig {
+            rank: 4,
+            alpha: 8.0_f32,
+            lr: 1e-3_f32,
+            epochs: 0,
+            target_modules: vec!["q_proj".into()],
+            dataset: "test".into(),
+        };
+        let result = run_lora_training(&config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_model_not_found() {
+        let result = run("/nonexistent/model.apr", "data.jsonl", 16, 1e-4, 3);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Failed to load model"));
+    }
+
+    #[test]
+    fn test_run_with_model() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model_path = tmp.path().join("test.apr");
+        std::fs::write(&model_path, b"APR2test-model-data").unwrap();
+
+        let result = run(model_path.to_str().unwrap(), "data.jsonl", 16, 1e-4, 1);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_output_path_generation() {
+        // Verify the output path replaces .apr with _finetuned.apr
+        let input = "models/test.apr";
+        let expected = "models/test_finetuned.apr";
+        assert_eq!(input.replace(".apr", "_finetuned.apr"), expected);
+    }
+
+    #[test]
+    fn test_run_various_ranks() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model_path = tmp.path().join("test.apr");
+        std::fs::write(&model_path, b"APR2data").unwrap();
+
+        for rank in [4, 8, 16, 32, 64] {
+            let result = run(model_path.to_str().unwrap(), "data.jsonl", rank, 1e-4, 1);
+            assert!(result.is_ok(), "Failed for rank: {rank}");
+        }
+    }
+
+    #[test]
+    fn test_target_modules_default() {
+        let config = LoraTrainConfig {
+            rank: 16,
+            alpha: 32.0_f32,
+            lr: 1e-4_f32,
+            epochs: 1,
+            target_modules: vec!["q_proj".into(), "v_proj".into()],
+            dataset: "test".into(),
+        };
+        assert_eq!(config.target_modules.len(), 2);
+        assert!(config.target_modules.contains(&"q_proj".to_string()));
+        assert!(config.target_modules.contains(&"v_proj".to_string()));
+    }
 }

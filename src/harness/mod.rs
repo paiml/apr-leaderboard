@@ -167,7 +167,12 @@ mod tests {
 
     #[test]
     fn test_get_benchmark_invalid() {
-        assert!(get_benchmark("nonexistent").is_err());
+        let result = get_benchmark("nonexistent");
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Unknown benchmark"));
+        assert!(err.contains("nonexistent"));
+        assert!(err.contains("Available:"));
     }
 
     #[test]
@@ -177,6 +182,155 @@ mod tests {
         for b in &benchmarks {
             assert!(!b.name.is_empty());
             assert!(b.total_problems > 0);
+        }
+    }
+
+    #[test]
+    fn test_all_benchmarks_exactly_10() {
+        let benchmarks = all_benchmarks();
+        assert_eq!(benchmarks.len(), 10);
+    }
+
+    #[test]
+    fn test_each_benchmark_lookup() {
+        let names = [
+            "humaneval",
+            "humaneval-plus",
+            "mbpp",
+            "mbpp-plus",
+            "bigcodebench",
+            "livecodebench",
+            "multipl-e",
+            "ds-1000",
+            "swe-bench-lite",
+            "crux-eval",
+        ];
+        for name in &names {
+            let spec = get_benchmark(name).unwrap();
+            assert_eq!(spec.name, *name);
+        }
+    }
+
+    #[test]
+    fn test_humaneval_spec() {
+        let spec = get_benchmark("humaneval").unwrap();
+        assert_eq!(spec.total_problems, 164);
+        assert_eq!(spec.primary_metric, "pass@1");
+        assert!(spec.compute_pass_at_10);
+        assert_eq!(spec.languages, vec!["python"]);
+    }
+
+    #[test]
+    fn test_humaneval_plus_spec() {
+        let spec = get_benchmark("humaneval-plus").unwrap();
+        assert_eq!(spec.total_problems, 164);
+        assert!(spec.compute_pass_at_10);
+    }
+
+    #[test]
+    fn test_mbpp_spec() {
+        let spec = get_benchmark("mbpp").unwrap();
+        assert_eq!(spec.total_problems, 974);
+        assert!(spec.compute_pass_at_10);
+    }
+
+    #[test]
+    fn test_mbpp_plus_spec() {
+        let spec = get_benchmark("mbpp-plus").unwrap();
+        assert_eq!(spec.total_problems, 399);
+    }
+
+    #[test]
+    fn test_bigcodebench_spec() {
+        let spec = get_benchmark("bigcodebench").unwrap();
+        assert_eq!(spec.total_problems, 1140);
+        assert!(!spec.compute_pass_at_10);
+    }
+
+    #[test]
+    fn test_livecodebench_spec() {
+        let spec = get_benchmark("livecodebench").unwrap();
+        assert_eq!(spec.total_problems, 500);
+        assert!(!spec.compute_pass_at_10);
+    }
+
+    #[test]
+    fn test_multipl_e_spec() {
+        let spec = get_benchmark("multipl-e").unwrap();
+        assert_eq!(spec.total_problems, 164);
+        assert!(spec.languages.len() >= 7);
+        assert!(spec.languages.contains(&"rust".to_string()));
+        assert!(spec.languages.contains(&"python".to_string()));
+    }
+
+    #[test]
+    fn test_ds_1000_spec() {
+        let spec = get_benchmark("ds-1000").unwrap();
+        assert_eq!(spec.total_problems, 1000);
+    }
+
+    #[test]
+    fn test_swe_bench_lite_spec() {
+        let spec = get_benchmark("swe-bench-lite").unwrap();
+        assert_eq!(spec.total_problems, 300);
+        assert_eq!(spec.primary_metric, "resolve_rate");
+    }
+
+    #[test]
+    fn test_crux_eval_spec() {
+        let spec = get_benchmark("crux-eval").unwrap();
+        assert_eq!(spec.total_problems, 800);
+    }
+
+    #[test]
+    fn test_benchmark_clone() {
+        let spec = get_benchmark("humaneval").unwrap();
+        let cloned = spec.clone();
+        assert_eq!(spec.name, cloned.name);
+        assert_eq!(spec.total_problems, cloned.total_problems);
+    }
+
+    #[test]
+    fn test_benchmark_debug() {
+        let spec = get_benchmark("humaneval").unwrap();
+        let debug = format!("{spec:?}");
+        assert!(debug.contains("humaneval"));
+        assert!(debug.contains("164"));
+    }
+
+    #[test]
+    fn test_list_benchmarks() {
+        // Just verify it doesn't panic
+        list_benchmarks();
+    }
+
+    #[test]
+    fn test_all_benchmarks_have_source_url() {
+        for b in &all_benchmarks() {
+            assert!(!b.source_url.is_empty(), "{} missing source_url", b.name);
+            assert!(
+                b.source_url.starts_with("https://"),
+                "{} source_url not https",
+                b.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_benchmarks_have_description() {
+        for b in &all_benchmarks() {
+            assert!(!b.description.is_empty(), "{} missing description", b.name);
+        }
+    }
+
+    #[test]
+    fn test_all_benchmarks_have_languages() {
+        for b in &all_benchmarks() {
+            assert!(
+                !b.languages.is_empty(),
+                "{} missing languages",
+                b.name
+            );
         }
     }
 }
