@@ -1743,15 +1743,32 @@ Rationale:
 
 The model is only as good as the fine-tuning data. Key datasets for code leaderboards:
 
-| Dataset | Size | Purpose | Source |
-|---------|------|---------|--------|
-| Code Instruct (curated) | 50K | Instruction-following for code | Self-curated from OSS repos |
-| Code Reasoning | 20K | Chain-of-thought for complex problems | Synthetic from teacher model |
-| Code Tests | 10K | Test-driven examples (input→test→code) | HumanEval/MBPP-style |
-| Multilingual Code | 30K | Python/Rust/TS/Go/Java coverage | MultiPL-E format |
-| Calibration | 128 | Wanda/SparseGPT calibration | Random code samples |
+| Dataset | Size | Purpose | Source | Format |
+|---------|------|---------|--------|--------|
+| Code Instruct (curated) | 50K | Instruction-following for code | Self-curated from OSS repos | JSONL (instruction, response) |
+| Code Reasoning | 20K | Chain-of-thought for complex problems | Synthetic from teacher model | JSONL (problem, reasoning, code) |
+| Code Tests | 10K | Test-driven examples (input→test→code) | HumanEval/MBPP-style | JSONL (prompt, tests, solution) |
+| Multilingual Code | 30K | Python/Rust/TS/Go/Java coverage | MultiPL-E format | JSONL (language, prompt, solution) |
+| Calibration | 128 | Wanda/SparseGPT calibration | Random code samples | JSONL (text) |
 
-**Data preparation via apr CLI:**
+### 12.1 Decontamination Protocol
+
+Training data MUST NOT overlap with evaluation benchmarks. This is critical for leaderboard integrity.
+
+**n-gram decontamination:** Remove any training sample whose 10-gram overlap with any HumanEval/MBPP/BigCodeBench problem exceeds 50%. This is a hard gate — no exceptions.
+
+```bash
+# GATE: Decontamination check before training
+apr validate --data training.jsonl --decontaminate \
+    --reference humaneval.jsonl mbpp.jsonl bigcodebench.jsonl \
+    --ngram 10 --threshold 0.50 --json > decontamination-report.json
+
+# Verify <1% of training samples flagged
+```
+
+**Time-based decontamination for LiveCodeBench:** Any problem published within 90 days of training data generation is excluded. LiveCodeBench's rolling nature makes this mandatory.
+
+### 12.2 Data Preparation Pipeline
 
 ```bash
 # GATE: Validate teacher produces correct code BEFORE generating training data
@@ -1765,17 +1782,49 @@ apr chat teacher.apr --system "Generate code instruction pairs" \
 # Format validation
 apr validate --data code-instruct-raw.jsonl --format jsonl
 
-# GATE: Decontamination — remove any samples overlapping with eval benchmarks
-# (HumanEval, MBPP problem descriptions must not appear in training data)
+# Quality scoring (alimentar)
+alimentar quality code-instruct-raw.jsonl --min-score 80 -o code-instruct-clean.jsonl
+
+# Decontamination gate
+apr validate --data code-instruct-clean.jsonl --decontaminate \
+    --reference humaneval.jsonl mbpp.jsonl --ngram 10 --threshold 0.50
 ```
 
-**Bootstrapping discipline:** Never generate training data from a teacher whose inference quality hasn't been verified. The pipeline is: import → eval teacher → generate data → validate data → train student.
+**Bootstrapping discipline:** Never generate training data from a teacher whose inference quality hasn't been verified. The pipeline is: import → eval teacher → generate data → validate data → decontaminate → train student.
 
 ## 13. Evaluation Protocol
 
 Every recipe must be evaluated identically for fair comparison.
 
-**Critical note on pass@k evaluation:** HumanEval and MBPP require *executing generated code* against test cases — not just token prediction. The pipeline is: (1) model generates k completions per problem, (2) completions are executed in a sandboxed environment, (3) pass@k is computed via the unbiased estimator. aprender does not include a code execution sandbox; generated completions must be evaluated externally (e.g., via containerized Python execution using the EvalPlus harness).
+### 13.1 pass@k Computation
+
+**Critical note on pass@k evaluation:** HumanEval and MBPP require *executing generated code* against test cases — not just token prediction. The pipeline is: (1) model generates k completions per problem, (2) completions are executed in a sandboxed environment, (3) pass@k is computed via the unbiased estimator.
+
+The unbiased estimator for pass@k (Chen et al., 2021):
+
+```
+pass@k = 1 - C(n-c, k) / C(n, k)
+```
+
+Where `n` = total completions generated, `c` = number that pass all tests, `k` = samples selected. This avoids biased estimation from sampling exactly k completions.
+
+**apr-leaderboard eval flags that map to this:**
+
+| Flag | Effect |
+|---|---|
+| `--samples N` | Number of benchmark problems to evaluate (0 = all) |
+| `--n-samples N` | Completions per problem (for pass@k, best-of-N selection) |
+| `--prompt-strategy S` | Prompt formatting (standard, scot, few-shot, cgo, reflexion) |
+
+### 13.2 Code Execution Sandbox
+
+aprender does not include a code execution sandbox. Generated completions must be evaluated externally via one of:
+
+1. **EvalPlus harness** (recommended): Docker-based sandbox that runs Python completions against augmented test suites (80x more tests than vanilla HumanEval)
+2. **Custom WASM sandbox**: CPython compiled to WASM for isolated execution (see Open Question §20.14)
+3. **Direct Docker**: `docker run --network=none --memory=512m --timeout=10s python:3.11 -c "$CODE"`
+
+### 13.3 Evaluation Steps
 
 ```bash
 # Step 1: Perplexity baseline (pure inference, no code execution needed)
@@ -1786,9 +1835,10 @@ apr eval model.apr --task classify --data humaneval.jsonl --json > results/human
 apr eval model.apr --task classify --data mbpp.jsonl --json > results/mbpp-completions.json
 
 # Step 3: Execute completions in sandboxed environment (EXTERNAL)
-# This step requires a code execution harness — not provided by apr.
-# Use EvalPlus or a custom Docker-based sandbox to run generated code
-# against test cases and compute pass@k.
+# Using EvalPlus:
+#   docker run -v ./results:/results evalplus/evalplus:latest \
+#     --dataset humaneval --samples /results/humaneval-completions.json
+# This produces pass@1, pass@10, pass@100 metrics.
 
 # Step 4: Throughput benchmarking
 apr bench model.apr --json > results/throughput.json
@@ -1801,7 +1851,35 @@ apr qa model.apr --verbose
 apr check model.apr
 ```
 
+### 13.4 Evaluation Benchmarks (apr-leaderboard)
+
+The `apr-leaderboard eval` command wraps the above steps for supported benchmarks:
+
+```bash
+# Run all HumanEval problems with 20 completions each, using structured CoT
+apr-leaderboard eval --model models/qwen-7b.apr --benchmark humaneval \
+    --samples 0 --n-samples 20 --prompt-strategy scot --output results/
+
+# Quick sanity check: 10 problems, 1 completion each
+apr-leaderboard eval --model models/qwen-7b.apr --benchmark humaneval --samples 10
+
+# View results history
+apr-leaderboard history --model qwen
+```
+
 ## 14. Submission Flow
+
+### 14.1 Leaderboard Targets
+
+The `apr-leaderboard submit` command formats results for the target leaderboard's submission API:
+
+| Leaderboard | Flag value | Submission method |
+|---|---|---|
+| Open LLM Leaderboard | `open-llm-leaderboard` (default) | HF Hub model upload → leaderboard evaluation queue |
+| BigCodeBench | `bigcode` / `bigcodebench` | Direct result JSON submission |
+| EvalPlus | `evalplus` | HF Hub model upload + EvalPlus-format results |
+
+### 14.2 Submission Pipeline
 
 ```bash
 # 1. Generate HuggingFace model card
@@ -1813,23 +1891,72 @@ apr export final.apr --format safetensors -o submission/
 # 3. Publish to HuggingFace Hub
 apr publish submission/ --repo paiml/qwen-coder-7b-apr --private
 
-# 4. Submit to leaderboard (via HF evaluation queue)
-# The leaderboard pulls from your HF repo and runs evaluation
+# 4. Submit results via apr-leaderboard
+apr-leaderboard submit --results results/humaneval_20260228.json \
+    --model-id paiml/qwen-coder-7b-apr --leaderboard open-llm-leaderboard
+
+# 5. Submit to leaderboard evaluation queue (via HF)
+# The leaderboard pulls from your HF repo and runs its own evaluation
 ```
+
+### 14.3 Model Card Template
+
+The model card (`README.md` in the HF repo) MUST include:
+
+- **Base model:** Qwen2.5-Coder-7B (with HF link)
+- **Pipeline stages applied:** distill/finetune/merge/prune/quantize (which ones, in order)
+- **Training data:** Summary with decontamination attestation
+- **Evaluation results:** pass@1/pass@10 on HumanEval, MBPP, BigCodeBench
+- **Infrastructure:** "Built with aprender (Rust, no Python dependencies)"
+- **Quantization:** Scheme used, size reduction, quality impact
+- **Reproducibility:** Link to pipeline config TOML
+
+### 14.4 Pre-Submission Checklist
+
+Before `apr-leaderboard submit`:
+
+- [ ] `apr check model.apr` passes (format validation)
+- [ ] `apr compare-hf model.apr` shows <5% parity gap
+- [ ] `pmat comply check --strict` passes
+- [ ] Decontamination report shows <1% n-gram overlap
+- [ ] Model card generated and reviewed
+- [ ] Results JSON includes all required benchmarks
 
 ## 15. Success Criteria
 
+### 15.1 Primary Metrics
+
+| Metric | Target | Stretch | Measurement | Notes |
+|--------|--------|---------|-------------|-------|
+| HumanEval pass@1 | ≥ apr baseline | ≥ HF reference | `apr-leaderboard eval --benchmark humaneval` | Relative to Step 0 baseline |
+| MBPP pass@1 | ≥ apr baseline | ≥ HF reference | `apr-leaderboard eval --benchmark mbpp` | Relative to Step 0 baseline |
+| BigCodeBench pass@1 | > 0 (eval works) | ≥ HF reference | `apr-leaderboard eval --benchmark bigcodebench` | Stretch: competitive |
+| Inference parity | <5% gap vs HF | <2% gap vs HF | `apr compare-hf` | Perplexity gap on WikiText-2 |
+
+### 15.2 Infrastructure Metrics
+
 | Metric | Target | Stretch | Notes |
 |--------|--------|---------|-------|
-| HumanEval pass@1 | ≥ apr baseline | ≥ HF reference | Relative to Step 0 baseline |
-| MBPP pass@1 | ≥ apr baseline | ≥ HF reference | Relative to Step 0 baseline |
-| Inference parity | <5% gap vs HF | <2% gap vs HF | `apr compare-hf` gate |
-| Pipeline commands | <= 10 | <= 6 | |
+| Pipeline commands | ≤ 10 | ≤ 6 | Config-driven pipeline counts as 1 |
 | Total binary size (compiled, 7B INT4) | < 5GB | < 4GB | 3.5GB weights + runtime |
 | Wall-clock (import → submit) | < 24h (GPU) | < 8h (GPU) | CPU-only: much longer |
 | Python dependencies | 0 | 0 | External sandbox for eval only |
-| CUDA toolkit | Not required | Not required | trueno PTX generation |
-| GPU hardware | Recommended | Optional (≤7B) | Required for distill/finetune 32B |
+| CUDA toolkit | Not required | Not required | trueno PTX generation handles GPU |
+| GPU hardware | Recommended | Optional (≤7B) | Required for distill/finetune 32B teacher |
+
+### 15.3 Quality Metrics
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Test coverage | ≥ 95% | `cargo llvm-cov` |
+| Clippy warnings | 0 | `cargo clippy -- -D warnings` |
+| Source file size | < 500 lines each | `wc -l src/**/*.rs` |
+| pmat comply | Pass | `pmat comply check --strict` |
+| Contract binding coverage | ≥ 95% | `pv proof-status` |
+
+### 15.4 Falsifiability
+
+Every target above is falsifiable: it has a concrete measurement command, a numeric threshold, and a pass/fail outcome. If a metric cannot be measured, the spec has failed — not the implementation.
 
 ## 16. Provable Contracts (Design by Contract)
 
