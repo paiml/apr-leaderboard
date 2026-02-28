@@ -98,8 +98,13 @@ The repo is a **working scaffold** — the pipeline structure is complete, but t
 | **eval/** | Result JSON persistence, history viewer, benchmark lookup | Actual inference and metrics (returns zeros) |
 | **harness/** | All 10 benchmark definitions with metadata | Dataset loading, problem parsing |
 | **finetune/** | LoRA config construction, AdamW parameter setup | Actual training loop (prints loss=0.000) |
+| **optimize/** | Distill, merge, prune, quantize, tune with full validation | Real model operations (prints scaffold commands) |
+| **align/** | DPO/ORPO method selection, beta validation | Actual preference optimization |
+| **validate/** | Decontamination threshold checking | Real n-gram overlap analysis |
+| **inference/** | Speculative decoding config, batch chat dispatch | Real model inference |
+| **compile/** | APR magic byte validation, binary compilation config | Real model-to-binary compilation |
 | **submit/** | Submission JSON formatting, model_id validation | HF Hub API push (tells user to use huggingface-cli) |
-| **pipeline** | Full orchestration: convert → finetune → eval → submit | Each step calls scaffolded backends |
+| **pipeline** | Full orchestration: convert → distill → finetune → merge → prune → quantize → eval → submit | Each step calls scaffolded backends |
 
 **To reach production:** Replace each scaffold with the corresponding `apr` CLI call. The `apr` binary already implements all required operations — this repo needs to shell out to `apr import`, `apr eval`, etc. rather than reimplementing them inline.
 
@@ -2208,26 +2213,40 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `merge` | `src/optimize/mod.rs` | ✅ Scaffolded | 18 | 4 strategies + weights sum-to-1 + base-model required for TIES/DARE + density/drop-rate range validation |
 | `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 7 | 6 methods (wanda, magnitude, sparsegpt, structured, depth, width) + calibration |
 | `quantize` | `src/optimize/mod.rs` | ✅ Scaffolded | 5 | 5 schemes + calibration dataset |
-| `compare` | `src/optimize/mod.rs` | ✅ Scaffolded | 2 | HF parity check |
+| `compare` | `src/optimize/mod.rs` | ✅ Scaffolded | 2 | HF parity check + --json flag |
 | `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 14 | HF leaderboard submission + Display roundtrip |
 | `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 20+ | 10 benchmark definitions |
 | `history` | `src/eval/mod.rs` | ✅ Complete | 3 | Result history viewer |
-| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 20 | Config-driven TOML pipeline (all 8 stages) + [eval] config section |
+| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 22 | Config-driven TOML pipeline (all 8 stages) + [eval] config + recipe B/D parsing |
+| `align` | `src/align/mod.rs` | ✅ Scaffolded | 10 | DPO/ORPO preference optimization (§8.5) + beta validation |
+| `validate` | `src/validate/mod.rs` | ✅ Scaffolded | 6 | Data decontamination checking (§8.7) + threshold validation |
+| `tune` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | HPO: TPE/grid/random strategies (§7.7) + budget validation |
+| `run` | `src/inference/mod.rs` | ✅ Scaffolded | 6 | Speculative decoding (§8.4) + draft model validation |
+| `chat` | `src/inference/mod.rs` | ✅ Scaffolded | 5 | Batch generation (§8.6) + temperature validation |
+| `check` | `src/compile/mod.rs` | ✅ Scaffolded | 4 | APR magic byte validation (§14.4) |
+| `compile` | `src/compile/mod.rs` | ✅ Scaffolded | 4 | Binary compilation with --release --lto (§4.3.1, §9.4) |
 
 ### 19.1.1 CLI Flag Coverage Matrix
 
 | Subcommand | Core Flags | Optional Flags | Status |
 |---|---|---|---|
-| `eval` | `--model`, `--benchmark`, `--samples`, `--output` | `--prompt-strategy`, `--n-samples`, `--temperature`, `--top-p`, `--rerank` | ✅ Complete |
+| `eval` | `--model`, `--benchmark`, `--samples`, `--output` | `--prompt-strategy`, `--n-samples`, `--temperature`, `--top-p`, `--rerank`, `--json`, `--exemplars`, `--system` | ✅ Complete |
 | `finetune` | `--model`, `--dataset` | `--method`, `--rank`, `--lr`, `--epochs`, `-o` | ✅ Complete |
 | `distill` | `--teacher`, `--student`, `-o` | `--strategy`, `--temperature`, `--alpha`, `--epochs`, `--data` | ✅ Complete |
 | `merge` | `<models...>`, `-o` | `--strategy`, `--weights`, `--base-model`, `--density`, `--drop-rate` | ✅ Complete |
-| `prune` | `--model`, `-o` | `--method`, `--target-ratio`, `--calibration` | ✅ Complete |
-| `quantize` | `--model`, `-o` | `--scheme`, `--calibration` | ✅ Complete |
+| `prune` | `--model`, `-o` | `--method`, `--target-ratio`, `--calibration`, `--analyze` | ✅ Complete |
+| `quantize` | `--model`, `-o` | `--scheme`, `--calibration`, `--plan`, `--batch`, `--format` | ✅ Complete |
 | `convert` | `--model-id` | `--output`, `--quantization` | ✅ Complete |
-| `compare` | `--model` | — | ✅ Complete |
+| `compare` | `--model` | `--json` | ✅ Complete |
 | `submit` | `--results`, `--model-id` | `--leaderboard` | ✅ Complete |
 | `pipeline` | `--config` | — | ✅ Complete |
+| `align` | `--model`, `--data` | `--method`, `--beta`, `--epochs`, `--ref-model`, `-o` | ✅ Complete |
+| `validate` | `--data`, `--benchmarks` | `--threshold`, `--decontaminate`, `-o` | ✅ Complete |
+| `tune` | `--model`, `--data` | `--strategy`, `--budget`, `--max-epochs` | ✅ Complete |
+| `run` | `--model`, `--prompt` | `--speculative`, `--speculation-k`, `--draft-model`, `--json` | ✅ Complete |
+| `chat` | `--model` | `--batch`, `--prompt`, `--n-samples`, `--temperature`, `--system`, `--json` | ✅ Complete |
+| `check` | `--model` | — | ✅ Complete |
+| `compile` | `--model` | `--release`, `--lto`, `-o` | ✅ Complete |
 
 ### 19.2 Prompt Strategies (§8.3)
 
@@ -2253,12 +2272,14 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 186 | — | `cargo test` |
+| Test count | 244 | — | `cargo test` |
+| CLI subcommands | 19 | — | All spec §6.2 subcommands implemented |
 | Line coverage | 96.5% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
-| Max file size | 394 lines | < 500 | `wc -l src/**/*.rs` |
+| Max file size | 494 lines | < 500 | `wc -l src/**/*.rs` |
 | pmat pre-commit | ✅ Pass | ✅ Pass | git hook |
-| Pipeline configs | 4 | — | `configs/*.toml` |
+| Pipeline configs | 4 | — | `configs/*.toml` (recipes A–D) |
+| Source modules | 11 | — | convert, eval, finetune, optimize, harness, pipeline, submit, align, validate, inference, compile |
 
 ### 19.5 What "Scaffolded" Means
 
