@@ -1,4 +1,4 @@
-#  Quality Gates (pmat comply)
+# Quality Gates (pmat comply)
 
 Every pipeline step and every commit MUST pass the `pmat comply` quality gates. This is the enforcement mechanism for the claims in this spec.
 

@@ -1,4 +1,4 @@
-#  Target Leaderboards & Competitive Thresholds
+# Target Leaderboards & Competitive Thresholds
 
 | Leaderboard | Primary Metric | Benchmarks | Why |
 |-------------|---------------|------------|-----|

@@ -1,4 +1,4 @@
-#  Acceptance Criteria
+# Acceptance Criteria
 
 Every criterion below is falsifiable. If any criterion cannot be demonstrated, this spec has failed.
 

@@ -1,4 +1,4 @@
-#  Data Strategy
+# Data Strategy
 
 The model is only as good as the fine-tuning data. Key datasets for code leaderboards:
 

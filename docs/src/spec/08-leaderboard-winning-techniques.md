@@ -1,4 +1,4 @@
-#  Leaderboard-Winning Techniques
+# Leaderboard-Winning Techniques
 
 The techniques in §7 optimize the *model*. This section covers techniques that optimize *inference-time behavior* — how you extract the best score from a given model. These are the techniques that separate top-10 leaderboard entries from median ones.
 

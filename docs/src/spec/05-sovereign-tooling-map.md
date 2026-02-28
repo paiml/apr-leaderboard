@@ -1,4 +1,4 @@
-#  Sovereign Tooling Map: World-Class or Wire It In
+# Sovereign Tooling Map: World-Class or Wire It In
 
 Every leaderboard-winning technique maps to a sovereign stack component. When a component doesn't support a technique at world-class level, we don't skip it — we find or build the capability and wire it into `apr` CLI commands.
 

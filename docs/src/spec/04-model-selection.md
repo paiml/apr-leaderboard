@@ -1,4 +1,4 @@
-#  Model Selection & Improvement Strategy
+# Model Selection & Improvement Strategy
 
 ## 4.1 WHAT Models We Will Improve
 

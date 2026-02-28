@@ -1,4 +1,4 @@
-#  Provable Contracts (Design by Contract)
+# Provable Contracts (Design by Contract)
 
 Every kernel in the pipeline MUST have a provable-contracts YAML contract binding it to its mathematical specification. This ensures the optimization techniques produce correct results, not just plausible ones.
 

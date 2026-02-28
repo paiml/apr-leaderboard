@@ -1,4 +1,4 @@
-#  Technique Playbook
+# Technique Playbook
 
 ## 7.1 Knowledge Distillation
 

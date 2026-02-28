@@ -1,4 +1,4 @@
-#  Composite Recipes
+# Composite Recipes
 
 ## 9.0 Step Zero: Establish Baseline (REQUIRED for all recipes)
 

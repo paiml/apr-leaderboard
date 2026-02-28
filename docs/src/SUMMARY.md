@@ -12,7 +12,7 @@
 
 # Pipeline
 
-- [The apr CLI Toolchain](./spec/06-apr-cli-toolchain.md)
+- [CLI Toolchain](./spec/06-cli-toolchain.md)
 - [Technique Playbook](./spec/07-technique-playbook.md)
 - [Leaderboard-Winning Techniques](./spec/08-leaderboard-winning-techniques.md)
 - [Composite Recipes](./spec/09-composite-recipes.md)

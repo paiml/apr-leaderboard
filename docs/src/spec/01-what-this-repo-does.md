@@ -1,4 +1,4 @@
-#  What This Repo Does
+# What This Repo Does
 
 ## 1.1 Purpose
 

@@ -1,4 +1,4 @@
-#  Success Criteria
+# Success Criteria
 
 | Metric | Target | Stretch | Notes |
 |--------|--------|---------|-------|
