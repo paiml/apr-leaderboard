@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Supported leaderboard targets.
 #[derive(Debug, Clone)]
-pub enum Leaderboard {
+pub(crate) enum Leaderboard {
     OpenLlm,
     BigCode,
     EvalPlus,
@@ -37,7 +37,7 @@ impl Leaderboard {
 
 /// Submission payload for a leaderboard.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Submission {
+pub(crate) struct Submission {
     pub model_id: String,
     pub results: serde_json::Value,
     pub model_type: String,
@@ -48,7 +48,7 @@ pub struct Submission {
 }
 
 /// Submit results to a HuggingFace leaderboard.
-pub fn run(results_path: &str, model_id: &str, leaderboard: &str) -> Result<()> {
+pub(crate) fn run(results_path: &str, model_id: &str, leaderboard: &str) -> Result<()> {
     let leaderboard = Leaderboard::from_str(leaderboard);
 
     // Load results

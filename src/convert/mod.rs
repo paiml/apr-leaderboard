@@ -7,7 +7,7 @@ use anyhow::{bail, Result};
 
 /// Supported quantization levels for conversion.
 #[derive(Debug, Clone, Copy)]
-pub enum Quantization {
+pub(crate) enum Quantization {
     FP32,
     FP16,
     Q8,
@@ -27,7 +27,7 @@ impl Quantization {
 }
 
 /// Convert a HuggingFace model to .apr format.
-pub fn run(model_id: &str, output_dir: &str, quantization: &str) -> Result<()> {
+pub(crate) fn run(model_id: &str, output_dir: &str, quantization: &str) -> Result<()> {
     let quant = Quantization::from_str(quantization)?;
 
     println!("Converting model: {model_id}");
@@ -72,8 +72,10 @@ fn resolve_model_files(model_id: &str) -> Result<Vec<String>> {
 fn build_apr_bundle(files: &[String], output_path: &str, quant: Quantization) -> Result<()> {
     use aprender::format::v2::{AprV2Metadata, AprV2Writer};
 
-    let mut metadata = AprV2Metadata::default();
-    metadata.model_type = format!("hf-conversion-{}", files.len());
+    let metadata = AprV2Metadata {
+        model_type: format!("hf-conversion-{}", files.len()),
+        ..AprV2Metadata::default()
+    };
 
     let mut writer = AprV2Writer::new(metadata);
     writer.with_lz4_compression();

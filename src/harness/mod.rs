@@ -7,13 +7,14 @@ use anyhow::{bail, Result};
 
 /// Specification for a benchmark suite.
 #[derive(Debug, Clone)]
-pub struct BenchmarkSpec {
+pub(crate) struct BenchmarkSpec {
     pub name: String,
     pub description: String,
     pub total_problems: usize,
     pub primary_metric: String,
     pub compute_pass_at_10: bool,
     pub languages: Vec<String>,
+    #[allow(dead_code)]
     pub source_url: String,
 }
 
@@ -117,7 +118,7 @@ fn all_benchmarks() -> Vec<BenchmarkSpec> {
 }
 
 /// Get a benchmark by name.
-pub fn get_benchmark(name: &str) -> Result<BenchmarkSpec> {
+pub(crate) fn get_benchmark(name: &str) -> Result<BenchmarkSpec> {
     let benchmarks = all_benchmarks();
     for b in &benchmarks {
         if b.name == name {
@@ -133,7 +134,7 @@ pub fn get_benchmark(name: &str) -> Result<BenchmarkSpec> {
 }
 
 /// List all available benchmarks.
-pub fn list_benchmarks() {
+pub(crate) fn list_benchmarks() {
     use comfy_table::{Cell, Table};
 
     let benchmarks = all_benchmarks();

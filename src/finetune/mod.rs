@@ -6,7 +6,7 @@
 use anyhow::Result;
 
 /// Run fine-tuning on a model.
-pub fn run(
+pub(crate) fn run(
     model_path: &str,
     dataset: &str,
     rank: usize,

@@ -15,7 +15,7 @@ use crate::harness::{self, BenchmarkSpec};
 
 /// Result of a single benchmark evaluation.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EvalResult {
+pub(crate) struct EvalResult {
     pub model: String,
     pub benchmark: String,
     pub metric: String,
@@ -28,7 +28,7 @@ pub struct EvalResult {
 
 /// Detailed breakdown of evaluation results.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EvalDetails {
+pub(crate) struct EvalDetails {
     pub pass_at_1: f64,
     pub pass_at_10: Option<f64>,
     pub pass_at_100: Option<f64>,
@@ -38,14 +38,14 @@ pub struct EvalDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CategoryScore {
+pub(crate) struct CategoryScore {
     pub category: String,
     pub score: f64,
     pub count: usize,
 }
 
 /// Run evaluation benchmarks against a model.
-pub fn run(model_path: &str, benchmark: &str, samples: usize, output_dir: &str) -> Result<()> {
+pub(crate) fn run(model_path: &str, benchmark: &str, samples: usize, output_dir: &str) -> Result<()> {
     let spec = harness::get_benchmark(benchmark)?;
 
     println!("Evaluating: {model_path}");
@@ -155,7 +155,7 @@ fn print_summary(result: &EvalResult) {
 }
 
 /// Show evaluation history.
-pub fn show_history(model_filter: Option<&str>) -> Result<()> {
+pub(crate) fn show_history(model_filter: Option<&str>) -> Result<()> {
     let results_dir = "results/";
     if !std::path::Path::new(results_dir).exists() {
         bail!("No results directory found. Run `eval` first.");
