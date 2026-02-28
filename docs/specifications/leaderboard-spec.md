@@ -824,13 +824,27 @@ apr-leaderboard eval --model models/qwen-7b.apr --benchmark bigcodebench \
 #### 6.2.3 Finetune
 
 ```bash
-# LoRA fine-tune with defaults (rank 16, lr 1e-4, 3 epochs)
+# LoRA fine-tune with defaults (method=lora, rank 16, lr 1e-4, 3 epochs)
 apr-leaderboard finetune --model models/qwen-7b.apr --dataset data/code-instruct.jsonl
 
-# Custom LoRA config
+# QLoRA with custom config and explicit output
 apr-leaderboard finetune --model models/qwen-7b.apr --dataset data/code-instruct.jsonl \
-    --rank 32 --lr 0.001 --epochs 5
+    --method qlora --rank 32 --lr 0.001 --epochs 5 -o tuned.apr
+
+# Full fine-tune (all parameters)
+apr-leaderboard finetune --model models/qwen-7b.apr --dataset data/code-instruct.jsonl \
+    --method full --lr 1e-5 --epochs 2
 ```
+
+**Methods:** `lora` (default), `qlora` (quantized LoRA), `full` (all parameters).
+
+| Flag | Default | Description |
+|---|---|---|
+| `--method` | `lora` | Fine-tuning method |
+| `--rank` | `16` | LoRA rank |
+| `--lr` | `1e-4` | Learning rate |
+| `--epochs` | `3` | Number of epochs |
+| `-o` | `<input>_finetuned.apr` | Output model path |
 
 #### 6.2.4 Distill
 
@@ -839,24 +853,46 @@ apr-leaderboard finetune --model models/qwen-7b.apr --dataset data/code-instruct
 apr-leaderboard distill --teacher teacher-32b.apr --student student-7b.apr \
     --strategy progressive --temperature 3.0 --alpha 0.7 -o distilled-7b.apr
 
-# Ensemble distillation from multiple teachers
-apr-leaderboard distill --teacher ensemble.apr --student student-7b.apr \
-    --strategy ensemble -o distilled-7b.apr
+# Distillation with training data and custom epochs
+apr-leaderboard distill --teacher teacher-32b.apr --student student-7b.apr \
+    --strategy progressive --epochs 10 --data code-corpus.jsonl -o distilled-7b.apr
 ```
 
 **Strategies:** `standard` (KL divergence), `progressive` (curriculum learning), `ensemble` (multi-teacher).
 
+| Flag | Default | Description |
+|---|---|---|
+| `--strategy` | `progressive` | Distillation strategy |
+| `--temperature` | `3.0` | Softmax temperature |
+| `--alpha` | `0.7` | Mixing coefficient (0=student, 1=teacher) |
+| `--epochs` | `5` | Number of distillation epochs |
+| `--data` | — | Training data corpus |
+
 #### 6.2.5 Merge
 
 ```bash
-# SLERP merge of two models
-apr-leaderboard merge model-a.apr model-b.apr --strategy slerp -o merged.apr
+# SLERP merge of two models with weights
+apr-leaderboard merge model-a.apr model-b.apr --strategy slerp \
+    --weights 0.7,0.3 -o merged.apr
 
-# TIES merge of three models
-apr-leaderboard merge a.apr b.apr c.apr --strategy ties -o merged.apr
+# TIES merge with base model and density
+apr-leaderboard merge a.apr b.apr --strategy ties \
+    --base-model base.apr --density 0.2 -o merged.apr
+
+# DARE merge with drop rate
+apr-leaderboard merge a.apr b.apr --strategy dare \
+    --base-model base.apr --drop-rate 0.3 -o merged.apr
 ```
 
 **Strategies:** `slerp`, `ties` (TIES-Merging), `dare` (DARE-TIES), `linear` (linear average).
+
+| Flag | Default | Description |
+|---|---|---|
+| `--strategy` | `slerp` | Merge strategy |
+| `--weights` | — | Comma-separated merge weights (e.g., `0.7,0.3`) |
+| `--base-model` | — | Base model for task-vector strategies (ties, dare) |
+| `--density` | — | Sparse mask density for TIES (0.0–1.0) |
+| `--drop-rate` | — | Drop rate for DARE (0.0–1.0) |
 
 #### 6.2.6 Prune
 
@@ -864,11 +900,18 @@ apr-leaderboard merge a.apr b.apr c.apr --strategy ties -o merged.apr
 # Wanda pruning with 20% sparsity (default)
 apr-leaderboard prune --model tuned.apr --method wanda --target-ratio 0.2 -o pruned.apr
 
-# SparseGPT with 30% sparsity
-apr-leaderboard prune --model tuned.apr --method sparsegpt --target-ratio 0.3 -o pruned.apr
+# SparseGPT with calibration data
+apr-leaderboard prune --model tuned.apr --method sparsegpt --target-ratio 0.3 \
+    --calibration calib-code.jsonl -o pruned.apr
 ```
 
 **Methods:** `wanda` (default), `magnitude`, `sparsegpt`. Target ratio: 0.0–1.0 (exclusive).
+
+| Flag | Default | Description |
+|---|---|---|
+| `--method` | `wanda` | Pruning method |
+| `--target-ratio` | `0.2` | Target sparsity ratio |
+| `--calibration` | — | Calibration dataset for Wanda/SparseGPT |
 
 #### 6.2.7 Quantize
 
@@ -876,11 +919,17 @@ apr-leaderboard prune --model tuned.apr --method sparsegpt --target-ratio 0.3 -o
 # INT4 quantization (default, best compression)
 apr-leaderboard quantize --model pruned.apr --scheme int4 -o submit.apr
 
-# Q6K quantization (better quality, larger size)
-apr-leaderboard quantize --model pruned.apr --scheme q6k -o submit.apr
+# Q6K quantization with calibration data
+apr-leaderboard quantize --model pruned.apr --scheme q6k \
+    --calibration calib-code.jsonl -o submit.apr
 ```
 
 **Schemes:** `int4`, `int8`, `q4k`, `q5k`, `q6k`.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--scheme` | `int4` | Quantization scheme |
+| `--calibration` | — | Calibration dataset for quality-aware quantization |
 
 #### 6.2.8 Compare
 
@@ -2153,17 +2202,32 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | Subcommand | Source Module | Status | Tests | Notes |
 |---|---|---|---|---|
 | `convert` | `src/convert/mod.rs` | ✅ Scaffolded | 13 | HF download + APR v2 bundle |
-| `eval` | `src/eval/mod.rs` | ✅ Scaffolded | 25 | pass@k metrics, prompt strategies, n-samples |
-| `finetune` | `src/finetune/mod.rs` | ✅ Scaffolded | 10 | LoRA/QLoRA config + entrenar integration |
-| `distill` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | Knowledge distillation (3 strategies) |
-| `merge` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | Model merging (4 strategies) |
-| `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | Pruning (3 methods) |
-| `quantize` | `src/optimize/mod.rs` | ✅ Scaffolded | 4 | Quantization (5 schemes) |
+| `eval` | `src/eval/mod.rs` | ✅ Scaffolded | 27 | pass@k, prompt strategies, n-samples, temperature, top-p, rerank |
+| `finetune` | `src/finetune/mod.rs` | ✅ Scaffolded | 14 | LoRA/QLoRA/full, method selection, custom output |
+| `distill` | `src/optimize/mod.rs` | ✅ Scaffolded | 7 | 3 strategies + epochs + data corpus |
+| `merge` | `src/optimize/mod.rs` | ✅ Scaffolded | 9 | 4 strategies + weights + base-model + density + drop-rate |
+| `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 7 | 3 methods + calibration dataset |
+| `quantize` | `src/optimize/mod.rs` | ✅ Scaffolded | 5 | 5 schemes + calibration dataset |
 | `compare` | `src/optimize/mod.rs` | ✅ Scaffolded | 2 | HF parity check |
 | `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 12 | HF leaderboard submission |
 | `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 20+ | 10 benchmark definitions |
 | `history` | `src/eval/mod.rs` | ✅ Complete | 3 | Result history viewer |
 | `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 16 | Config-driven TOML pipeline (all 8 stages) |
+
+### 19.1.1 CLI Flag Coverage Matrix
+
+| Subcommand | Core Flags | Optional Flags | Status |
+|---|---|---|---|
+| `eval` | `--model`, `--benchmark`, `--samples`, `--output` | `--prompt-strategy`, `--n-samples`, `--temperature`, `--top-p`, `--rerank` | ✅ Complete |
+| `finetune` | `--model`, `--dataset` | `--method`, `--rank`, `--lr`, `--epochs`, `-o` | ✅ Complete |
+| `distill` | `--teacher`, `--student`, `-o` | `--strategy`, `--temperature`, `--alpha`, `--epochs`, `--data` | ✅ Complete |
+| `merge` | `<models...>`, `-o` | `--strategy`, `--weights`, `--base-model`, `--density`, `--drop-rate` | ✅ Complete |
+| `prune` | `--model`, `-o` | `--method`, `--target-ratio`, `--calibration` | ✅ Complete |
+| `quantize` | `--model`, `-o` | `--scheme`, `--calibration` | ✅ Complete |
+| `convert` | `--model-id` | `--output`, `--quantization` | ✅ Complete |
+| `compare` | `--model` | — | ✅ Complete |
+| `submit` | `--results`, `--model-id` | `--leaderboard` | ✅ Complete |
+| `pipeline` | `--config` | — | ✅ Complete |
 
 ### 19.2 Prompt Strategies (§8.3)
 
@@ -2177,21 +2241,22 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 ### 19.3 Optimization Operations (§7)
 
-| Operation | Strategy/Method Enums | Validation | Status |
-|---|---|---|---|
-| Distill | `Standard`, `Progressive`, `Ensemble` | Empty path check | ✅ Scaffolded |
-| Merge | `Slerp`, `Ties`, `Dare`, `LinearAvg` | Min 2 models, empty path check | ✅ Scaffolded |
-| Prune | `Wanda`, `Magnitude`, `SparseGpt` | Ratio 0.0–1.0, empty path check | ✅ Scaffolded |
-| Quantize | `Int4`, `Int8`, `Q4K`, `Q5K`, `Q6K` | Empty path check | ✅ Scaffolded |
+| Operation | Strategy/Method Enums | Extended Flags | Validation | Status |
+|---|---|---|---|---|
+| Distill | `Standard`, `Progressive`, `Ensemble` | `--epochs`, `--data` | Empty path check | ✅ Scaffolded |
+| Merge | `Slerp`, `Ties`, `Dare`, `LinearAvg` | `--weights`, `--base-model`, `--density`, `--drop-rate` | Min 2 models, empty path check | ✅ Scaffolded |
+| Prune | `Wanda`, `Magnitude`, `SparseGpt` | `--calibration` | Ratio 0.0–1.0, empty path check | ✅ Scaffolded |
+| Quantize | `Int4`, `Int8`, `Q4K`, `Q5K`, `Q6K` | `--calibration` | Empty path check | ✅ Scaffolded |
+| Finetune | `Lora`, `Qlora`, `Full` | `--method`, `-o` | Model file exists check | ✅ Scaffolded |
 
 ### 19.4 Quality Metrics
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 138 | — | `cargo test` |
+| Test count | 149 | — | `cargo test` |
 | Line coverage | 96.5% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
-| Max file size | 491 lines | < 500 | `wc -l src/**/*.rs` |
+| Max file size | 474 lines | < 500 | `wc -l src/**/*.rs` |
 | pmat pre-commit | ✅ Pass | ✅ Pass | git hook |
 | Pipeline configs | 4 | — | `configs/*.toml` |
 
