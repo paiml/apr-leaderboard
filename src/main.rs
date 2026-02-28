@@ -1,12 +1,16 @@
 use clap::{Parser, Subcommand};
 
+mod align;
+mod compile;
 mod convert;
 mod eval;
 mod finetune;
 mod harness;
+mod inference;
 mod optimize;
 mod pipeline;
 mod submit;
+mod validate;
 
 /// Build, evaluate, and submit .apr models to Hugging Face leaderboards.
 #[derive(Parser)]
@@ -200,6 +204,132 @@ enum Commands {
         #[arg(long)]
         config: String,
     },
+    /// Align a model via DPO/ORPO preference optimization
+    Align {
+        /// Path to the .apr model
+        #[arg(long)]
+        model: String,
+        /// Preference pairs dataset (JSON lines)
+        #[arg(long)]
+        data: String,
+        /// Alignment method (dpo, orpo)
+        #[arg(long, default_value = "dpo")]
+        method: String,
+        /// KL penalty coefficient
+        #[arg(long, default_value_t = 0.1)]
+        beta: f64,
+        /// Training epochs
+        #[arg(long, default_value_t = 3)]
+        epochs: usize,
+        /// Reference model for DPO
+        #[arg(long)]
+        ref_model: Option<String>,
+        /// Output model path
+        #[arg(long, short)]
+        output: Option<String>,
+    },
+    /// Validate training data for benchmark contamination
+    Validate {
+        /// Training data file
+        #[arg(long)]
+        data: String,
+        /// Benchmarks to check against
+        #[arg(long, num_args = 1..)]
+        benchmarks: Vec<String>,
+        /// N-gram overlap threshold (0.0-1.0)
+        #[arg(long, default_value_t = 0.01)]
+        threshold: f64,
+        /// Remove contaminated samples
+        #[arg(long)]
+        decontaminate: bool,
+        /// Output cleaned dataset
+        #[arg(long, short)]
+        output: Option<String>,
+    },
+    /// Run hyperparameter optimization
+    Tune {
+        /// Path to the .apr model
+        #[arg(long)]
+        model: String,
+        /// Training data
+        #[arg(long)]
+        data: String,
+        /// HPO strategy (tpe, grid, random)
+        #[arg(long, default_value = "tpe")]
+        strategy: String,
+        /// Number of trials
+        #[arg(long, default_value_t = 20)]
+        budget: usize,
+        /// Max epochs per trial
+        #[arg(long, default_value_t = 3)]
+        max_epochs: usize,
+    },
+    /// Run inference on a model
+    Run {
+        /// Path to the .apr model
+        #[arg(long)]
+        model: String,
+        /// Input prompt
+        #[arg(long)]
+        prompt: String,
+        /// Enable speculative decoding
+        #[arg(long)]
+        speculative: bool,
+        /// Speculation lookahead tokens
+        #[arg(long, default_value_t = 4)]
+        speculation_k: usize,
+        /// Draft model for speculative decoding
+        #[arg(long)]
+        draft_model: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Batch generation / chat completions
+    Chat {
+        /// Path to the .apr model
+        #[arg(long)]
+        model: String,
+        /// Batch input file (one prompt per line)
+        #[arg(long)]
+        batch: Option<String>,
+        /// Single prompt
+        #[arg(long)]
+        prompt: Option<String>,
+        /// Completions per prompt
+        #[arg(long, default_value_t = 1)]
+        n_samples: usize,
+        /// Sampling temperature
+        #[arg(long, default_value_t = 0.8)]
+        temperature: f64,
+        /// System prompt
+        #[arg(long)]
+        system: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Validate model format and integrity
+    Check {
+        /// Path to the .apr model
+        #[arg(long)]
+        model: String,
+    },
+    /// Compile model to standalone binary
+    Compile {
+        /// Path to the .apr model
+        #[arg(long)]
+        model: String,
+        /// Enable release optimizations
+        #[arg(long)]
+        release: bool,
+        /// Enable link-time optimization
+        #[arg(long)]
+        lto: bool,
+        /// Output binary path
+        #[arg(long, short)]
+        output: Option<String>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -307,6 +437,25 @@ fn main() -> anyhow::Result<()> {
             let pipe: pipeline::PipelineConfig = toml::from_str(&config_content)?;
             pipeline::run_pipeline(&pipe)
         }
+        Commands::Align {
+            model, data, method, beta, epochs, ref_model, output,
+        } => align::run(&model, &data, &method, beta, epochs, ref_model.as_deref(), output.as_deref()),
+        Commands::Validate {
+            data, benchmarks, threshold, decontaminate, output,
+        } => validate::run(&data, &benchmarks, threshold, decontaminate, output.as_deref()),
+        Commands::Tune {
+            model, data, strategy, budget, max_epochs,
+        } => optimize::tune(&model, &data, &strategy, budget, max_epochs),
+        Commands::Run {
+            model, prompt, speculative, speculation_k, draft_model, json,
+        } => inference::run(&model, &prompt, speculative, speculation_k, draft_model.as_deref(), json),
+        Commands::Chat {
+            model, batch, prompt, n_samples, temperature, system, json,
+        } => inference::chat(&model, batch.as_deref(), prompt.as_deref(), n_samples, temperature, system.as_deref(), json),
+        Commands::Check { model } => compile::check(&model),
+        Commands::Compile {
+            model, release, lto, output,
+        } => compile::run(&model, release, lto, output.as_deref()),
     }
 }
 

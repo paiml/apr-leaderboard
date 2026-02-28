@@ -386,6 +386,53 @@ fn test_compare_empty_model() {
     assert!(compare("").is_err());
 }
 
+// --- tune ---
+#[test]
+fn test_tune_strategy_parsing() {
+    assert!(matches!(TuneStrategy::from_str("tpe").unwrap(), TuneStrategy::Tpe));
+    assert!(matches!(TuneStrategy::from_str("grid").unwrap(), TuneStrategy::Grid));
+    assert!(matches!(TuneStrategy::from_str("random").unwrap(), TuneStrategy::Random));
+    assert!(matches!(TuneStrategy::from_str("bayesian").unwrap(), TuneStrategy::Tpe));
+    assert!(TuneStrategy::from_str("invalid").is_err());
+}
+
+#[test]
+fn test_tune_strategy_display() {
+    assert_eq!(TuneStrategy::Tpe.to_string(), "tpe");
+    assert_eq!(TuneStrategy::Grid.to_string(), "grid");
+    assert_eq!(TuneStrategy::Random.to_string(), "random");
+}
+
+#[test]
+fn test_tune_strategy_roundtrip() {
+    for s in &["tpe", "grid", "random"] {
+        let parsed = TuneStrategy::from_str(s).unwrap();
+        assert_eq!(parsed.to_string(), *s);
+    }
+}
+
+#[test]
+fn test_tune_runs() {
+    assert!(tune("model.apr", "data.jsonl", "tpe", 20, 3).is_ok());
+}
+
+#[test]
+fn test_tune_all_strategies() {
+    for s in &["tpe", "grid", "random"] {
+        assert!(tune("m.apr", "d.jsonl", s, 5, 1).is_ok(), "Failed for {s}");
+    }
+}
+
+#[test]
+fn test_tune_empty_model() {
+    assert!(tune("", "data.jsonl", "tpe", 20, 3).is_err());
+}
+
+#[test]
+fn test_tune_zero_budget() {
+    assert!(tune("model.apr", "data.jsonl", "tpe", 0, 3).is_err());
+}
+
 // --- validate_model_path ---
 #[test]
 fn test_validate_model_path() {

@@ -202,6 +202,74 @@ pub(crate) fn compare(model: &str) -> Result<()> {
     Ok(())
 }
 
+/// HPO strategy for hyperparameter tuning.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum TuneStrategy {
+    Tpe,
+    Grid,
+    Random,
+}
+
+impl std::fmt::Display for TuneStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Tpe => write!(f, "tpe"),
+            Self::Grid => write!(f, "grid"),
+            Self::Random => write!(f, "random"),
+        }
+    }
+}
+
+impl TuneStrategy {
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "tpe" | "bayesian" => Ok(Self::Tpe),
+            "grid" | "grid-search" => Ok(Self::Grid),
+            "random" | "rand" => Ok(Self::Random),
+            _ => bail!("Unknown HPO strategy: {s}. Use tpe, grid, or random"),
+        }
+    }
+}
+
+/// Run hyperparameter optimization (§7.7).
+///
+/// Maps to: `apr tune model.apr --strategy tpe --budget 20`
+pub(crate) fn tune(
+    model: &str,
+    data: &str,
+    strategy: &str,
+    budget: usize,
+    max_epochs: usize,
+) -> Result<()> {
+    validate_model_path(model)?;
+    let strategy = TuneStrategy::from_str(strategy)?;
+
+    if budget == 0 {
+        bail!("budget must be > 0");
+    }
+
+    println!("Hyperparameter optimization:");
+    println!("  Model: {model}");
+    println!("  Data: {data}");
+    println!("  Strategy: {strategy}");
+    println!("  Budget: {budget} trials");
+    println!("  Max epochs per trial: {max_epochs}");
+
+    // Scaffold: in production, runs HPO search
+    println!("  [scaffold] Would run: apr tune {model} --data {data} \\");
+    println!("    --strategy {strategy} --budget {budget} --max-epochs {max_epochs}");
+
+    for trial in 1..=budget.min(3) {
+        println!("  Trial {trial}/{budget}: lr=1e-4, rank=16, loss=0.000");
+    }
+    if budget > 3 {
+        println!("  ... ({} more trials)", budget - 3);
+    }
+
+    println!("  Best: trial 1, lr=1e-4, rank=16");
+    Ok(())
+}
+
 fn validate_model_path(path: &str) -> Result<()> {
     if path.is_empty() {
         bail!("model path cannot be empty");
