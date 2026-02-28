@@ -13,6 +13,7 @@ fn base_config(output_dir: &str) -> PipelineConfig {
         merge: None,
         prune: None,
         quantize: None,
+        eval: None,
     }
 }
 
@@ -309,4 +310,71 @@ scheme = "int4"
     let mg = config.merge.unwrap();
     assert_eq!(mg.models, vec!["variant-b.apr"]);
     assert_eq!(mg.strategy, "slerp");
+}
+
+#[test]
+fn test_eval_config_toml_parsing() {
+    let toml_str = r#"
+model_id = "test/model"
+output_dir = "models"
+quantization = "fp16"
+submit = false
+leaderboard = "bigcode"
+benchmarks = ["humaneval"]
+
+[eval]
+samples = 50
+prompt_strategy = "scot"
+n_samples = 20
+temperature = 0.8
+top_p = 0.9
+rerank = "majority"
+"#;
+    let config: PipelineConfig = toml::from_str(toml_str).unwrap();
+    let ec = config.eval.unwrap();
+    assert_eq!(ec.samples, Some(50));
+    assert_eq!(ec.prompt_strategy.as_deref(), Some("scot"));
+    assert_eq!(ec.n_samples, Some(20));
+    assert!((ec.temperature.unwrap() - 0.8).abs() < f64::EPSILON);
+    assert!((ec.top_p.unwrap() - 0.9).abs() < f64::EPSILON);
+    assert_eq!(ec.rerank.as_deref(), Some("majority"));
+}
+
+#[test]
+fn test_eval_config_toml_defaults() {
+    let toml_str = r#"
+model_id = "test/model"
+output_dir = "models"
+quantization = "fp16"
+submit = false
+leaderboard = "bigcode"
+benchmarks = ["humaneval"]
+"#;
+    let config: PipelineConfig = toml::from_str(toml_str).unwrap();
+    assert!(config.eval.is_none());
+}
+
+#[test]
+fn test_build_eval_config_none() {
+    let config = build_eval_config(None).unwrap();
+    assert!(matches!(config.prompt_strategy, eval::PromptStrategy::Standard));
+    assert_eq!(config.n_samples, 1);
+}
+
+#[test]
+fn test_build_eval_config_with_values() {
+    let toml_config = EvalConfigToml {
+        samples: Some(100),
+        prompt_strategy: Some("scot".into()),
+        n_samples: Some(10),
+        temperature: Some(0.5),
+        top_p: Some(0.8),
+        rerank: Some("logprob".into()),
+    };
+    let config = build_eval_config(Some(&toml_config)).unwrap();
+    assert!(matches!(config.prompt_strategy, eval::PromptStrategy::SCoT));
+    assert_eq!(config.n_samples, 10);
+    assert!((config.temperature - 0.5).abs() < f64::EPSILON);
+    assert!((config.top_p - 0.8).abs() < f64::EPSILON);
+    assert!(matches!(config.rerank, eval::RerankStrategy::LogProb));
 }

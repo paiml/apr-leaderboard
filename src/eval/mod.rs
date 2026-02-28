@@ -132,7 +132,8 @@ pub(crate) struct CategoryScore {
     pub count: usize,
 }
 
-/// Run evaluation benchmarks against a model.
+/// Run evaluation benchmarks against a model with default config.
+#[cfg(test)]
 pub(crate) fn run(model_path: &str, benchmark: &str, samples: usize, output_dir: &str) -> Result<()> {
     run_with_config(model_path, benchmark, samples, output_dir, &EvalConfig::default())
 }

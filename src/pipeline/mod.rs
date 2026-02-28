@@ -21,6 +21,7 @@ pub(crate) struct PipelineConfig {
     pub merge: Option<MergeConfig>,
     pub prune: Option<PruneConfig>,
     pub quantize: Option<QuantizeConfig>,
+    pub eval: Option<EvalConfigToml>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +70,17 @@ pub(crate) struct PruneConfig {
 pub(crate) struct QuantizeConfig {
     pub scheme: String,
     pub calibration: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(serde::Serialize))]
+pub(crate) struct EvalConfigToml {
+    pub samples: Option<usize>,
+    pub prompt_strategy: Option<String>,
+    pub n_samples: Option<usize>,
+    pub temperature: Option<f64>,
+    pub top_p: Option<f64>,
+    pub rerank: Option<String>,
 }
 
 pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
@@ -154,8 +166,10 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
     if !config.benchmarks.is_empty() {
         step += 1;
         println!("[{step}/{total_steps}] Running {} benchmark(s)...", config.benchmarks.len());
+        let eval_config = build_eval_config(config.eval.as_ref())?;
+        let samples = config.eval.as_ref().and_then(|e| e.samples).unwrap_or(0);
         for benchmark in &config.benchmarks {
-            eval::run(&model_path, benchmark, 0, "results/")?;
+            eval::run_with_config(&model_path, benchmark, samples, "results/", &eval_config)?;
         }
     }
 
@@ -172,6 +186,28 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
 
     println!("\n=== Pipeline complete ({step} steps) ===");
     Ok(())
+}
+
+fn build_eval_config(toml: Option<&EvalConfigToml>) -> Result<eval::EvalConfig> {
+    let mut config = eval::EvalConfig::default();
+    if let Some(t) = toml {
+        if let Some(ps) = &t.prompt_strategy {
+            config.prompt_strategy = eval::PromptStrategy::from_str(ps)?;
+        }
+        if let Some(n) = t.n_samples {
+            config.n_samples = n;
+        }
+        if let Some(temp) = t.temperature {
+            config.temperature = temp;
+        }
+        if let Some(tp) = t.top_p {
+            config.top_p = tp;
+        }
+        if let Some(r) = &t.rerank {
+            config.rerank = eval::RerankStrategy::from_str(r)?;
+        }
+    }
+    Ok(config)
 }
 
 fn count_steps(config: &PipelineConfig) -> usize {
