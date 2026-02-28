@@ -30,3 +30,8 @@ target_ratio = 0.4
 
 [quantize]
 scheme = "int4"
+
+[compile]
+release = true
+lto = true
+output = "qwen-coder"

@@ -1,11 +1,11 @@
-//! Pipeline orchestration: convert → finetune → eval → submit.
+//! Pipeline orchestration: validate → convert → distill → finetune → align → merge → prune → quantize → eval → compile → submit.
 //!
 //! Reads a TOML config and runs the full leaderboard pipeline.
 
 use anyhow::Result;
 use serde::Deserialize;
 
-use crate::{convert, eval, finetune, optimize, submit};
+use crate::{align, compile, convert, eval, finetune, optimize, submit, validate};
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(serde::Serialize))]
@@ -16,12 +16,16 @@ pub(crate) struct PipelineConfig {
     pub benchmarks: Vec<String>,
     pub submit: bool,
     pub leaderboard: String,
-    pub finetune: Option<FinetuneConfig>,
+    pub validate: Option<ValidateConfig>,
     pub distill: Option<DistillConfig>,
+    pub finetune: Option<FinetuneConfig>,
+    pub align: Option<AlignConfig>,
     pub merge: Option<MergeConfig>,
     pub prune: Option<PruneConfig>,
     pub quantize: Option<QuantizeConfig>,
+    pub tune: Option<TuneConfig>,
     pub eval: Option<EvalConfigToml>,
+    pub compile: Option<CompileConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,6 +78,42 @@ pub(crate) struct QuantizeConfig {
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(serde::Serialize))]
+pub(crate) struct AlignConfig {
+    pub data: String,
+    pub method: Option<String>,
+    pub beta: Option<f64>,
+    pub epochs: Option<usize>,
+    pub ref_model: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(serde::Serialize))]
+pub(crate) struct ValidateConfig {
+    pub data: String,
+    pub benchmarks: Vec<String>,
+    pub threshold: Option<f64>,
+    pub decontaminate: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(serde::Serialize))]
+pub(crate) struct TuneConfig {
+    pub data: String,
+    pub strategy: Option<String>,
+    pub budget: Option<usize>,
+    pub max_epochs: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(serde::Serialize))]
+pub(crate) struct CompileConfig {
+    pub release: Option<bool>,
+    pub lto: Option<bool>,
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(serde::Serialize))]
 pub(crate) struct EvalConfigToml {
     pub samples: Option<usize>,
     pub prompt_strategy: Option<String>,
@@ -88,6 +128,19 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
 
     let total_steps = count_steps(config);
     let mut step = 0;
+
+    // Step: Optional validate (decontamination check before training)
+    if let Some(val) = &config.validate {
+        step += 1;
+        println!("[{step}/{total_steps}] Validating training data for contamination...");
+        validate::run(
+            &val.data,
+            &val.benchmarks,
+            val.threshold.unwrap_or(0.01),
+            val.decontaminate.unwrap_or(false),
+            None,
+        )?;
+    }
 
     // Step: Convert
     step += 1;
@@ -125,6 +178,24 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
         finetune::run(&model_path, &ft.dataset, ft.method.as_deref().unwrap_or("lora"), ft.rank, ft.lr, ft.epochs, ft.output.as_deref())?;
     }
 
+    // Step: Optional align (DPO/ORPO after finetune)
+    if let Some(al) = &config.align {
+        step += 1;
+        let method = al.method.as_deref().unwrap_or("dpo");
+        println!("[{step}/{total_steps}] Aligning with {method}...");
+        let output_path = format!("{}/aligned.apr", config.output_dir);
+        align::run(
+            &model_path,
+            &al.data,
+            method,
+            al.beta.unwrap_or(0.1),
+            al.epochs.unwrap_or(3),
+            al.ref_model.as_deref(),
+            Some(&output_path),
+        )?;
+        model_path = output_path;
+    }
+
     // Step: Optional merge
     if let Some(mg) = &config.merge {
         step += 1;
@@ -142,6 +213,20 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
             output: &output,
         })?;
         model_path = output;
+    }
+
+    // Step: Optional tune (HPO before prune/quantize)
+    if let Some(tu) = &config.tune {
+        step += 1;
+        let strategy = tu.strategy.as_deref().unwrap_or("tpe");
+        println!("[{step}/{total_steps}] Running HPO ({strategy}, {} trials)...", tu.budget.unwrap_or(20));
+        optimize::tune(
+            &model_path,
+            &tu.data,
+            strategy,
+            tu.budget.unwrap_or(20),
+            tu.max_epochs.unwrap_or(3),
+        )?;
     }
 
     // Step: Optional prune
@@ -171,6 +256,18 @@ pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
         for benchmark in &config.benchmarks {
             eval::run_with_config(&model_path, benchmark, samples, "results/", &eval_config)?;
         }
+    }
+
+    // Step: Optional compile (binary output)
+    if let Some(comp) = &config.compile {
+        step += 1;
+        println!("[{step}/{total_steps}] Compiling to standalone binary...");
+        compile::run(
+            &model_path,
+            comp.release.unwrap_or(false),
+            comp.lto.unwrap_or(false),
+            comp.output.as_deref(),
+        )?;
     }
 
     // Step: Submit
@@ -212,12 +309,16 @@ fn build_eval_config(toml: Option<&EvalConfigToml>) -> Result<eval::EvalConfig> 
 
 fn count_steps(config: &PipelineConfig) -> usize {
     let mut n = 1; // convert always runs
+    if config.validate.is_some() { n += 1; }
     if config.distill.is_some() { n += 1; }
     if config.finetune.is_some() { n += 1; }
+    if config.align.is_some() { n += 1; }
     if config.merge.is_some() { n += 1; }
+    if config.tune.is_some() { n += 1; }
     if config.prune.is_some() { n += 1; }
     if config.quantize.is_some() { n += 1; }
     if !config.benchmarks.is_empty() { n += 1; }
+    if config.compile.is_some() { n += 1; }
     if config.submit { n += 1; }
     n
 }
