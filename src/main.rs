@@ -464,10 +464,7 @@ fn main() -> anyhow::Result<()> {
             model_id,
             leaderboard,
         } => submit::run(&results, &model_id, &leaderboard),
-        Commands::Benchmarks => {
-            harness::list_benchmarks();
-            Ok(())
-        }
+        Commands::Benchmarks => { harness::list_benchmarks(); Ok(()) }
         Commands::History { model } => eval::show_history(model.as_deref()),
         Commands::Pipeline { config } => {
             let config_content = std::fs::read_to_string(&config)?;
