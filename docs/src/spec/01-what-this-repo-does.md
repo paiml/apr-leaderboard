@@ -129,4 +129,4 @@ apr parity baseline.apr               # GPU/CPU divergence check
 
 **For researchers:**
 
-The spec (this document) is the experimental protocol. The recipes in §7 are reproducible experiments. The acceptance criteria in §16 are the pass/fail conditions. Run them, report results, falsify or validate the thesis.
+The spec (this document) is the experimental protocol. The recipes in §9 are reproducible experiments. The acceptance criteria in §18 are the pass/fail conditions. Run them, report results, falsify or validate the thesis.

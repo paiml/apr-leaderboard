@@ -28,7 +28,7 @@ apr eval qwen-7b.apr --task classify --data humaneval.jsonl --json
 ## 3. Full Optimization Pipeline (preview)
 
 ```bash
-# The complete leaderboard recipe in 6 commands (follows golden ordering §8):
+# The complete leaderboard recipe in 6 commands (follows golden ordering §10):
 apr import hf://Qwen/Qwen2.5-Coder-7B -o base.apr
 apr distill teacher.apr --student base.apr --strategy progressive --temperature 3.0 -o distilled.apr
 apr finetune distilled.apr --method qlora --rank 32 --data code-instruct.jsonl -o tuned.apr

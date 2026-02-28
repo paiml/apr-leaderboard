@@ -38,7 +38,7 @@ Rationale:
 4. **Prune fourth** — Remove redundancy AFTER merging (merged models have more redundancy)
 5. **Quantize last** — Always final step; quantization is lossy and non-reversible
 
-**Note on QLoRA as implicit QAT:** When the final deployment target is INT4, using QLoRA (§5.5) during the finetune step provides quantization-aware adaptation. The adapter trains against quantized base weights, making the final INT4 quantization less lossy than post-training quantization after full-precision LoRA.
+**Note on QLoRA as implicit QAT:** When the final deployment target is INT4, using QLoRA (§7.5) during the finetune step provides quantization-aware adaptation. The adapter trains against quantized base weights, making the final INT4 quantization less lossy than post-training quantization after full-precision LoRA.
 
 **Anti-patterns:**
 - Prune → Finetune: LoRA can't recover pruned knowledge effectively

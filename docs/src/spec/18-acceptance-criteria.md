@@ -22,3 +22,10 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 - [ ] AC-018: Speculative decoding (`apr run --speculative`) achieves ≥1.5x throughput over standard decoding
 - [ ] AC-019: `apr eval --prompt-strategy scot` produces structured reasoning before code output
 - [ ] AC-020: `apr align --method dpo` reduces loss on preference pairs over 3 epochs
+- [ ] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves ≥85% HumanEval pass@1 (apr-native baseline ≥ HF reference - 5%)
+- [ ] AC-022: Full pipeline on Qwen2.5-Coder-7B produces a model scoring ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP
+- [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval
+- [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores ≥ best input specialist on at least one benchmark
+- [ ] AC-025: `alimentar quality` scores all training data ≥80/100 before use in fine-tuning
+- [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
+- [ ] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary

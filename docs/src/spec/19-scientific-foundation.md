@@ -25,3 +25,13 @@
 [12] Rozière et al., "Code Llama: Open Foundation Models for Code", arXiv:2308.12950, 2023.
 
 [13] Leviathan et al., "Fast Inference from Transformers via Speculative Decoding", ICML 2023.
+
+[14] Hui et al., "Qwen2.5-Coder Technical Report", arXiv:2409.12186, 2024.
+
+[15] Jain et al., "LiveCodeBench: Holistic and Contamination Free Evaluation of Large Language Models for Code", arXiv:2403.07974, 2024.
+
+[16] Zhuo et al., "BigCodeBench: Benchmarking Code Generation with Diverse Function Calls and Complex Instructions", arXiv:2406.15877, 2024.
+
+[17] NVIDIA, "OpenCodeReasoning: Advancing Data Distillation for Competitive Coding", arXiv:2504.01943, 2025.
+
+[18] Goddard et al., "Arcee's MergeKit: A Toolkit for Merging Large Language Models", arXiv:2403.13257, 2024.

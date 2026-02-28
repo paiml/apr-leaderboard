@@ -146,7 +146,7 @@ apr parity baseline.apr               # GPU/CPU divergence check
 
 **For researchers:**
 
-The spec (this document) is the experimental protocol. The recipes in §7 are reproducible experiments. The acceptance criteria in §16 are the pass/fail conditions. Run them, report results, falsify or validate the thesis.
+The spec (this document) is the experimental protocol. The recipes in §9 are reproducible experiments. The acceptance criteria in §18 are the pass/fail conditions. Run them, report results, falsify or validate the thesis.
 
 ## 2. Thesis
 
@@ -156,17 +156,396 @@ The Python ML ecosystem requires 200+ dependencies, GPU-locked CUDA toolchains, 
 
 **Compute reality:** GPU hardware is recommended for training-phase techniques (distillation, fine-tuning). Inference-only techniques (merging, quantization) and small-model inference (≤7B quantized) run on CPU via trueno SIMD (AVX2/NEON). The "zero CUDA" claim means no `nvcc`, no `libcudart`, no CUDA toolkit install — trueno's PTX backend generates GPU kernels in pure Rust.
 
-## 3. Target Leaderboards
+## 3. Target Leaderboards & Competitive Thresholds
 
 | Leaderboard | Primary Metric | Benchmarks | Why |
 |-------------|---------------|------------|-----|
-| BigCode Models | pass@1 | HumanEval, MBPP, MultiPL-E | Code generation is our strongest use case |
-| EvalPlus | pass@1 | HumanEval+, MBPP+ | Rigorous test suites expose real quality |
-| Open LLM Leaderboard v2 | aggregate | MMLU, ARC, HellaSwag, etc. | Broad visibility |
+| EvalPlus | pass@1 | HumanEval+, MBPP+ | Rigorous test suites (80x/35x more tests than originals) expose real quality — the gold standard |
+| BigCodeBench | pass@1 | 1,140 practical tasks | Tests library usage, I/O, and dependencies — not yet saturated (GPT-4o scores ~61%) |
+| LiveCodeBench | pass@1 | 1,055 fresh competitive problems | Continuously refreshed from LeetCode/CodeForces — contamination-resistant |
+| BigCode Models | pass@1 | HumanEval, MBPP, MultiPL-E | Code generation visibility — our primary use case |
 
-**Primary target:** Qwen2.5-Coder family (1.5B, 7B, 32B) — best open code models with permissive Apache-2.0 license.
+### 3.1 Competitive Score Thresholds (2025-2026)
 
-## 4. The `apr` CLI Toolchain
+HumanEval is approaching saturation (SOTA 92.7%). BigCodeBench and LiveCodeBench differentiate more meaningfully.
+
+| Benchmark | Not Competitive | Entry | Strong | SOTA (Open) |
+|-----------|-----------------|-------|--------|-------------|
+| HumanEval (pass@1) | <60% | 60-75% | 75-85% | **85-93%** |
+| HumanEval+ (pass@1) | <70% | 70-80% | 80-85% | **85-89%** |
+| MBPP (pass@1) | <70% | 70-80% | 80-85% | **85-91%** |
+| BigCodeBench-Full (pass@1) | <30% | 30-40% | 40-50% | **50%+** |
+| LiveCodeBench (pass@1) | <20% | 20-40% | 40-60% | **60%+** |
+
+### 3.2 The Landscape: Who Holds the Crown
+
+**32B class — current SOTA:**
+
+| Model | HumanEval | HE+ | MBPP | LiveCode | License |
+|-------|-----------|------|------|----------|---------|
+| Qwen2.5-Coder-32B-Instruct | **92.7%** | **87.2%** | **90.2%** | 31.4% | Apache-2.0 |
+| OCR-Nemotron-32B | — | — | — | **61.8%** | Apache-2.0 |
+| R1-Distill-Qwen-32B | — | — | — | 58.1% | MIT |
+| DeepSeek-Coder-V2 (236B MoE) | 85.4% | 82.3% | — | — | Restricted |
+| Codestral 25.01 (22B) | 86.6% | — | 91.2% | — | Restricted |
+
+**7B class — current SOTA:**
+
+| Model | HumanEval | HE+ | MBPP | LiveCode | License |
+|-------|-----------|------|------|----------|---------|
+| Qwen2.5-Coder-7B-Instruct | **88.4%** | **84.1%** | **83.5%** | 18.2% | Apache-2.0 |
+| OCR-Nemotron-7B | — | — | — | **51.3%** | Apache-2.0 |
+| DeepSeek-Coder-V2-Lite (16B MoE) | 81.1% | — | — | — | Restricted |
+| Phi-4 (14B) | 82.6% | — | — | — | MIT |
+
+**Critical gap:** Qwen2.5-Coder dominates standard benchmarks (HumanEval, MBPP) but falls behind on LiveCodeBench. The gap is reasoning: OCR-Nemotron-32B (distilled from DeepSeek-R1) nearly doubles Qwen's LiveCodeBench score. This is the improvement vector.
+
+## 4. Model Selection & Improvement Strategy
+
+### 4.1 WHAT Models We Will Improve
+
+We select models based on three criteria: (1) competitive baseline scores, (2) permissive licensing (Apache-2.0 or MIT), (3) architecture support in aprender.
+
+**Primary targets (Tier 1 — submit to leaderboards):**
+
+| Model | Size | Why This Model | Baseline HE | Target HE | Strategy |
+|-------|------|----------------|-------------|-----------|----------|
+| Qwen2.5-Coder-7B-Instruct | 7B | Best 7B code model. Apache-2.0. Beats CodeLlama-70B. | 88.4% | **90%+** | Distill + LoRA + DPO |
+| Qwen2.5-Coder-32B-Instruct | 32B | Best open code model overall. Matches GPT-4o. | 92.7% | **94%+** | DPO + merge + speculative |
+| Qwen2.5-Coder-7B (base) | 7B | Distillation target. Prove 32B→7B transfer works. | ~65% | **85%+** | Full pipeline (Recipe C) |
+
+**Secondary targets (Tier 2 — prove stack generality):**
+
+| Model | Size | Why This Model | Strategy |
+|-------|------|----------------|----------|
+| OCR-Nemotron-7B | 7B | Best 7B for LiveCodeBench (51.3%). Reasoning distilled. | Import + eval parity check |
+| Phi-4 | 14B | Strong at 14B. Different architecture than Qwen. | Import + merge with Qwen variants |
+| DeepSeek-R1-Distill-Qwen-7B | 7B | Reasoning-enhanced Qwen. Merge candidate. | Merge with Qwen2.5-Coder-7B |
+
+**Stretch target (Tier 3 — marketing win):**
+
+| Model | Size | Why This Model | Strategy |
+|-------|------|----------------|----------|
+| Qwen2.5-Coder-1.5B | 1.5B | Smallest competitive code model. `apr compile` → single binary demo. | LoRA + quantize + compile |
+
+### 4.2 WHY We Will Improve Them
+
+**The falsifiable claim:** A single Rust binary can produce models that score in the "Strong" tier or above on every target benchmark.
+
+Five specific improvement hypotheses, each falsifiable:
+
+**H1: Reasoning distillation closes the LiveCodeBench gap.**
+- Qwen2.5-Coder-7B scores 18.2% on LiveCodeBench. OCR-Nemotron-7B (reasoning-distilled) scores 51.3%. Distilling from a reasoning teacher should lift LiveCodeBench by 2-3x without hurting HumanEval.
+- *Falsified if:* LiveCodeBench stays below 30% after distillation.
+
+**H2: DPO with execution feedback pushes HumanEval+ past 87%.**
+- Current Qwen2.5-Coder-7B scores 84.1% on HumanEval+. The 84→87% gap is alignment, not capability. DPO using (correct_code, incorrect_code) pairs from execution feedback should close it.
+- *Falsified if:* HumanEval+ stays below 86% after DPO.
+
+**H3: Merge specialists beat any single model.**
+- Merging a code-instruct specialist with a code-reasoning specialist (via TIES on the same Qwen2.5 backbone) should exceed either specialist alone.
+- *Falsified if:* Merged model scores below the best input specialist on all benchmarks.
+
+**H4: Quantization to INT4 loses <2% pass@1.**
+- Conservative quantization (INT4 with calibration) should preserve almost all accuracy for code generation.
+- *Falsified if:* INT4 model drops more than 2% pass@1 vs FP16 on HumanEval.
+
+**H5: The full pipeline (distill→finetune→merge→prune→quantize) compounds gains.**
+- Each technique contributes independently. Stacked in the golden ordering (§10), they should compound.
+- *Falsified if:* Full pipeline scores lower than the best single-technique result.
+
+### 4.3 HOW We Will Improve Each Model
+
+#### 4.3.1 Qwen2.5-Coder-7B: "The Complete Proof" (Primary Target)
+
+This is the model that proves the thesis. Every technique applied, every claim validated.
+
+```
+Phase 1: Baseline
+  apr import hf://Qwen/Qwen2.5-Coder-7B-Instruct → baseline.apr
+  apr eval baseline.apr → establish apr-native HumanEval/MBPP scores
+  apr compare-hf baseline.apr → measure parity gap
+
+Phase 2: Reasoning Distillation (H1)
+  apr import hf://Qwen/Qwen2.5-Coder-32B-Instruct → teacher.apr
+  apr distill teacher.apr --student base.apr --strategy progressive
+  → Expected: +5-13% on HumanEval, +15-30% on LiveCodeBench
+
+Phase 3: LoRA Fine-tuning on Curated Code Data
+  apr finetune distilled.apr --method qlora --rank 32 --data code-instruct.jsonl
+  → Expected: +3-5% from domain-specific tuning
+
+Phase 4: DPO Alignment (H2)
+  apr align distilled-tuned.apr --method dpo --data preference-pairs.jsonl
+  → Expected: +2-4% on HumanEval+ from execution-feedback alignment
+
+Phase 5: Merge with Reasoning Variant (H3)
+  apr merge code-specialist.apr reasoning-specialist.apr --strategy ties
+  → Expected: best-of-both-worlds across benchmarks
+
+Phase 6: Prune + Quantize (H4)
+  apr prune merged.apr --method wanda --target-ratio 0.2
+  apr quantize pruned.apr --scheme int4
+  → Expected: <2% pass@1 loss, 4x smaller, 2x faster inference
+
+Phase 7: Compile & Ship
+  apr compile final.apr -o qwen-coder-7b --release --lto
+  → Standalone binary, zero runtime deps
+```
+
+**Success gate:** Final model achieves ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP, all via `apr` commands only.
+
+#### 4.3.2 Qwen2.5-Coder-32B: "The Crown" (Maximum Score)
+
+The 32B model is already at 92.7% HumanEval. The goal is to push past the ceiling using techniques that benefit from the model's existing strength.
+
+```
+Phase 1: Baseline + parity verification
+Phase 2: DPO with execution feedback (primary lever)
+Phase 3: Merge with reasoning variant (R1-Distill-Qwen-32B)
+Phase 4: Speculative decoding for faster eval iteration
+Phase 5: N-sampling (N=50) + reranking for maximum pass@1
+```
+
+**Success gate:** ≥94% HumanEval, ≥88% HumanEval+, ≥45% BigCodeBench.
+
+#### 4.3.3 Qwen2.5-Coder-1.5B: "The Sovereign Binary" (Marketing Win)
+
+```
+Phase 1: Import + baseline
+Phase 2: LoRA fine-tune on curated instruction data
+Phase 3: INT4 quantize
+Phase 4: apr compile → single static binary (~800MB)
+Phase 5: Ship as downloadable executable
+```
+
+**Success gate:** ≥60% HumanEval in a standalone binary with zero dependencies. The demo: `./qwen-coder "def fibonacci(n):"` just works.
+
+### 4.4 What Happens When Improvement Fails
+
+Each hypothesis above has a falsification criterion. When falsified:
+
+1. **Diagnose with five-whys:** `apr diagnose model.apr --method five-whys` identifies root cause (inference bug? data quality? technique misconfigured?)
+2. **Compare against HF reference:** `apr compare-hf model.apr` — if parity gap is >5%, fix inference first, don't optimize on a broken baseline
+3. **Ablation:** Remove the last technique applied and re-evaluate. If removal improves score, the technique was destructive in this combination.
+4. **Escalate to next tier:** If a technique fundamentally doesn't work at world-class level, the tooling must improve (see §5 Sovereign Tooling Map)
+
+## 5. Sovereign Tooling Map: World-Class or Wire It In
+
+Every leaderboard-winning technique maps to a sovereign stack component. When a component doesn't support a technique at world-class level, we don't skip it — we find or build the capability and wire it into `apr` CLI commands.
+
+### 5.1 Tooling Coverage Matrix
+
+| Technique | Required Capability | Sovereign Component | Status | Gap Action |
+|-----------|-------------------|-------------------|--------|------------|
+| Import HF models | SafeTensors/GGUF → .apr | **aprender** 0.27 | ✅ Complete | `apr import` — 14+ architectures supported |
+| Inference (decode) | Transformer forward pass | **realizar** 0.8 | ✅ Complete | `apr run` — 8-21% faster than llama.cpp |
+| Inference (serve) | HTTP API, batching, streaming | **realizar** 0.8 | ✅ Complete | `apr serve` — OpenAI-compatible, PagedAttention |
+| LoRA/QLoRA training | Low-rank adaptation, autograd | **entrenar** 0.7 | ✅ Complete | `apr finetune` — AdamW, cosine LR, checkpointing |
+| Knowledge distillation | KL-divergence, progressive | **entrenar** 0.7 | ✅ Complete | `apr distill` — standard, progressive, ensemble |
+| Model merging | SLERP, TIES, DARE | **aprender** 0.27 | ✅ Complete | `apr merge` — 5 strategies |
+| Pruning | Wanda, SparseGPT, structured | **aprender** 0.27 | ✅ Complete | `apr prune` — 6 methods |
+| Quantization | INT4, INT8, Q4K, Q6K | **aprender** 0.27 | ✅ Complete | `apr quantize` — 4 formats |
+| SIMD tensor ops | AVX2, AVX-512, NEON matmul | **trueno** 0.16 | ✅ Complete | 6% faster than NumPy at 256×256 |
+| GPU compute | PTX generation, wgpu | **trueno** 0.16 | ✅ Complete | Pure Rust, no nvcc |
+| Speculative decoding | Draft model + verification | **realizar** 0.8 | ✅ Complete | `apr run --speculative` |
+| KV cache management | PagedAttention, CoW | **realizar** 0.8 | ✅ Complete | vLLM-style paged KV |
+| Data loading | Parquet, JSONL, Arrow, HF Hub | **alimentar** 0.2 | ✅ Complete | Zero-copy Arrow RecordBatches |
+| Data quality | Null/outlier/drift detection | **alimentar** 0.2 | ✅ Complete | 100-point quality scoring |
+| Data decontamination | N-gram overlap detection | **alimentar** 0.2 | ⚠️ Partial | Doctest extraction exists; need benchmark-specific decontamination |
+| HPO | TPE, Hyperband, ASHA | **entrenar** 0.7 | ✅ Complete | `apr tune --strategy tpe` |
+| Compile to binary | Model + runtime → executable | **aprender** 0.27 | ✅ Complete | `apr compile` |
+| Correctness proofs | Kani bounded model checking | **provable-contracts** | ✅ Complete | 262 proof obligations |
+| Quality gates | Compliance enforcement | **pmat** | ✅ Complete | 30+ automated checks |
+| **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ❌ **Missing** | **Must build** (see §5.2) |
+| **Execution sandbox** | Run generated code safely | — | ❌ **Missing** | **External harness** (see §5.3) |
+| **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ⚠️ Partial | Generation works; reranking logic needed |
+| **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ⚠️ Partial | `--system` exists; `--prompt-strategy` needed |
+| **Synthetic data gen** | Teacher → training corpus | **alimentar** 0.2 + **aprender** | ⚠️ Partial | Generation via `apr chat --batch`; curation pipeline needed |
+| **Continued pretraining** | Full-weight code corpus training | **entrenar** 0.7 | ⚠️ Partial | Full finetune works; needs large-corpus streaming |
+| **Flash Attention** | Online softmax, tiled attention | **trueno** 0.16 | 🔧 In Progress | Phase 12 planned; tiling infra ready |
+
+### 5.2 Gap 1: DPO/ORPO Preference Optimization (CRITICAL)
+
+**Why world-class:** DPO is the single most impactful post-training technique for leaderboards. Merged + DPO models "completely dominate" HF leaderboard rankings. Without DPO, we compete with one hand tied.
+
+**Current state:** entrenar has the training infrastructure (autograd, AdamW, LoRA) but no DPO loss function or preference pair data loader.
+
+**Wire-in plan:**
+
+```
+Component: entrenar
+  Add: src/dpo/mod.rs — DPO loss (β-scaled log-ratio of policy vs reference)
+  Add: src/dpo/data.rs — preference pair loader (chosen/rejected format)
+  Add: src/dpo/orpo.rs — ORPO variant (no reference model needed)
+
+Component: aprender (apr-cli)
+  Add: `apr align` subcommand
+    apr align model.apr --method dpo \
+      --reference base.apr \
+      --data preference-pairs.jsonl \
+      --beta 0.1 --epochs 3 \
+      -o aligned.apr
+
+    apr align model.apr --method orpo \
+      --data preference-pairs.jsonl \
+      --lambda 0.1 --epochs 3 \
+      -o aligned.apr
+
+Component: alimentar
+  Add: Preference pair generation from execution feedback
+    alimentar generate-preferences \
+      --model model.apr \
+      --problems humaneval.jsonl \
+      --n-samples 10 \
+      --judge execution \
+      -o preference-pairs.jsonl
+
+Component: Ground truth corpus
+  Use: hf-ground-truth-corpus, algorithm-competition-corpus
+    → Source of verified correct/incorrect code pairs for DPO training
+```
+
+**Acceptance criterion:** `apr align --method dpo` produces a model with ≥2% higher HumanEval+ than the input model after 3 epochs.
+
+### 5.3 Gap 2: Code Execution Sandbox (CRITICAL)
+
+**Why world-class:** HumanEval and MBPP require executing generated code against test cases. Without execution, we can't compute pass@k — we can only measure perplexity, which doesn't correlate well with code correctness.
+
+**Current state:** aprender has no sandboxed code execution. Generated completions must be evaluated externally.
+
+**Wire-in plan (two options):**
+
+```
+Option A: External EvalPlus harness (short-term, pragmatic)
+  apr eval model.apr --data humaneval.jsonl --n-samples 10 \
+    --output-completions completions/ --json
+  # Then externally: evalplus.evaluate --samples completions/
+  # This is what everyone does — even Google and Meta use external harnesses
+
+Option B: WASM sandbox (long-term, sovereign)
+  Component: realizar or new crate
+  Add: Embedded WASM runtime (wasmtime) for safe code execution
+    apr eval model.apr --data humaneval.jsonl \
+      --sandbox wasm --timeout 10s --json
+  Advantage: Fully sovereign, no Python dependency even for eval
+  Risk: Python test cases require Python-in-WASM (CPython compiled to WASM)
+```
+
+**Decision:** Option A for v1.0 (get on the leaderboard), Option B as stretch goal. Neither compromises the "zero Python" claim for the model pipeline — eval is a separate concern.
+
+### 5.4 Gap 3: N-Sampling + Reranking Pipeline
+
+**Why world-class:** Generating N=10-50 completions and selecting the best one boosts effective pass@1 by 10-30%. This is the single most impactful inference-time technique.
+
+**Current state:** aprender can generate multiple completions via temperature sampling. Missing: batched generation, reranking logic, majority voting.
+
+**Wire-in plan:**
+
+```
+Component: aprender (apr-cli)
+  Extend: `apr eval --n-samples N --rerank strategy`
+    Strategies: logprob (sum of log-probabilities), majority (output voting),
+                execution (run and pick passing code — requires sandbox)
+
+Component: realizar
+  Already supports: batched generation, concurrent requests
+  Need: expose batch generation for N completions per prompt efficiently
+
+Component: alimentar
+  Add: Result aggregation and voting logic for N-sample outputs
+```
+
+### 5.5 Gap 4: Synthetic Training Data Pipeline
+
+**Why world-class:** Qwen2.5-Coder, Phi-4, and NVIDIA OCR-Nemotron all credit large-scale synthetic data as core to their success. Without high-quality synthetic training data, fine-tuning is limited to existing datasets.
+
+**Current state:** `apr chat --batch` can generate completions. alimentar handles data loading and quality scoring. Ground-truth corpora exist (hf-ground-truth-corpus, algorithm-competition-corpus). Missing: end-to-end curation pipeline.
+
+**Wire-in plan:**
+
+```
+Component: alimentar
+  CLI pipeline:
+    # 1. Generate raw synthetic code from teacher
+    apr chat teacher.apr --batch problems.txt --n-samples 5 \
+      --temperature 0.8 --json > raw-synthetic.jsonl
+
+    # 2. Quality-filter with alimentar
+    alimentar quality raw-synthetic.jsonl --min-score 80 \
+      -o filtered-synthetic.jsonl
+
+    # 3. Decontaminate against eval benchmarks
+    alimentar drift raw-synthetic.jsonl \
+      --reference humaneval.jsonl mbpp.jsonl \
+      --overlap-threshold 0.01 \
+      -o clean-synthetic.jsonl
+
+    # 4. Balance and split
+    alimentar convert clean-synthetic.jsonl \
+      -o training-data.parquet
+
+Component: Ground truth corpora
+  hf-ground-truth-corpus → HuggingFace API patterns, transformer implementations
+  algorithm-competition-corpus → Algorithm problems with verified solutions
+  → Both feed into fine-tuning data mix
+```
+
+### 5.6 Gap 5: Prompt Strategy Engine
+
+**Why world-class:** SCoT prompting improves HumanEval pass@1 by up to 13.79%. Few-shot exemplars add 3-8%. The prompt template matters as much as the model weights.
+
+**Current state:** `apr chat --system` and `apr run --chat` exist. Missing: `--prompt-strategy` flag with built-in templates.
+
+**Wire-in plan:**
+
+```
+Component: aprender (apr-cli)
+  Add: Prompt strategy registry
+    apr eval model.apr --data humaneval.jsonl \
+      --prompt-strategy scot --json
+
+    apr eval model.apr --data humaneval.jsonl \
+      --prompt-strategy few-shot \
+      --exemplars exemplars.jsonl --json
+
+  Built-in strategies:
+    standard  — raw problem → code (baseline)
+    scot      — structured chain-of-thought → code (+5-14%)
+    few-shot  — N exemplars + problem → code (+3-8%)
+    cgo       — chain of grounded objectives → code (+5-10%)
+    reflexion — generate → test → reflect → regenerate (multi-turn)
+
+Component: realizar
+  Already supports: chat templates (ChatML, LLaMA2, Mistral, Phi, Alpaca)
+  Need: expose template composition for eval pipeline
+```
+
+### 5.7 Sovereign Stack Version Requirements
+
+All gap closures must use published crates from crates.io. No git dependencies.
+
+| Crate | Current | Required For Gaps | Minimum Version |
+|-------|---------|-------------------|-----------------|
+| aprender | 0.27.2 | `apr align`, `--prompt-strategy`, `--n-samples --rerank` | **0.28** |
+| entrenar | 0.7.5 | DPO loss, preference pair loader, ORPO | **0.8** |
+| trueno | 0.16.1 | Flash attention (Phase 12) | **0.17** |
+| realizar | 0.8.0 | Batch N-sampling, prompt template composition | **0.9** |
+| alimentar | 0.2.6 | Decontamination pipeline, preference pair generation, quality filtering | **0.3** |
+| provable-contracts | 0.1 | DPO kernel contracts | **0.2** |
+
+### 5.8 The Decision Rule
+
+When we find a gap:
+
+1. **Can an existing sovereign crate do it?** → Wire it in via `apr` CLI. No new crates.
+2. **Does a sovereign crate need a new module?** → Add it to that crate, publish to crates.io, bump apr-leaderboard's dependency.
+3. **Is it fundamentally outside the stack's scope?** → Use an external tool (e.g., EvalPlus for code execution) and document the boundary explicitly.
+4. **Is it a research problem with no clear solution?** → Add to §20 Open Questions. Don't block the pipeline.
+
+**Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
+
+## 6. The `apr` CLI Toolchain
 
 Every technique maps to a single shell command. This is the differentiator — our competitors use 500-line Python scripts; we use one-liners.
 
@@ -196,7 +575,7 @@ apr eval qwen-7b.apr --task classify --data humaneval.jsonl --json
 ### 4.3 Full Optimization Pipeline (preview)
 
 ```bash
-# The complete leaderboard recipe in 6 commands (follows golden ordering §8):
+# The complete leaderboard recipe in 6 commands (follows golden ordering §10):
 apr import hf://Qwen/Qwen2.5-Coder-7B -o base.apr
 apr distill teacher.apr --student base.apr --strategy progressive --temperature 3.0 -o distilled.apr
 apr finetune distilled.apr --method qlora --rank 32 --data code-instruct.jsonl -o tuned.apr
@@ -205,9 +584,9 @@ apr prune merged.apr --method wanda --target-ratio 0.2 --calibration calib.jsonl
 apr quantize pruned.apr --scheme int4 -o submit.apr
 ```
 
-## 5. Technique Playbook
+## 7. Technique Playbook
 
-### 5.1 Knowledge Distillation
+### 7.1 Knowledge Distillation
 
 **Goal:** Transfer 32B teacher knowledge into a 7B student that scores within 5% of teacher on pass@1.
 
@@ -244,7 +623,7 @@ apr eval distilled-7b.apr --task classify --data humaneval.jsonl --json
 
 **Expected gain:** +3-8% pass@1 over baseline student.
 
-### 5.2 Model Merging
+### 7.2 Model Merging
 
 **Goal:** Combine fine-tuned variants to get best-of-all-worlds without additional training.
 
@@ -291,7 +670,7 @@ apr merge semifinal.apr base.apr \
 
 **Expected gain:** +2-5% pass@1 over best individual specialist. Free compute — no GPU needed.
 
-### 5.3 Pruning
+### 7.3 Pruning
 
 **Goal:** Remove 20-50% of weights with <2% quality loss, yielding faster inference for benchmarks.
 
@@ -338,7 +717,7 @@ apr eval pruned-30.apr --dataset wikitext-2 --threshold 22.0
 
 **Expected impact:** Conservative ratio targets <1% pass@1 degradation. Moderate allows 1-3% degradation for meaningful speedup. Aggressive (>30% for small models) risks measurable quality loss — validate with eval before accepting. Smaller models have less redundancy; budget accordingly.
 
-### 5.4 Fine-tuning (LoRA)
+### 7.4 Fine-tuning (LoRA)
 
 **Goal:** Adapt base model to code-specific instruction-following with minimal compute.
 
@@ -376,7 +755,7 @@ apr finetune qwen-7b.apr \
 
 **Expected gain:** +5-15% pass@1 with curated instruction data.
 
-### 5.5 Fine-tuning (QLoRA)
+### 7.5 Fine-tuning (QLoRA)
 
 **Goal:** Same as LoRA but on consumer GPUs (8-16GB VRAM).
 
@@ -416,7 +795,7 @@ apr finetune qwen-7b.apr \
 
 **When to use QLoRA:** Always for 32B models. For 7B, use LoRA if you have 32GB+ VRAM. When targeting INT4 deployment, prefer QLoRA — it provides implicit quantization awareness.
 
-### 5.6 Quantization (Post-Training)
+### 7.6 Quantization (Post-Training)
 
 **Goal:** Reduce model size for faster inference with minimal quality loss.
 
@@ -436,7 +815,7 @@ apr quantize model.apr --batch int8,int4,fp16,q4k
 apr quantize model.apr --scheme int4 --format gguf -o model.gguf
 ```
 
-### 5.7 Hyperparameter Optimization (HPO)
+### 7.7 Hyperparameter Optimization (HPO)
 
 **Goal:** Find optimal LoRA/QLoRA hyperparameters automatically.
 
@@ -463,11 +842,11 @@ apr tune qwen-7b.apr \
     --time-limit 8h
 ```
 
-## 6. Leaderboard-Winning Techniques
+## 8. Leaderboard-Winning Techniques
 
-The techniques in §5 optimize the *model*. This section covers techniques that optimize *inference-time behavior* — how you extract the best score from a given model. These are the techniques that separate top-10 leaderboard entries from median ones.
+The techniques in §7 optimize the *model*. This section covers techniques that optimize *inference-time behavior* — how you extract the best score from a given model. These are the techniques that separate top-10 leaderboard entries from median ones.
 
-### 6.1 Sampling Strategy Tuning
+### 8.1 Sampling Strategy Tuning
 
 **Why it matters:** The difference between greedy decoding and tuned sampling can be 5-15% pass@1. Most leaderboards evaluate pass@1 with greedy decoding, but the sampling parameters used during generation dramatically affect output quality.
 
@@ -496,7 +875,7 @@ apr eval model.apr --task classify --data humaneval.jsonl \
 | pass@10 | 0.6-0.8 | 0.95 | Diversity yields more distinct solutions |
 | pass@100 | 0.8-1.0 | 0.95 | Maximum diversity |
 
-### 6.2 N-Sampling with Best-of-N Selection (pass@k Maximization)
+### 8.2 N-Sampling with Best-of-N Selection (pass@k Maximization)
 
 **Why it matters:** Generating N completions and selecting the best one (via self-consistency, test execution, or log-probability scoring) can boost effective pass@1 by 10-30% over single-shot generation. This is the single most impactful inference-time technique [8].
 
@@ -520,7 +899,7 @@ apr eval model.apr --task classify --data humaneval.jsonl \
 
 **Expected gain:** +10-30% effective pass@1 with N=10-50 over single-shot greedy.
 
-### 6.3 Structured Prompting (System Prompt + Few-Shot + SCoT)
+### 8.3 Structured Prompting (System Prompt + Few-Shot + SCoT)
 
 **Why it matters:** Structured Chain-of-Thought (SCoT) prompting improves HumanEval pass@1 by up to 13.79% over vanilla prompting by asking the model to reason through sequential, branch, and loop structures before generating code [9].
 
@@ -555,7 +934,7 @@ apr eval model.apr --task classify --data humaneval.jsonl \
 
 **Implementation status:** `--system` flag exists. `--prompt-strategy` and `--exemplars` need to be added.
 
-### 6.4 Speculative Decoding (Inference Speedup)
+### 8.4 Speculative Decoding (Inference Speedup)
 
 **Why it matters:** Speculative decoding yields 2-3x faster inference on code models, which means more attempts within a time budget and faster evaluation iteration. Code is particularly amenable to speculation because syntax is predictable.
 
@@ -577,7 +956,7 @@ apr bench model.apr --speculative --speculation-k 4 --json
 
 **Expected gain:** 2-3x throughput improvement for code generation tasks. No quality change (output distribution is mathematically identical).
 
-### 6.5 Preference Optimization (DPO/ORPO)
+### 8.5 Preference Optimization (DPO/ORPO)
 
 **Why it matters:** DPO and ORPO align models to prefer correct, well-structured code over plausible but buggy code. ORPO eliminates the need for a reference model, making it simpler than RLHF. Models trained with preference optimization consistently score 3-8% higher on code benchmarks than SFT-only models [10][11].
 
@@ -609,7 +988,7 @@ apr align model.apr \
 
 **Expected gain:** +3-8% pass@1 over SFT-only models.
 
-### 6.6 Continued Pretraining (Domain Adaptation)
+### 8.6 Continued Pretraining (Domain Adaptation)
 
 **Why it matters:** Continued pretraining on a large code corpus before instruction fine-tuning lets the model absorb domain-specific patterns (API usage, idioms, error handling) that instruction tuning alone can't teach. This is how CodeLlama was built from Llama 2 [12].
 
@@ -638,7 +1017,7 @@ apr finetune domain-adapted.apr \
 
 **Key consideration:** Continued pretraining requires significant compute (full model gradients, not just adapter). Budget accordingly.
 
-### 6.7 Data Decontamination
+### 8.7 Data Decontamination
 
 **Why it matters:** If training data overlaps with benchmark test cases, scores are inflated and meaningless. Leaderboards actively detect and penalize contaminated submissions. Data decontamination is a hard requirement, not optional.
 
@@ -663,7 +1042,7 @@ apr validate --data code-instruct.jsonl \
 
 **Falsification gate (AC-016):** Any submission MUST demonstrate <1% n-gram overlap between training data and evaluation benchmarks.
 
-### 6.8 Test-Time Compute Scaling
+### 8.8 Test-Time Compute Scaling
 
 **Why it matters:** Recent results show that spending more compute at inference time (generating more candidates, longer chain-of-thought, iterative refinement) scales performance more efficiently than model size for code tasks. This is the "scaling at test time" paradigm.
 
@@ -688,7 +1067,7 @@ apr eval model.apr --task classify --data failing-problems.jsonl \
 
 **Expected gain:** Diminishing returns, but N=50 with test-based filtering can reach pass@1 equivalent of pass@50, which is typically 15-25% higher than greedy pass@1.
 
-### 6.9 Technique Stacking: The Winning Formula
+### 8.9 Technique Stacking: The Winning Formula
 
 Leaderboard winners stack techniques multiplicatively. The winning formula, in priority order:
 
@@ -730,9 +1109,9 @@ apr eval final.apr --task classify --data humaneval.jsonl \
     --n-samples 50 --temperature 0.8 --prompt-strategy scot --json
 ```
 
-## 7. Composite Recipes
+## 9. Composite Recipes
 
-### 7.0 Step Zero: Establish Baseline (REQUIRED for all recipes)
+### 9.0 Step Zero: Establish Baseline (REQUIRED for all recipes)
 
 Every recipe must begin by establishing the apr-native baseline for the model. This catches inference implementation gaps before optimization work begins.
 
@@ -751,7 +1130,7 @@ apr compare-hf baseline-instruct.apr --json > results/parity-baseline.json
 
 **Why this matters:** Qwen2.5-Coder-7B-Instruct scores ~84% pass@1 on HumanEval in the PyTorch/HF stack. If the apr-native baseline is significantly lower, no amount of optimization will close the gap — fix inference fidelity first. All "expected gain" numbers below are relative to the apr-native baseline, not absolute.
 
-### 7.1 Recipe A: "The Distilled Expert" (Maximum Quality)
+### 9.1 Recipe A: "The Distilled Expert" (Maximum Quality)
 
 **Target:** Highest pass@1 regardless of model size. For 7B submissions.
 
@@ -791,7 +1170,7 @@ apr eval distilled-finetuned.apr --task classify --data humaneval.jsonl --json
 
 **Expected:** +5-13% pass@1 over apr-native 7B base baseline. Target: match or exceed the instruct model's HF-reference score once inference parity is established.
 
-### 7.2 Recipe B: "The Merge Alchemist" (Zero Training Compute)
+### 9.2 Recipe B: "The Merge Alchemist" (Zero Training Compute)
 
 **Target:** Best score achievable with NO GPU training at all. Pure weight manipulation.
 
@@ -826,7 +1205,7 @@ apr eval submit-q4k.apr --task classify --data humaneval.jsonl --json
 
 **Expected:** Within 1-3% of the best input specialist's pass@1, potentially exceeding it. Merging is not a guaranteed gain — always eval against the unmerged instruct model as control.
 
-### 7.3 Recipe C: "The Full Pipeline" (Kitchen Sink)
+### 9.3 Recipe C: "The Full Pipeline" (Kitchen Sink)
 
 **Target:** Absolute maximum. Every technique stacked.
 
@@ -907,7 +1286,7 @@ echo "Standalone binary: $(ls -lh apr-coder)"
 
 **Expected:** +8-17% pass@1 over apr-native 7B base baseline. Should match or exceed the instruct model's HF-reference score.
 
-### 7.4 Recipe D: "Sovereign Binary" (The Differentiator)
+### 9.4 Recipe D: "Sovereign Binary" (The Differentiator)
 
 **Target:** Ship the model AS a Rust binary. No runtime, no Python, no Docker.
 
@@ -932,7 +1311,7 @@ apr compile tiny.apr \
 
 **This is the marketing win:** While competitors need `pip install transformers torch accelerate bitsandbytes`, we ship `./qwen-coder`.
 
-## 8. Technique Interaction Matrix
+## 10. Technique Interaction Matrix
 
 Techniques are not independent. Order matters.
 
@@ -972,14 +1351,14 @@ Rationale:
 4. **Prune fourth** — Remove redundancy AFTER merging (merged models have more redundancy)
 5. **Quantize last** — Always final step; quantization is lossy and non-reversible
 
-**Note on QLoRA as implicit QAT:** When the final deployment target is INT4, using QLoRA (§5.5) during the finetune step provides quantization-aware adaptation. The adapter trains against quantized base weights, making the final INT4 quantization less lossy than post-training quantization after full-precision LoRA.
+**Note on QLoRA as implicit QAT:** When the final deployment target is INT4, using QLoRA (§7.5) during the finetune step provides quantization-aware adaptation. The adapter trains against quantized base weights, making the final INT4 quantization less lossy than post-training quantization after full-precision LoRA.
 
 **Anti-patterns:**
 - Prune → Finetune: LoRA can't recover pruned knowledge effectively
 - Finetune → Distill: Overwrites the fine-tuned specialization
 - Quantize → anything: Quality loss compounds with every subsequent operation
 
-## 9. Competitive Advantage: Why `apr` Wins
+## 11. Competitive Advantage: Why `apr` Wins
 
 | Aspect | Python Ecosystem | `apr` CLI |
 |--------|-----------------|-----------|
@@ -1001,7 +1380,7 @@ Rationale:
 | N-sampling + rerank | Custom scripts | `apr eval --n-samples 50 --rerank` — single command |
 | Preference optimization | trl + custom scripts | `apr align --method dpo/orpo` — integrated |
 
-## 10. Data Strategy
+## 12. Data Strategy
 
 The model is only as good as the fine-tuning data. Key datasets for code leaderboards:
 
@@ -1033,7 +1412,7 @@ apr validate --data code-instruct-raw.jsonl --format jsonl
 
 **Bootstrapping discipline:** Never generate training data from a teacher whose inference quality hasn't been verified. The pipeline is: import → eval teacher → generate data → validate data → train student.
 
-## 11. Evaluation Protocol
+## 13. Evaluation Protocol
 
 Every recipe must be evaluated identically for fair comparison.
 
@@ -1063,7 +1442,7 @@ apr qa model.apr --verbose
 apr check model.apr
 ```
 
-## 12. Submission Flow
+## 14. Submission Flow
 
 ```bash
 # 1. Generate HuggingFace model card
@@ -1079,7 +1458,7 @@ apr publish submission/ --repo paiml/qwen-coder-7b-apr --private
 # The leaderboard pulls from your HF repo and runs evaluation
 ```
 
-## 13. Success Criteria
+## 15. Success Criteria
 
 | Metric | Target | Stretch | Notes |
 |--------|--------|---------|-------|
@@ -1093,11 +1472,11 @@ apr publish submission/ --repo paiml/qwen-coder-7b-apr --private
 | CUDA toolkit | Not required | Not required | trueno PTX generation |
 | GPU hardware | Recommended | Optional (≤7B) | Required for distill/finetune 32B |
 
-## 14. Provable Contracts (Design by Contract)
+## 16. Provable Contracts (Design by Contract)
 
 Every kernel in the pipeline MUST have a provable-contracts YAML contract binding it to its mathematical specification. This ensures the optimization techniques produce correct results, not just plausible ones.
 
-### 14.1 Contract Coverage Requirements
+### 16.1 Contract Coverage Requirements
 
 The leaderboard pipeline touches these kernel equivalence classes from the provable-contracts registry:
 
@@ -1111,7 +1490,7 @@ The leaderboard pipeline touches these kernel equivalence classes from the prova
 | **Matmul** | matmul-kernel-v1 | All linear layers |
 | **AdamW** | adamw-kernel-v1 | Training optimizer |
 
-### 14.2 Contract Verification Gates
+### 16.2 Contract Verification Gates
 
 Each pipeline stage MUST pass its contract obligations before proceeding:
 
@@ -1129,7 +1508,7 @@ pv audit ../provable-contracts/contracts/model/qwen35-shapes-v1.yaml \
 cargo test --features kani -p aprender -- contract
 ```
 
-### 14.3 Pipeline-Specific Proof Obligations
+### 16.3 Pipeline-Specific Proof Obligations
 
 | Obligation | Property | Verification Level | Gate |
 |---|---|---|---|
@@ -1142,7 +1521,7 @@ cargo test --features kani -p aprender -- contract
 | PO-LB-007 | Softmax normalization: sum(output) ≈ 1.0 | L4 (Kani, bound=16) | CI |
 | PO-LB-008 | SLERP interpolation preserves weight norms | L3 (proptest) | Before `apr merge --strategy slerp` |
 
-### 14.4 `#[contract]` Annotations
+### 16.4 `#[contract]` Annotations
 
 Every function in the apr-leaderboard pipeline that performs a mathematical operation MUST carry a `#[contract]` annotation linking it to its provable-contracts YAML:
 
@@ -1162,11 +1541,11 @@ pub fn lora_forward(base: &Tensor, a: &Tensor, b: &Tensor, scale: f32) -> Tensor
 
 If the binding is missing from `contracts/aprender/binding.yaml`, the build fails. Zero tolerance for unbound kernels.
 
-## 15. Quality Gates (pmat comply)
+## 17. Quality Gates (pmat comply)
 
 Every pipeline step and every commit MUST pass the `pmat comply` quality gates. This is the enforcement mechanism for the claims in this spec.
 
-### 15.1 Specification Compliance
+### 17.1 Specification Compliance
 
 This spec itself is validated by `pmat comply`:
 
@@ -1181,7 +1560,7 @@ pmat comply review docs/specifications/leaderboard-spec.md --format markdown
 pmat comply audit -o audit.json
 ```
 
-### 15.2 Mandatory Pre-Commit Checks
+### 17.2 Mandatory Pre-Commit Checks
 
 ```bash
 # Full compliance check (blocks commit on failure)
@@ -1195,7 +1574,7 @@ pmat comply check --strict --format json
 #   CB-120  OIP Tarantula — no NaN, no unwrap in production paths
 ```
 
-### 15.3 Pipeline Quality Gates
+### 17.3 Pipeline Quality Gates
 
 Each recipe step has a `pmat comply` gate:
 
@@ -1210,7 +1589,7 @@ Each recipe step has a `pmat comply` gate:
 | Eval | `pmat comply review` extracts claims → validates | Untested falsifiable claims |
 | Submit | `pmat comply audit` signed evidence | Incomplete audit trail |
 
-### 15.4 Cross-Crate Consistency
+### 17.4 Cross-Crate Consistency
 
 The sovereign stack (aprender, entrenar, trueno) MUST maintain cross-crate consistency:
 
@@ -1225,7 +1604,7 @@ pmat comply cross-crate \
 pv diff ../provable-contracts/contracts/old/ ../provable-contracts/contracts/
 ```
 
-### 15.5 Documentation Publishing
+### 17.5 Documentation Publishing
 
 This specification is published as an [mdBook](https://rust-lang.github.io/mdBook/) via GitHub Actions. On every push to `main` that modifies `docs/` or `book.toml`, the workflow builds and deploys to GitHub Pages at:
 
@@ -1241,7 +1620,7 @@ mdbook serve    # http://localhost:3000
 mdbook build    # outputs to docs/book/
 ```
 
-## 16. Acceptance Criteria
+## 18. Acceptance Criteria
 
 Every criterion below is falsifiable. If any criterion cannot be demonstrated, this spec has failed.
 
@@ -1265,8 +1644,15 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 - [ ] AC-018: Speculative decoding (`apr run --speculative`) achieves ≥1.5x throughput over standard decoding
 - [ ] AC-019: `apr eval --prompt-strategy scot` produces structured reasoning before code output
 - [ ] AC-020: `apr align --method dpo` reduces loss on preference pairs over 3 epochs
+- [ ] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves ≥85% HumanEval pass@1 (apr-native baseline ≥ HF reference - 5%)
+- [ ] AC-022: Full pipeline on Qwen2.5-Coder-7B produces a model scoring ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP
+- [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval
+- [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores ≥ best input specialist on at least one benchmark
+- [ ] AC-025: `alimentar quality` scores all training data ≥80/100 before use in fine-tuning
+- [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
+- [ ] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary
 
-## 17. Scientific Foundation
+## 19. Scientific Foundation
 
 [1] Sun et al., "A Simple and Effective Pruning Approach for Large Language Models" (Wanda), ICLR 2024.
 
@@ -1294,7 +1680,17 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 
 [13] Leviathan et al., "Fast Inference from Transformers via Speculative Decoding", ICML 2023.
 
-## 18. Open Questions
+[14] Hui et al., "Qwen2.5-Coder Technical Report", arXiv:2409.12186, 2024.
+
+[15] Jain et al., "LiveCodeBench: Holistic and Contamination Free Evaluation of Large Language Models for Code", arXiv:2403.07974, 2024.
+
+[16] Zhuo et al., "BigCodeBench: Benchmarking Code Generation with Diverse Function Calls and Complex Instructions", arXiv:2406.15877, 2024.
+
+[17] NVIDIA, "OpenCodeReasoning: Advancing Data Distillation for Competitive Coding", arXiv:2504.01943, 2025.
+
+[18] Goddard et al., "Arcee's MergeKit: A Toolkit for Merging Large Language Models", arXiv:2403.13257, 2024.
+
+## 20. Open Questions
 
 1. **Calibration data quality:** How much does Wanda calibration data selection affect code model pruning? Need ablation study.
 2. **Merge tournament depth:** Is 2-round merging sufficient or do 3+ rounds compound gains?
@@ -1305,3 +1701,8 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 7. **Inference parity gap:** What is the actual pass@1 gap between apr-native inference and PyTorch/HF for Qwen2.5-Coder models? This gates all absolute target setting.
 8. **Code execution sandbox:** Should apr integrate a WASM-based sandbox for pass@k evaluation, or is external EvalPlus harness sufficient?
 9. **CPU-only distillation feasibility:** Is progressive distillation from a 32B teacher on CPU practical within the 24h wall-clock budget, even with trueno SIMD? Likely needs GPU.
+10. **Reasoning distillation transfer:** Does distilling from DeepSeek-R1 (or OCR-Nemotron) into Qwen2.5-Coder backbone require architecture adaptation, or does progressive distillation handle the mismatch?
+11. **DPO data volume:** How many preference pairs are needed for measurable HumanEval+ improvement? Initial estimate: 5K-10K pairs.
+12. **Merge across training regimes:** Can we TIES-merge a code-instruct model with a reasoning-distilled model effectively, given they were trained with different objectives?
+13. **LiveCodeBench contamination window:** LiveCodeBench refreshes continuously. What's the minimum lag between problem publication and safe inclusion in training data?
+14. **WASM sandbox for Python:** Is CPython-in-WASM viable for pass@k evaluation at scale (164-974 problems × N=50 completions × timeout per completion)?
