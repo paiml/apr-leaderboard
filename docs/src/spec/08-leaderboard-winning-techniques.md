@@ -79,16 +79,17 @@ apr eval model.apr --task classify --data humaneval.jsonl \
     --system "You are an expert Python programmer. Think step by step." --json
 ```
 
-**Prompt strategies to implement:**
+**Prompt strategies:**
 
-| Strategy | Description | Expected Impact |
-|----------|-------------|-----------------|
-| `standard` | Raw problem → code | Baseline |
-| `scot` | Problem → structured reasoning → code | +5-14% pass@1 |
-| `few-shot` | N exemplars + problem → code | +3-8% pass@1 |
-| `cgo` | Chain of Grounded Objectives — goal-oriented decomposition | +5-10% pass@1 |
+| Strategy | Flag aliases | Description | Expected Impact |
+|----------|-------------|-------------|-----------------|
+| `standard` | `default` | Raw problem → code | Baseline |
+| `scot` | `structured-cot` | Problem → structured reasoning → code | +5-14% pass@1 |
+| `few-shot` | `fewshot` | N exemplars + problem → code | +3-8% pass@1 |
+| `cgo` | `code-gen-opt` | Chain of Grounded Objectives — goal-oriented decomposition | +5-10% pass@1 |
+| `reflexion` | `reflect` | Generate → test → reflect → regenerate (iterative self-correction) | +3-10% pass@1 |
 
-**Implementation status:** `--system` flag exists. `--prompt-strategy` and `--exemplars` need to be added.
+**Implementation status:** `--prompt-strategy` flag is implemented in `apr-leaderboard eval` with all 5 strategies above. `--n-samples` enables best-of-N selection. The `--exemplars` flag (for few-shot) and `--system` flag (for custom system prompts) are available via the upstream `apr eval` command.
 
 ## 8.4 Speculative Decoding (Inference Speedup)
 
