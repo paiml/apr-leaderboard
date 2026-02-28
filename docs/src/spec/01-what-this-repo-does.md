@@ -1,6 +1,6 @@
-# What This Repo Does
+#  What This Repo Does
 
-## 1. Purpose
+## 1.1 Purpose
 
 **apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without an external CUDA toolkit.
 
@@ -12,7 +12,7 @@ apr import → apr distill → apr finetune → apr merge → apr prune → apr 
 
 Every command above is provided by **aprender** (`apr` CLI). This repo provides the pipeline config, benchmark metadata, result persistence, and the spec that defines the strategy.
 
-## 2. What It Proves
+## 1.2 What It Proves
 
 This repo exists to answer one falsifiable question:
 
@@ -27,7 +27,7 @@ If the answer is yes, it proves:
 
 If the answer is no, it identifies exactly where the sovereign stack falls short (inference parity gap, training convergence, quantization quality loss) via `apr compare-hf`.
 
-## 3. How It Relates to aprender
+## 1.3 How It Relates to aprender
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -71,7 +71,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 | **Correctness** | provable-contracts | Kernel contracts, Kani proofs, falsification tests |
 | **Quality** | pmat comply | Compliance checks, spec scoring, cross-crate consistency |
 
-## 4. Current Implementation Status
+## 1.4 Current Implementation Status
 
 The repo is a **working scaffold** — the pipeline structure is complete, but the backends call placeholder implementations:
 
@@ -86,7 +86,7 @@ The repo is a **working scaffold** — the pipeline structure is complete, but t
 
 **To reach production:** Replace each scaffold with the corresponding `apr` CLI call. The `apr` binary already implements all required operations — this repo needs to shell out to `apr import`, `apr eval`, etc. rather than reimplementing them inline.
 
-## 5. How People Use It
+## 1.5 How People Use It
 
 **For leaderboard competitors:**
 

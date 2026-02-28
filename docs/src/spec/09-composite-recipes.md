@@ -1,6 +1,6 @@
-# Composite Recipes
+#  Composite Recipes
 
-## 0. Step Zero: Establish Baseline (REQUIRED for all recipes)
+## 9.0 Step Zero: Establish Baseline (REQUIRED for all recipes)
 
 Every recipe must begin by establishing the apr-native baseline for the model. This catches inference implementation gaps before optimization work begins.
 
@@ -19,7 +19,7 @@ apr compare-hf baseline-instruct.apr --json > results/parity-baseline.json
 
 **Why this matters:** Qwen2.5-Coder-7B-Instruct scores ~84% pass@1 on HumanEval in the PyTorch/HF stack. If the apr-native baseline is significantly lower, no amount of optimization will close the gap — fix inference fidelity first. All "expected gain" numbers below are relative to the apr-native baseline, not absolute.
 
-## 1. Recipe A: "The Distilled Expert" (Maximum Quality)
+## 9.1 Recipe A: "The Distilled Expert" (Maximum Quality)
 
 **Target:** Highest pass@1 regardless of model size. For 7B submissions.
 
@@ -59,7 +59,7 @@ apr eval distilled-finetuned.apr --task classify --data humaneval.jsonl --json
 
 **Expected:** +5-13% pass@1 over apr-native 7B base baseline. Target: match or exceed the instruct model's HF-reference score once inference parity is established.
 
-## 2. Recipe B: "The Merge Alchemist" (Zero Training Compute)
+## 9.2 Recipe B: "The Merge Alchemist" (Zero Training Compute)
 
 **Target:** Best score achievable with NO GPU training at all. Pure weight manipulation.
 
@@ -94,7 +94,7 @@ apr eval submit-q4k.apr --task classify --data humaneval.jsonl --json
 
 **Expected:** Within 1-3% of the best input specialist's pass@1, potentially exceeding it. Merging is not a guaranteed gain — always eval against the unmerged instruct model as control.
 
-## 3. Recipe C: "The Full Pipeline" (Kitchen Sink)
+## 9.3 Recipe C: "The Full Pipeline" (Kitchen Sink)
 
 **Target:** Absolute maximum. Every technique stacked.
 
@@ -175,7 +175,7 @@ echo "Standalone binary: $(ls -lh apr-coder)"
 
 **Expected:** +8-17% pass@1 over apr-native 7B base baseline. Should match or exceed the instruct model's HF-reference score.
 
-## 4. Recipe D: "Sovereign Binary" (The Differentiator)
+## 9.4 Recipe D: "Sovereign Binary" (The Differentiator)
 
 **Target:** Ship the model AS a Rust binary. No runtime, no Python, no Docker.
 

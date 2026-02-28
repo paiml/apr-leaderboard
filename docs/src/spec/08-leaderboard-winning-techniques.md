@@ -1,8 +1,8 @@
-# Leaderboard-Winning Techniques
+#  Leaderboard-Winning Techniques
 
 The techniques in §7 optimize the *model*. This section covers techniques that optimize *inference-time behavior* — how you extract the best score from a given model. These are the techniques that separate top-10 leaderboard entries from median ones.
 
-## 1. Sampling Strategy Tuning
+## 8.1 Sampling Strategy Tuning
 
 **Why it matters:** The difference between greedy decoding and tuned sampling can be 5-15% pass@1. Most leaderboards evaluate pass@1 with greedy decoding, but the sampling parameters used during generation dramatically affect output quality.
 
@@ -31,7 +31,7 @@ apr eval model.apr --task classify --data humaneval.jsonl \
 | pass@10 | 0.6-0.8 | 0.95 | Diversity yields more distinct solutions |
 | pass@100 | 0.8-1.0 | 0.95 | Maximum diversity |
 
-## 2. N-Sampling with Best-of-N Selection (pass@k Maximization)
+## 8.2 N-Sampling with Best-of-N Selection (pass@k Maximization)
 
 **Why it matters:** Generating N completions and selecting the best one (via self-consistency, test execution, or log-probability scoring) can boost effective pass@1 by 10-30% over single-shot generation. This is the single most impactful inference-time technique [8].
 
@@ -55,7 +55,7 @@ apr eval model.apr --task classify --data humaneval.jsonl \
 
 **Expected gain:** +10-30% effective pass@1 with N=10-50 over single-shot greedy.
 
-## 3. Structured Prompting (System Prompt + Few-Shot + SCoT)
+## 8.3 Structured Prompting (System Prompt + Few-Shot + SCoT)
 
 **Why it matters:** Structured Chain-of-Thought (SCoT) prompting improves HumanEval pass@1 by up to 13.79% over vanilla prompting by asking the model to reason through sequential, branch, and loop structures before generating code [9].
 
@@ -90,7 +90,7 @@ apr eval model.apr --task classify --data humaneval.jsonl \
 
 **Implementation status:** `--system` flag exists. `--prompt-strategy` and `--exemplars` need to be added.
 
-## 4. Speculative Decoding (Inference Speedup)
+## 8.4 Speculative Decoding (Inference Speedup)
 
 **Why it matters:** Speculative decoding yields 2-3x faster inference on code models, which means more attempts within a time budget and faster evaluation iteration. Code is particularly amenable to speculation because syntax is predictable.
 
@@ -112,7 +112,7 @@ apr bench model.apr --speculative --speculation-k 4 --json
 
 **Expected gain:** 2-3x throughput improvement for code generation tasks. No quality change (output distribution is mathematically identical).
 
-## 5. Preference Optimization (DPO/ORPO)
+## 8.5 Preference Optimization (DPO/ORPO)
 
 **Why it matters:** DPO and ORPO align models to prefer correct, well-structured code over plausible but buggy code. ORPO eliminates the need for a reference model, making it simpler than RLHF. Models trained with preference optimization consistently score 3-8% higher on code benchmarks than SFT-only models [10][11].
 
@@ -144,7 +144,7 @@ apr align model.apr \
 
 **Expected gain:** +3-8% pass@1 over SFT-only models.
 
-## 6. Continued Pretraining (Domain Adaptation)
+## 8.6 Continued Pretraining (Domain Adaptation)
 
 **Why it matters:** Continued pretraining on a large code corpus before instruction fine-tuning lets the model absorb domain-specific patterns (API usage, idioms, error handling) that instruction tuning alone can't teach. This is how CodeLlama was built from Llama 2 [12].
 
@@ -173,7 +173,7 @@ apr finetune domain-adapted.apr \
 
 **Key consideration:** Continued pretraining requires significant compute (full model gradients, not just adapter). Budget accordingly.
 
-## 7. Data Decontamination
+## 8.7 Data Decontamination
 
 **Why it matters:** If training data overlaps with benchmark test cases, scores are inflated and meaningless. Leaderboards actively detect and penalize contaminated submissions. Data decontamination is a hard requirement, not optional.
 
@@ -198,7 +198,7 @@ apr validate --data code-instruct.jsonl \
 
 **Falsification gate (AC-016):** Any submission MUST demonstrate <1% n-gram overlap between training data and evaluation benchmarks.
 
-## 8. Test-Time Compute Scaling
+## 8.8 Test-Time Compute Scaling
 
 **Why it matters:** Recent results show that spending more compute at inference time (generating more candidates, longer chain-of-thought, iterative refinement) scales performance more efficiently than model size for code tasks. This is the "scaling at test time" paradigm.
 
@@ -223,7 +223,7 @@ apr eval model.apr --task classify --data failing-problems.jsonl \
 
 **Expected gain:** Diminishing returns, but N=50 with test-based filtering can reach pass@1 equivalent of pass@50, which is typically 15-25% higher than greedy pass@1.
 
-## 9. Technique Stacking: The Winning Formula
+## 8.9 Technique Stacking: The Winning Formula
 
 Leaderboard winners stack techniques multiplicatively. The winning formula, in priority order:
 

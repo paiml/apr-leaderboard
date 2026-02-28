@@ -1,4 +1,4 @@
-# Thesis
+#  Thesis
 
 The Python ML ecosystem requires 200+ dependencies, GPU-locked CUDA toolchains, and multi-GB Docker images to compete on HuggingFace leaderboards. We will demonstrate that a single-binary Rust pipeline — using only `apr` CLI commands — can match or exceed these results with zero Python, zero external CUDA toolkit (trueno generates PTX natively), and 10x smaller deployment artifacts.
 

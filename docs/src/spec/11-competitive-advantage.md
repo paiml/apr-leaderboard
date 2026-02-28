@@ -1,4 +1,4 @@
-# Competitive Advantage: Why `apr` Wins
+#  Competitive Advantage: Why `apr` Wins
 
 | Aspect | Python Ecosystem | `apr` CLI |
 |--------|-----------------|-----------|

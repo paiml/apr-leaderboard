@@ -1,4 +1,4 @@
-# Target Leaderboards & Competitive Thresholds
+#  Target Leaderboards & Competitive Thresholds
 
 | Leaderboard | Primary Metric | Benchmarks | Why |
 |-------------|---------------|------------|-----|
@@ -7,7 +7,7 @@
 | LiveCodeBench | pass@1 | 1,055 fresh competitive problems | Continuously refreshed from LeetCode/CodeForces — contamination-resistant |
 | BigCode Models | pass@1 | HumanEval, MBPP, MultiPL-E | Code generation visibility — our primary use case |
 
-## 1. Competitive Score Thresholds (2025-2026)
+## 3.1 Competitive Score Thresholds (2025-2026)
 
 HumanEval is approaching saturation (SOTA 92.7%). BigCodeBench and LiveCodeBench differentiate more meaningfully.
 
@@ -19,7 +19,7 @@ HumanEval is approaching saturation (SOTA 92.7%). BigCodeBench and LiveCodeBench
 | BigCodeBench-Full (pass@1) | <30% | 30-40% | 40-50% | **50%+** |
 | LiveCodeBench (pass@1) | <20% | 20-40% | 40-60% | **60%+** |
 
-## 2. The Landscape: Who Holds the Crown
+## 3.2 The Landscape: Who Holds the Crown
 
 **32B class — current SOTA:**
 

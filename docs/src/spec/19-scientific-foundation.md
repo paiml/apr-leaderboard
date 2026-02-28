@@ -1,4 +1,4 @@
-# Scientific Foundation
+#  Scientific Foundation
 
 [1] Sun et al., "A Simple and Effective Pruning Approach for Large Language Models" (Wanda), ICLR 2024.
 

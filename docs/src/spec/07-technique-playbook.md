@@ -1,6 +1,6 @@
-# Technique Playbook
+#  Technique Playbook
 
-## 1. Knowledge Distillation
+## 7.1 Knowledge Distillation
 
 **Goal:** Transfer 32B teacher knowledge into a 7B student that scores within 5% of teacher on pass@1.
 
@@ -37,7 +37,7 @@ apr eval distilled-7b.apr --task classify --data humaneval.jsonl --json
 
 **Expected gain:** +3-8% pass@1 over baseline student.
 
-## 2. Model Merging
+## 7.2 Model Merging
 
 **Goal:** Combine fine-tuned variants to get best-of-all-worlds without additional training.
 
@@ -84,7 +84,7 @@ apr merge semifinal.apr base.apr \
 
 **Expected gain:** +2-5% pass@1 over best individual specialist. Free compute — no GPU needed.
 
-## 3. Pruning
+## 7.3 Pruning
 
 **Goal:** Remove 20-50% of weights with <2% quality loss, yielding faster inference for benchmarks.
 
@@ -131,7 +131,7 @@ apr eval pruned-30.apr --dataset wikitext-2 --threshold 22.0
 
 **Expected impact:** Conservative ratio targets <1% pass@1 degradation. Moderate allows 1-3% degradation for meaningful speedup. Aggressive (>30% for small models) risks measurable quality loss — validate with eval before accepting. Smaller models have less redundancy; budget accordingly.
 
-## 4. Fine-tuning (LoRA)
+## 7.4 Fine-tuning (LoRA)
 
 **Goal:** Adapt base model to code-specific instruction-following with minimal compute.
 
@@ -169,7 +169,7 @@ apr finetune qwen-7b.apr \
 
 **Expected gain:** +5-15% pass@1 with curated instruction data.
 
-## 5. Fine-tuning (QLoRA)
+## 7.5 Fine-tuning (QLoRA)
 
 **Goal:** Same as LoRA but on consumer GPUs (8-16GB VRAM).
 
@@ -209,7 +209,7 @@ apr finetune qwen-7b.apr \
 
 **When to use QLoRA:** Always for 32B models. For 7B, use LoRA if you have 32GB+ VRAM. When targeting INT4 deployment, prefer QLoRA — it provides implicit quantization awareness.
 
-## 6. Quantization (Post-Training)
+## 7.6 Quantization (Post-Training)
 
 **Goal:** Reduce model size for faster inference with minimal quality loss.
 
@@ -229,7 +229,7 @@ apr quantize model.apr --batch int8,int4,fp16,q4k
 apr quantize model.apr --scheme int4 --format gguf -o model.gguf
 ```
 
-## 7. Hyperparameter Optimization (HPO)
+## 7.7 Hyperparameter Optimization (HPO)
 
 **Goal:** Find optimal LoRA/QLoRA hyperparameters automatically.
 

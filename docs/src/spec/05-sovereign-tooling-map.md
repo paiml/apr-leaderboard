@@ -1,8 +1,8 @@
-# Sovereign Tooling Map: World-Class or Wire It In
+#  Sovereign Tooling Map: World-Class or Wire It In
 
 Every leaderboard-winning technique maps to a sovereign stack component. When a component doesn't support a technique at world-class level, we don't skip it — we find or build the capability and wire it into `apr` CLI commands.
 
-## 1. Tooling Coverage Matrix
+## 5.1 Tooling Coverage Matrix
 
 | Technique | Required Capability | Sovereign Component | Status | Gap Action |
 |-----------|-------------------|-------------------|--------|------------|
@@ -33,7 +33,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | **Continued pretraining** | Full-weight code corpus training | **entrenar** 0.7 | ⚠️ Partial | Full finetune works; needs large-corpus streaming |
 | **Flash Attention** | Online softmax, tiled attention | **trueno** 0.16 | 🔧 In Progress | Phase 12 planned; tiling infra ready |
 
-## 2. Gap 1: DPO/ORPO Preference Optimization (CRITICAL)
+## 5.2 Gap 1: DPO/ORPO Preference Optimization (CRITICAL)
 
 **Why world-class:** DPO is the single most impactful post-training technique for leaderboards. Merged + DPO models "completely dominate" HF leaderboard rankings. Without DPO, we compete with one hand tied.
 
@@ -76,7 +76,7 @@ Component: Ground truth corpus
 
 **Acceptance criterion:** `apr align --method dpo` produces a model with ≥2% higher HumanEval+ than the input model after 3 epochs.
 
-## 3. Gap 2: Code Execution Sandbox (CRITICAL)
+## 5.3 Gap 2: Code Execution Sandbox (CRITICAL)
 
 **Why world-class:** HumanEval and MBPP require executing generated code against test cases. Without execution, we can't compute pass@k — we can only measure perplexity, which doesn't correlate well with code correctness.
 
@@ -102,7 +102,7 @@ Option B: WASM sandbox (long-term, sovereign)
 
 **Decision:** Option A for v1.0 (get on the leaderboard), Option B as stretch goal. Neither compromises the "zero Python" claim for the model pipeline — eval is a separate concern.
 
-## 4. Gap 3: N-Sampling + Reranking Pipeline
+## 5.4 Gap 3: N-Sampling + Reranking Pipeline
 
 **Why world-class:** Generating N=10-50 completions and selecting the best one boosts effective pass@1 by 10-30%. This is the single most impactful inference-time technique.
 
@@ -124,7 +124,7 @@ Component: alimentar
   Add: Result aggregation and voting logic for N-sample outputs
 ```
 
-## 5. Gap 4: Synthetic Training Data Pipeline
+## 5.5 Gap 4: Synthetic Training Data Pipeline
 
 **Why world-class:** Qwen2.5-Coder, Phi-4, and NVIDIA OCR-Nemotron all credit large-scale synthetic data as core to their success. Without high-quality synthetic training data, fine-tuning is limited to existing datasets.
 
@@ -159,7 +159,7 @@ Component: Ground truth corpora
   → Both feed into fine-tuning data mix
 ```
 
-## 6. Gap 5: Prompt Strategy Engine
+## 5.6 Gap 5: Prompt Strategy Engine
 
 **Why world-class:** SCoT prompting improves HumanEval pass@1 by up to 13.79%. Few-shot exemplars add 3-8%. The prompt template matters as much as the model weights.
 
@@ -189,7 +189,7 @@ Component: realizar
   Need: expose template composition for eval pipeline
 ```
 
-## 7. Sovereign Stack Version Requirements
+## 5.7 Sovereign Stack Version Requirements
 
 All gap closures must use published crates from crates.io. No git dependencies.
 
@@ -202,7 +202,7 @@ All gap closures must use published crates from crates.io. No git dependencies.
 | alimentar | 0.2.6 | Decontamination pipeline, preference pair generation, quality filtering | **0.3** |
 | provable-contracts | 0.1 | DPO kernel contracts | **0.2** |
 
-## 8. The Decision Rule
+## 5.8 The Decision Rule
 
 When we find a gap:
 
@@ -213,11 +213,11 @@ When we find a gap:
 
 **Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
 
-## 9. Parity Check: Ludwig Feature Coverage
+## 5.9 Parity Check: Ludwig Feature Coverage
 
 Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every feature Ludwig ships, the sovereign stack must match or exceed — in pure Rust, with zero Python. This is the parity bar.
 
-### 1. Feature-by-Feature Parity Matrix
+### 5.9.1 Feature-by-Feature Parity Matrix
 
 **Training & Fine-tuning:**
 
@@ -361,7 +361,7 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 | Model diff/forensics | not supported | **aprender** `apr diff`, `apr hex` | ✅ **Unique** |
 | 10-stage integrity check | not supported | **aprender** `apr check` | ✅ **Unique** |
 
-### 2. Summary: Where We Exceed, Where We Must Close Gaps
+### 5.9.2 Summary: Where We Exceed, Where We Must Close Gaps
 
 **We exceed Ludwig in 15+ areas:** speculative decoding, PagedAttention, continuous batching, streaming API, OpenAI-compatible serving, compile-to-binary, multi-format export (ONNX/CoreML/OpenVINO), data quality scoring, drift detection, imbalance detection, Prometheus metrics, TUI monitoring, provable contracts, deterministic builds, format forensics.
 

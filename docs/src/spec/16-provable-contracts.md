@@ -1,8 +1,8 @@
-# Provable Contracts (Design by Contract)
+#  Provable Contracts (Design by Contract)
 
 Every kernel in the pipeline MUST have a provable-contracts YAML contract binding it to its mathematical specification. This ensures the optimization techniques produce correct results, not just plausible ones.
 
-## 1. Contract Coverage Requirements
+## 16.1 Contract Coverage Requirements
 
 The leaderboard pipeline touches these kernel equivalence classes from the provable-contracts registry:
 
@@ -16,7 +16,7 @@ The leaderboard pipeline touches these kernel equivalence classes from the prova
 | **Matmul** | matmul-kernel-v1 | All linear layers |
 | **AdamW** | adamw-kernel-v1 | Training optimizer |
 
-## 2. Contract Verification Gates
+## 16.2 Contract Verification Gates
 
 Each pipeline stage MUST pass its contract obligations before proceeding:
 
@@ -34,7 +34,7 @@ pv audit ../provable-contracts/contracts/model/qwen35-shapes-v1.yaml \
 cargo test --features kani -p aprender -- contract
 ```
 
-## 3. Pipeline-Specific Proof Obligations
+## 16.3 Pipeline-Specific Proof Obligations
 
 | Obligation | Property | Verification Level | Gate |
 |---|---|---|---|
@@ -47,7 +47,7 @@ cargo test --features kani -p aprender -- contract
 | PO-LB-007 | Softmax normalization: sum(output) ≈ 1.0 | L4 (Kani, bound=16) | CI |
 | PO-LB-008 | SLERP interpolation preserves weight norms | L3 (proptest) | Before `apr merge --strategy slerp` |
 
-## 4. `#[contract]` Annotations
+## 16.4 `#[contract]` Annotations
 
 Every function in the apr-leaderboard pipeline that performs a mathematical operation MUST carry a `#[contract]` annotation linking it to its provable-contracts YAML:
 

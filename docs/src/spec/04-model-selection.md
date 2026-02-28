@@ -1,6 +1,6 @@
-# Model Selection & Improvement Strategy
+#  Model Selection & Improvement Strategy
 
-## 1. WHAT Models We Will Improve
+## 4.1 WHAT Models We Will Improve
 
 We select models based on three criteria: (1) competitive baseline scores, (2) permissive licensing (Apache-2.0 or MIT), (3) architecture support in aprender.
 
@@ -26,7 +26,7 @@ We select models based on three criteria: (1) competitive baseline scores, (2) p
 |-------|------|----------------|----------|
 | Qwen2.5-Coder-1.5B | 1.5B | Smallest competitive code model. `apr compile` → single binary demo. | LoRA + quantize + compile |
 
-## 2. WHY We Will Improve Them
+## 4.2 WHY We Will Improve Them
 
 **The falsifiable claim:** A single Rust binary can produce models that score in the "Strong" tier or above on every target benchmark.
 
@@ -52,9 +52,9 @@ Five specific improvement hypotheses, each falsifiable:
 - Each technique contributes independently. Stacked in the golden ordering (§10), they should compound.
 - *Falsified if:* Full pipeline scores lower than the best single-technique result.
 
-## 3. HOW We Will Improve Each Model
+## 4.3 HOW We Will Improve Each Model
 
-### 1. Qwen2.5-Coder-7B: "The Complete Proof" (Primary Target)
+### 4.3.1 Qwen2.5-Coder-7B: "The Complete Proof" (Primary Target)
 
 This is the model that proves the thesis. Every technique applied, every claim validated.
 
@@ -93,7 +93,7 @@ Phase 7: Compile & Ship
 
 **Success gate:** Final model achieves ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP, all via `apr` commands only.
 
-### 2. Qwen2.5-Coder-32B: "The Crown" (Maximum Score)
+### 4.3.2 Qwen2.5-Coder-32B: "The Crown" (Maximum Score)
 
 The 32B model is already at 92.7% HumanEval. The goal is to push past the ceiling using techniques that benefit from the model's existing strength.
 
@@ -107,7 +107,7 @@ Phase 5: N-sampling (N=50) + reranking for maximum pass@1
 
 **Success gate:** ≥94% HumanEval, ≥88% HumanEval+, ≥45% BigCodeBench.
 
-### 3. Qwen2.5-Coder-1.5B: "The Sovereign Binary" (Marketing Win)
+### 4.3.3 Qwen2.5-Coder-1.5B: "The Sovereign Binary" (Marketing Win)
 
 ```
 Phase 1: Import + baseline
@@ -119,7 +119,7 @@ Phase 5: Ship as downloadable executable
 
 **Success gate:** ≥60% HumanEval in a standalone binary with zero dependencies. The demo: `./qwen-coder "def fibonacci(n):"` just works.
 
-## 4. What Happens When Improvement Fails
+## 4.4 What Happens When Improvement Fails
 
 Each hypothesis above has a falsification criterion. When falsified:
 

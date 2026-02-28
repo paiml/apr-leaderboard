@@ -1,4 +1,4 @@
-# Open Questions
+#  Open Questions
 
 1. **Calibration data quality:** How much does Wanda calibration data selection affect code model pruning? Need ablation study.
 2. **Merge tournament depth:** Is 2-round merging sufficient or do 3+ rounds compound gains?

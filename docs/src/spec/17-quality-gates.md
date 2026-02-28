@@ -1,8 +1,8 @@
-# Quality Gates (pmat comply)
+#  Quality Gates (pmat comply)
 
 Every pipeline step and every commit MUST pass the `pmat comply` quality gates. This is the enforcement mechanism for the claims in this spec.
 
-## 1. Specification Compliance
+## 17.1 Specification Compliance
 
 This spec itself is validated by `pmat comply`:
 
@@ -17,7 +17,7 @@ pmat comply review docs/specifications/leaderboard-spec.md --format markdown
 pmat comply audit -o audit.json
 ```
 
-## 2. Mandatory Pre-Commit Checks
+## 17.2 Mandatory Pre-Commit Checks
 
 ```bash
 # Full compliance check (blocks commit on failure)
@@ -31,7 +31,7 @@ pmat comply check --strict --format json
 #   CB-120  OIP Tarantula — no NaN, no unwrap in production paths
 ```
 
-## 3. Pipeline Quality Gates
+## 17.3 Pipeline Quality Gates
 
 Each recipe step has a `pmat comply` gate:
 
@@ -46,7 +46,7 @@ Each recipe step has a `pmat comply` gate:
 | Eval | `pmat comply review` extracts claims → validates | Untested falsifiable claims |
 | Submit | `pmat comply audit` signed evidence | Incomplete audit trail |
 
-## 4. Cross-Crate Consistency
+## 17.4 Cross-Crate Consistency
 
 The sovereign stack (aprender, entrenar, trueno) MUST maintain cross-crate consistency:
 
@@ -61,7 +61,7 @@ pmat comply cross-crate \
 pv diff ../provable-contracts/contracts/old/ ../provable-contracts/contracts/
 ```
 
-## 5. Documentation Publishing
+## 17.5 Documentation Publishing
 
 This specification is published as an [mdBook](https://rust-lang.github.io/mdBook/) via GitHub Actions. On every push to `main` that modifies `docs/` or `book.toml`, the workflow builds and deploys to GitHub Pages at:
 
