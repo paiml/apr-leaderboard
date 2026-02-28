@@ -360,7 +360,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ❌ **Missing** | **Must build** (see §5.2) |
 | **Execution sandbox** | Run generated code safely | — | ❌ **Missing** | **External harness** (see §5.3) |
 | **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ⚠️ Partial | Generation works; reranking logic needed |
-| **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ⚠️ Partial | `--system` exists; `--prompt-strategy` needed |
+| **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ✅ **Ready** | `--prompt-strategy` implemented in apr-leaderboard (5 strategies); upstream `--system` available |
 | **Synthetic data gen** | Teacher → training corpus | **alimentar** 0.2 + **aprender** | ⚠️ Partial | Generation via `apr chat --batch`; curation pipeline needed |
 | **Continued pretraining** | Full-weight code corpus training | **entrenar** 0.7 | ⚠️ Partial | Full finetune works; needs large-corpus streaming |
 | **Flash Attention** | Online softmax, tiled attention | **trueno** 0.16 | 🔧 In Progress | Phase 12 planned; tiling infra ready |
@@ -495,27 +495,32 @@ Component: Ground truth corpora
 
 **Why world-class:** SCoT prompting improves HumanEval pass@1 by up to 13.79%. Few-shot exemplars add 3-8%. The prompt template matters as much as the model weights.
 
-**Current state:** `apr chat --system` and `apr run --chat` exist. Missing: `--prompt-strategy` flag with built-in templates.
+**Current state:** `--prompt-strategy` is implemented in `apr-leaderboard eval` with 5 built-in strategies. The upstream `apr chat --system` and `apr run --chat` provide raw system prompt support.
 
-**Wire-in plan:**
+**Implemented in apr-leaderboard:**
+
+```bash
+# All 5 strategies work via apr-leaderboard eval:
+apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy standard
+apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy scot
+apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy few-shot
+apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy cgo
+apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy reflexion
+```
+
+**Built-in strategies (with aliases):**
+
+| Strategy | Aliases | Description |
+|---|---|---|
+| `standard` | `default` | Raw problem → code (baseline) |
+| `scot` | `structured-cot` | Structured chain-of-thought → code (+5-14%) |
+| `few-shot` | `fewshot` | N exemplars + problem → code (+3-8%) |
+| `cgo` | `code-gen-opt` | Chain of grounded objectives → code (+5-10%) |
+| `reflexion` | `reflect` | Generate → test → reflect → regenerate (multi-turn) |
+
+**Remaining wire-in for upstream apr:**
 
 ```
-Component: aprender (apr-cli)
-  Add: Prompt strategy registry
-    apr eval model.apr --data humaneval.jsonl \
-      --prompt-strategy scot --json
-
-    apr eval model.apr --data humaneval.jsonl \
-      --prompt-strategy few-shot \
-      --exemplars exemplars.jsonl --json
-
-  Built-in strategies:
-    standard  — raw problem → code (baseline)
-    scot      — structured chain-of-thought → code (+5-14%)
-    few-shot  — N exemplars + problem → code (+3-8%)
-    cgo       — chain of grounded objectives → code (+5-10%)
-    reflexion — generate → test → reflect → regenerate (multi-turn)
-
 Component: realizar
   Already supports: chat templates (ChatML, LLaMA2, Mistral, Phi, Alpaca)
   Need: expose template composition for eval pipeline
@@ -527,7 +532,7 @@ All gap closures must use published crates from crates.io. No git dependencies.
 
 | Crate | Current | Required For Gaps | Minimum Version |
 |-------|---------|-------------------|-----------------|
-| aprender | 0.27.2 | `apr align`, `--prompt-strategy`, `--n-samples --rerank` | **0.28** |
+| aprender | 0.27.2 | `apr align`, `--n-samples --rerank` | **0.28** |
 | entrenar | 0.7.5 | DPO loss, preference pair loader, ORPO | **0.8** |
 | trueno | 0.16.1 | Flash attention (Phase 12) | **0.17** |
 | realizar | 0.8.0 | Batch N-sampling, prompt template composition | **0.9** |
@@ -1282,16 +1287,17 @@ apr eval model.apr --task classify --data humaneval.jsonl \
     --system "You are an expert Python programmer. Think step by step." --json
 ```
 
-**Prompt strategies to implement:**
+**Prompt strategies:**
 
-| Strategy | Description | Expected Impact |
-|----------|-------------|-----------------|
-| `standard` | Raw problem → code | Baseline |
-| `scot` | Problem → structured reasoning → code | +5-14% pass@1 |
-| `few-shot` | N exemplars + problem → code | +3-8% pass@1 |
-| `cgo` | Chain of Grounded Objectives — goal-oriented decomposition | +5-10% pass@1 |
+| Strategy | Flag aliases | Description | Expected Impact |
+|----------|-------------|-------------|-----------------|
+| `standard` | `default` | Raw problem → code | Baseline |
+| `scot` | `structured-cot` | Problem → structured reasoning → code | +5-14% pass@1 |
+| `few-shot` | `fewshot` | N exemplars + problem → code | +3-8% pass@1 |
+| `cgo` | `code-gen-opt` | Chain of Grounded Objectives — goal-oriented decomposition | +5-10% pass@1 |
+| `reflexion` | `reflect` | Generate → test → reflect → regenerate (iterative self-correction) | +3-10% pass@1 |
 
-**Implementation status:** `--system` flag exists. `--prompt-strategy` and `--exemplars` need to be added.
+**Implementation status:** `--prompt-strategy` flag is implemented in `apr-leaderboard eval` with all 5 strategies above. `--n-samples` enables best-of-N selection. The `--exemplars` flag (for few-shot) and `--system` flag (for custom system prompts) are available via the upstream `apr eval` command.
 
 ### 8.4 Speculative Decoding (Inference Speedup)
 
