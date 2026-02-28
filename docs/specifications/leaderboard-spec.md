@@ -721,7 +721,7 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 
 Every technique maps to a single shell command. This is the differentiator — our competitors use 500-line Python scripts; we use one-liners.
 
-### 4.1 Import (HF → APR)
+### 6.1 Import (HF → APR)
 
 ```bash
 # Import from HuggingFace Hub — auto-detects architecture
@@ -734,7 +734,7 @@ apr import hf://Qwen/Qwen2.5-Coder-32B -o qwen-32b-q8.apr --quantize int8
 apr import qwen-7b.gguf -o qwen-7b.apr --enforce-provenance
 ```
 
-### 4.2 Evaluate (Baseline)
+### 6.2 Evaluate (Baseline)
 
 ```bash
 # Perplexity baseline
@@ -744,7 +744,7 @@ apr eval qwen-7b.apr --dataset wikitext-2 --threshold 20.0
 apr eval qwen-7b.apr --task classify --data humaneval.jsonl --json
 ```
 
-### 4.3 Full Optimization Pipeline (preview)
+### 6.3 Full Optimization Pipeline (preview)
 
 ```bash
 # The complete leaderboard recipe in 6 commands (follows golden ordering §10):
