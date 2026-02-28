@@ -25,6 +25,13 @@ pub(crate) fn distill(opts: &DistillOpts<'_>) -> Result<()> {
     validate_model_path(opts.student)?;
     let strategy = DistillStrategy::from_str(opts.strategy)?;
 
+    if opts.temperature <= 0.0 {
+        bail!("temperature must be > 0.0, got {}", opts.temperature);
+    }
+    if !(0.0..=1.0).contains(&opts.alpha) {
+        bail!("alpha must be between 0.0 and 1.0, got {}", opts.alpha);
+    }
+
     println!("Distilling knowledge:");
     println!("  Teacher: {}", opts.teacher);
     println!("  Student: {}", opts.student);
@@ -65,6 +72,36 @@ pub(crate) fn merge(opts: &MergeOpts<'_>) -> Result<()> {
         validate_model_path(m)?;
     }
     let strategy = MergeStrategy::from_str(opts.strategy)?;
+
+    // TIES and DARE require a base model
+    if matches!(strategy, MergeStrategy::Ties | MergeStrategy::Dare) && opts.base_model.is_none() {
+        bail!("{strategy} merge requires --base-model");
+    }
+
+    // Validate weights parse as floats and sum to ~1.0
+    if let Some(w) = opts.weights {
+        let weights: Result<Vec<f64>, _> = w.split(',').map(|s| s.trim().parse::<f64>()).collect();
+        let weights = weights.map_err(|e| anyhow::anyhow!("invalid weights: {e}"))?;
+        if weights.len() != opts.models.len() {
+            bail!("weights count ({}) must match model count ({})", weights.len(), opts.models.len());
+        }
+        let sum: f64 = weights.iter().sum();
+        if (sum - 1.0).abs() > 0.01 {
+            bail!("weights must sum to 1.0, got {sum:.3}");
+        }
+    }
+
+    if let Some(d) = opts.density {
+        if !(0.0..=1.0).contains(&d) {
+            bail!("density must be between 0.0 and 1.0, got {d}");
+        }
+    }
+
+    if let Some(dr) = opts.drop_rate {
+        if !(0.0..=1.0).contains(&dr) {
+            bail!("drop-rate must be between 0.0 and 1.0, got {dr}");
+        }
+    }
 
     println!("Merging {} models:", opts.models.len());
     for m in opts.models {

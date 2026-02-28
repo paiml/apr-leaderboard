@@ -315,6 +315,54 @@ fn test_show_history_with_results() {
 }
 
 #[test]
+fn test_validate_config_negative_temperature() {
+    let config = EvalConfig {
+        temperature: -1.0,
+        ..EvalConfig::default()
+    };
+    assert!(validate_config(&config).is_err());
+}
+
+#[test]
+fn test_validate_config_zero_temperature() {
+    let config = EvalConfig {
+        temperature: 0.0,
+        ..EvalConfig::default()
+    };
+    assert!(validate_config(&config).is_ok());
+}
+
+#[test]
+fn test_validate_config_top_p_out_of_range() {
+    let config = EvalConfig {
+        top_p: 1.5,
+        ..EvalConfig::default()
+    };
+    assert!(validate_config(&config).is_err());
+
+    let config = EvalConfig {
+        top_p: -0.1,
+        ..EvalConfig::default()
+    };
+    assert!(validate_config(&config).is_err());
+}
+
+#[test]
+fn test_validate_config_top_p_boundary() {
+    let config = EvalConfig {
+        top_p: 0.0,
+        ..EvalConfig::default()
+    };
+    assert!(validate_config(&config).is_ok());
+
+    let config = EvalConfig {
+        top_p: 1.0,
+        ..EvalConfig::default()
+    };
+    assert!(validate_config(&config).is_ok());
+}
+
+#[test]
 fn test_category_score_serialization() {
     let cs = CategoryScore {
         category: "math".into(),

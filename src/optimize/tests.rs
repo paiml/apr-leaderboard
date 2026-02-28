@@ -137,6 +137,33 @@ fn test_distill_all_strategies() {
 }
 
 #[test]
+fn test_distill_invalid_temperature() {
+    let mut opts = distill_opts("t.apr", "s.apr", "standard");
+    opts.temperature = 0.0;
+    assert!(distill(&opts).is_err());
+    opts.temperature = -1.0;
+    assert!(distill(&opts).is_err());
+}
+
+#[test]
+fn test_distill_invalid_alpha() {
+    let mut opts = distill_opts("t.apr", "s.apr", "standard");
+    opts.alpha = -0.1;
+    assert!(distill(&opts).is_err());
+    opts.alpha = 1.1;
+    assert!(distill(&opts).is_err());
+}
+
+#[test]
+fn test_distill_alpha_boundary() {
+    let mut opts = distill_opts("t.apr", "s.apr", "standard");
+    opts.alpha = 0.0;
+    assert!(distill(&opts).is_ok());
+    opts.alpha = 1.0;
+    assert!(distill(&opts).is_ok());
+}
+
+#[test]
 fn test_distill_with_data() {
     let mut opts = distill_opts("t.apr", "s.apr", "progressive");
     opts.epochs = 10;
@@ -170,14 +197,22 @@ fn test_merge_empty_model_path() {
 #[test]
 fn test_merge_three_models() {
     let models = vec!["a.apr".into(), "b.apr".into(), "c.apr".into()];
-    assert!(merge(&merge_opts(&models, "ties")).is_ok());
+    let mut opts = merge_opts(&models, "ties");
+    opts.base_model = Some("base.apr");
+    assert!(merge(&opts).is_ok());
 }
 
 #[test]
 fn test_merge_all_strategies() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    for s in &["slerp", "ties", "dare", "linear"] {
+    for s in &["slerp", "linear"] {
         assert!(merge(&merge_opts(&models, s)).is_ok(), "Failed for {s}");
+    }
+    // TIES and DARE require base_model
+    for s in &["ties", "dare"] {
+        let mut opts = merge_opts(&models, s);
+        opts.base_model = Some("base.apr");
+        assert!(merge(&opts).is_ok(), "Failed for {s}");
     }
 }
 
@@ -205,6 +240,71 @@ fn test_merge_dare_with_drop_rate() {
     opts.base_model = Some("base.apr");
     opts.drop_rate = Some(0.3);
     assert!(merge(&opts).is_ok());
+}
+
+#[test]
+fn test_merge_ties_requires_base_model() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let result = merge(&merge_opts(&models, "ties"));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("base-model"));
+}
+
+#[test]
+fn test_merge_dare_requires_base_model() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let result = merge(&merge_opts(&models, "dare"));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_merge_weights_must_sum_to_one() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let mut opts = merge_opts(&models, "slerp");
+    opts.weights = Some("0.5,0.3");
+    assert!(merge(&opts).is_err());
+}
+
+#[test]
+fn test_merge_weights_valid() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let mut opts = merge_opts(&models, "slerp");
+    opts.weights = Some("0.6,0.4");
+    assert!(merge(&opts).is_ok());
+}
+
+#[test]
+fn test_merge_weights_count_mismatch() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let mut opts = merge_opts(&models, "slerp");
+    opts.weights = Some("0.3,0.3,0.4");
+    assert!(merge(&opts).is_err());
+}
+
+#[test]
+fn test_merge_weights_invalid_parse() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let mut opts = merge_opts(&models, "slerp");
+    opts.weights = Some("abc,def");
+    assert!(merge(&opts).is_err());
+}
+
+#[test]
+fn test_merge_density_out_of_range() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let mut opts = merge_opts(&models, "slerp");
+    opts.density = Some(1.5);
+    assert!(merge(&opts).is_err());
+    opts.density = Some(-0.1);
+    assert!(merge(&opts).is_err());
+}
+
+#[test]
+fn test_merge_drop_rate_out_of_range() {
+    let models = vec!["a.apr".into(), "b.apr".into()];
+    let mut opts = merge_opts(&models, "slerp");
+    opts.drop_rate = Some(1.1);
+    assert!(merge(&opts).is_err());
 }
 
 // --- prune ---

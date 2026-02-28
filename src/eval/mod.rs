@@ -145,6 +145,7 @@ pub(crate) fn run_with_config(
     output_dir: &str,
     config: &EvalConfig,
 ) -> Result<()> {
+    validate_config(config)?;
     let spec = harness::get_benchmark(benchmark)?;
 
     println!("Evaluating: {model_path}");
@@ -269,6 +270,16 @@ fn print_summary(result: &EvalResult) {
     ]);
 
     println!("\n{table}");
+}
+
+fn validate_config(config: &EvalConfig) -> Result<()> {
+    if config.temperature < 0.0 {
+        bail!("temperature must be >= 0.0, got {}", config.temperature);
+    }
+    if !(0.0..=1.0).contains(&config.top_p) {
+        bail!("top_p must be between 0.0 and 1.0, got {}", config.top_p);
+    }
+    Ok(())
 }
 
 /// Show evaluation history.
