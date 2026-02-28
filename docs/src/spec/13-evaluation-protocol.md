@@ -27,7 +27,7 @@ Where `n` = total completions generated, `c` = number that pass all tests, `k` =
 aprender does not include a code execution sandbox. Generated completions must be evaluated externally via one of:
 
 1. **EvalPlus harness** (recommended): Docker-based sandbox that runs Python completions against augmented test suites (80x more tests than vanilla HumanEval)
-2. **Custom WASM sandbox**: CPython compiled to WASM for isolated execution (see Open Question §20.14)
+2. **Custom WASM sandbox**: CPython compiled to WASM for isolated execution (see Open Question §21.14)
 3. **Direct Docker**: `docker run --network=none --memory=512m --timeout=10s python:3.11 -c "$CODE"`
 
 ## 13.3 Evaluation Steps

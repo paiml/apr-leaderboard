@@ -214,7 +214,7 @@ When we find a gap:
 1. **Can an existing sovereign crate do it?** → Wire it in via `apr` CLI. No new crates.
 2. **Does a sovereign crate need a new module?** → Add it to that crate, publish to crates.io, bump apr-leaderboard's dependency.
 3. **Is it fundamentally outside the stack's scope?** → Use an external tool (e.g., EvalPlus for code execution) and document the boundary explicitly.
-4. **Is it a research problem with no clear solution?** → Add to §20 Open Questions. Don't block the pipeline.
+4. **Is it a research problem with no clear solution?** → Add to §21 Open Questions. Don't block the pipeline.
 
 **Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
 

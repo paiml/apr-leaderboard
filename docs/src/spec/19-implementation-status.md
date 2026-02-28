@@ -17,7 +17,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 12 | HF leaderboard submission |
 | `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 20+ | 10 benchmark definitions |
 | `history` | `src/eval/mod.rs` | ✅ Complete | 3 | Result history viewer |
-| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 10 | Config-driven TOML pipeline |
+| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 16 | Config-driven TOML pipeline (all 8 stages) |
 
 ## 19.2 Prompt Strategies (§8.3)
 
@@ -42,11 +42,12 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 131 | — | `cargo test` |
+| Test count | 138 | — | `cargo test` |
 | Line coverage | 96.5% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
 | Max file size | 491 lines | < 500 | `wc -l src/**/*.rs` |
 | pmat pre-commit | ✅ Pass | ✅ Pass | git hook |
+| Pipeline configs | 4 | — | `configs/*.toml` |
 
 ## 19.5 What "Scaffolded" Means
 
