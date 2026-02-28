@@ -69,7 +69,7 @@ fn all_benchmarks() -> Vec<BenchmarkSpec> {
         BenchmarkSpec {
             name: "livecodebench".into(),
             description: "LiveCodeBench - contamination-free coding from competitions".into(),
-            total_problems: 500,
+            total_problems: 1055,
             primary_metric: "pass@1".into(),
             compute_pass_at_10: false,
             languages: vec!["python".into()],
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn test_livecodebench_spec() {
         let spec = get_benchmark("livecodebench").unwrap();
-        assert_eq!(spec.total_problems, 500);
+        assert_eq!(spec.total_problems, 1055);
         assert!(!spec.compute_pass_at_10);
     }
 
