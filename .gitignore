@@ -6,3 +6,4 @@ results/*.json
 .pmat/
 .pmat-work/
 .pmat-metrics/
+docs/book/
