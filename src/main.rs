@@ -140,7 +140,7 @@ enum Commands {
         /// Path to the .apr model
         #[arg(long)]
         model: String,
-        /// Pruning method (wanda, magnitude, sparsegpt)
+        /// Pruning method (wanda, magnitude, sparsegpt, structured, depth, width)
         #[arg(long, default_value = "wanda")]
         method: String,
         /// Target sparsity ratio (0.0 to 1.0)

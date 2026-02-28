@@ -37,6 +37,12 @@ fn test_merge_strategy_parsing() {
 }
 
 #[test]
+fn test_merge_strategy_average_alias() {
+    assert!(matches!(MergeStrategy::from_str("average").unwrap(), MergeStrategy::LinearAvg));
+    assert!(matches!(MergeStrategy::from_str("avg").unwrap(), MergeStrategy::LinearAvg));
+}
+
+#[test]
 fn test_merge_strategy_display() {
     assert_eq!(MergeStrategy::Slerp.to_string(), "slerp");
     assert_eq!(MergeStrategy::Ties.to_string(), "ties");
@@ -58,6 +64,9 @@ fn test_prune_method_parsing() {
     assert!(matches!(PruneMethod::from_str("wanda").unwrap(), PruneMethod::Wanda));
     assert!(matches!(PruneMethod::from_str("magnitude").unwrap(), PruneMethod::Magnitude));
     assert!(matches!(PruneMethod::from_str("sparsegpt").unwrap(), PruneMethod::SparseGpt));
+    assert!(matches!(PruneMethod::from_str("structured").unwrap(), PruneMethod::Structured));
+    assert!(matches!(PruneMethod::from_str("depth").unwrap(), PruneMethod::Depth));
+    assert!(matches!(PruneMethod::from_str("width").unwrap(), PruneMethod::Width));
     assert!(PruneMethod::from_str("invalid").is_err());
 }
 
@@ -66,11 +75,14 @@ fn test_prune_method_display() {
     assert_eq!(PruneMethod::Wanda.to_string(), "wanda");
     assert_eq!(PruneMethod::Magnitude.to_string(), "magnitude");
     assert_eq!(PruneMethod::SparseGpt.to_string(), "sparsegpt");
+    assert_eq!(PruneMethod::Structured.to_string(), "structured");
+    assert_eq!(PruneMethod::Depth.to_string(), "depth");
+    assert_eq!(PruneMethod::Width.to_string(), "width");
 }
 
 #[test]
 fn test_prune_method_roundtrip() {
-    for s in &["wanda", "magnitude", "sparsegpt"] {
+    for s in &["wanda", "magnitude", "sparsegpt", "structured", "depth", "width"] {
         let parsed = PruneMethod::from_str(s).unwrap();
         assert_eq!(parsed.to_string(), *s);
     }
@@ -330,7 +342,7 @@ fn test_prune_empty_model() {
 
 #[test]
 fn test_prune_all_methods() {
-    for m in &["wanda", "magnitude", "sparsegpt"] {
+    for m in &["wanda", "magnitude", "sparsegpt", "structured", "depth", "width"] {
         assert!(prune("m.apr", m, 0.2, None, "o.apr").is_ok(), "Failed for {m}");
     }
 }

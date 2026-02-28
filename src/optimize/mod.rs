@@ -262,7 +262,7 @@ impl MergeStrategy {
             "slerp" => Ok(Self::Slerp),
             "ties" | "ties-merging" => Ok(Self::Ties),
             "dare" | "dare-ties" => Ok(Self::Dare),
-            "linear" | "avg" | "linear-avg" => Ok(Self::LinearAvg),
+            "linear" | "avg" | "linear-avg" | "average" => Ok(Self::LinearAvg),
             _ => bail!("Unknown merge strategy: {s}. Use slerp, ties, dare, or linear"),
         }
     }
@@ -273,6 +273,9 @@ enum PruneMethod {
     Wanda,
     Magnitude,
     SparseGpt,
+    Structured,
+    Depth,
+    Width,
 }
 
 impl std::fmt::Display for PruneMethod {
@@ -281,6 +284,9 @@ impl std::fmt::Display for PruneMethod {
             Self::Wanda => write!(f, "wanda"),
             Self::Magnitude => write!(f, "magnitude"),
             Self::SparseGpt => write!(f, "sparsegpt"),
+            Self::Structured => write!(f, "structured"),
+            Self::Depth => write!(f, "depth"),
+            Self::Width => write!(f, "width"),
         }
     }
 }
@@ -291,7 +297,10 @@ impl PruneMethod {
             "wanda" => Ok(Self::Wanda),
             "magnitude" | "mag" => Ok(Self::Magnitude),
             "sparsegpt" | "sparse-gpt" => Ok(Self::SparseGpt),
-            _ => bail!("Unknown prune method: {s}. Use wanda, magnitude, or sparsegpt"),
+            "structured" => Ok(Self::Structured),
+            "depth" => Ok(Self::Depth),
+            "width" => Ok(Self::Width),
+            _ => bail!("Unknown prune method: {s}. Use wanda, magnitude, sparsegpt, structured, depth, or width"),
         }
     }
 }
