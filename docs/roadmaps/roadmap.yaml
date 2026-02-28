@@ -1,0 +1,382 @@
+roadmap_version: '1.0'
+github_enabled: true
+github_repo: paiml/apr-leaderboard
+roadmap:
+- id: PMAT-001
+  github_issue: null
+  item_type: task
+  title: Implement DPO/ORPO preference optimization in entrenar
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-02-28T18:40:37Z
+  updated: 2026-02-28T18:40:37Z
+  spec: null
+  acceptance_criteria:
+  - '§5.2 — Add DPO loss function, preference pair data loader, and ORPO variant to entrenar. Wire into apr-cli as ''apr align --method dpo/orpo''. Entrenar has autograd+AdamW+LoRA infra; needs src/dpo/mod.rs (β-scaled log-ratio loss), src/dpo/data.rs (chosen/rejected loader), src/dpo/orpo.rs (odds-ratio penalty, no reference model). AC-020: apr align --method dpo reduces loss on preference pairs over 3 epochs. Target: entrenar 0.8.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - gap
+  - entrenar
+  - training
+  - dpo
+  notes: null
+- id: PMAT-002
+  github_issue: null
+  item_type: task
+  title: Build code execution sandbox for pass@k evaluation
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-02-28T18:40:42Z
+  updated: 2026-02-28T18:40:42Z
+  spec: null
+  acceptance_criteria:
+  - '§5.3 — HumanEval/MBPP require executing generated code against test cases. v1: external EvalPlus harness (apr eval --output-completions → evalplus.evaluate). Stretch: WASM sandbox via wasmtime (apr eval --sandbox wasm --timeout 10s). Without this, we can only measure perplexity, not pass@k. Decision: Option A (external) for v1.0, Option B (WASM) as stretch.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - gap
+  - eval
+  - sandbox
+  notes: null
+- id: PMAT-003
+  github_issue: null
+  item_type: task
+  title: Implement N-sampling and reranking pipeline
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:40:46Z
+  updated: 2026-02-28T18:40:46Z
+  spec: null
+  acceptance_criteria:
+  - '§5.4 — Add apr eval --n-samples N --rerank strategy. Generates N completions per problem and selects best via logprob/majority/execution reranking. Realizar already supports batched generation and concurrent requests; need to expose batch generation for N completions per prompt and add reranking logic. Expected gain: +10-30% effective pass@1. AC-017: apr eval --n-samples 20 generates 20 distinct completions.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - gap
+  - aprender
+  - inference
+  - eval
+  notes: null
+- id: PMAT-004
+  github_issue: null
+  item_type: task
+  title: Build synthetic training data pipeline
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:40:54Z
+  updated: 2026-02-28T18:40:54Z
+  spec: null
+  acceptance_criteria:
+  - '§5.5 — End-to-end pipeline: (1) apr chat teacher.apr --batch → raw synthetic, (2) alimentar quality --min-score 80 → filtered, (3) alimentar drift --reference humaneval.jsonl --overlap-threshold 0.01 → decontaminated, (4) alimentar convert → parquet. Source corpora: hf-ground-truth-corpus, algorithm-competition-corpus. AC-025: alimentar quality scores all training data ≥80/100. Target: alimentar 0.3.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - gap
+  - alimentar
+  - data
+  - synthetic
+  notes: null
+- id: PMAT-005
+  github_issue: null
+  item_type: task
+  title: Implement prompt strategy engine (SCoT, few-shot, CGO)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:40:58Z
+  updated: 2026-02-28T18:40:58Z
+  spec: null
+  acceptance_criteria:
+  - '§5.6 — Add apr eval --prompt-strategy flag with built-in strategies: standard (baseline), scot (+5-14% pass@1), few-shot (+3-8%), cgo (+5-10%), reflexion (multi-turn). Also --exemplars flag for few-shot. Realizar already supports chat templates (ChatML, LLaMA2, Mistral); need template composition for eval. AC-019: apr eval --prompt-strategy scot produces structured reasoning before code output. Target: aprender 0.28.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - gap
+  - aprender
+  - prompting
+  - eval
+  notes: null
+- id: PMAT-006
+  github_issue: null
+  item_type: task
+  title: Establish Qwen2.5-Coder-7B apr-native baseline
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-02-28T18:41:03Z
+  updated: 2026-02-28T18:41:03Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.1 Phase 1 + §9.0 Step Zero — Import Qwen2.5-Coder-7B-Instruct via apr import, run apr eval for HumanEval/MBPP perplexity, run apr compare-hf for parity gap measurement. Gate: if apr baseline is >5% below HF reference, investigate inference bugs before any optimization. AC-021: imported model achieves ≥85% HumanEval pass@1 (apr-native baseline ≥ HF reference - 5%). This gates ALL subsequent work.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen
+  - baseline
+  - eval
+  notes: null
+- id: PMAT-007
+  github_issue: null
+  item_type: task
+  title: 'Qwen2.5-Coder-7B: reasoning distillation from 32B teacher'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:41:11Z
+  updated: 2026-02-28T18:41:11Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.1 Phase 2 — Hypothesis H1: reasoning distillation closes the LiveCodeBench gap. Import Qwen2.5-Coder-32B-Instruct as teacher, run apr distill --strategy progressive --temperature 3.0 --alpha 0.7 --epochs 5. Expected: +5-13% HumanEval, +15-30% LiveCodeBench. Falsified if LiveCodeBench stays below 30% after distillation. Blocked by PMAT-006 (baseline must exist first).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen
+  - distillation
+  - h1
+  notes: null
+- id: PMAT-008
+  github_issue: null
+  item_type: task
+  title: 'Qwen2.5-Coder-7B: LoRA/QLoRA fine-tuning on curated code data'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:41:16Z
+  updated: 2026-02-28T18:41:16Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.1 Phase 3 — Fine-tune distilled model with apr finetune --method qlora --rank 32 --data code-instruct.jsonl. Requires curated instruction data (PMAT-004). Expected: +3-5% from domain-specific tuning. AC-004/AC-005: training completes with decreasing loss, QLoRA uses <50% VRAM vs LoRA. HPO scout via apr tune --budget 20 --strategy tpe.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen
+  - finetune
+  - lora
+  notes: null
+- id: PMAT-009
+  github_issue: null
+  item_type: task
+  title: 'Qwen2.5-Coder-7B: DPO alignment with execution feedback'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:41:20Z
+  updated: 2026-02-28T18:41:20Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.1 Phase 4 — Hypothesis H2: DPO with execution feedback pushes HumanEval+ past 87%. Generate preference pairs from code execution (correct=chosen, incorrect=rejected), run apr align --method dpo --beta 0.1 --epochs 3. Falsified if HumanEval+ stays below 86%. Blocked by PMAT-001 (DPO must be implemented in entrenar) and PMAT-002 (execution sandbox for preference pair generation).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen
+  - dpo
+  - alignment
+  - h2
+  notes: null
+- id: PMAT-010
+  github_issue: null
+  item_type: task
+  title: 'Qwen2.5-Coder-7B: merge code-specialist + reasoning-specialist'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:41:27Z
+  updated: 2026-02-28T18:41:27Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.1 Phase 5 — Hypothesis H3: merge specialists beat any single model. TIES merge of code-instruct specialist with reasoning-specialist (R1-Distill-Qwen-7B or DPO''d variant) on same Qwen2.5 backbone. apr merge code.apr reasoning.apr --strategy ties --base-model base.apr --density 0.2. Falsified if merged model scores below best input specialist on ALL benchmarks. AC-024. Blocked by PMAT-008.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen
+  - merge
+  - h3
+  notes: null
+- id: PMAT-011
+  github_issue: null
+  item_type: task
+  title: 'Qwen2.5-Coder-7B: prune + quantize + compile final artifact'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:41:31Z
+  updated: 2026-02-28T18:41:31Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.1 Phase 6-7 — Wanda prune at 20% (apr prune --method wanda --target-ratio 0.2), INT4 quantize (apr quantize --scheme int4), compile to standalone binary (apr compile -o qwen-coder-7b --release --lto). Hypothesis H4: INT4 loses <2% pass@1. AC-008/AC-009/AC-010/AC-022/AC-023. Success gate: ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen
+  - prune
+  - quantize
+  - compile
+  notes: null
+- id: PMAT-012
+  github_issue: null
+  item_type: task
+  title: 'Qwen2.5-Coder-32B: DPO + merge for crown score'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:41:36Z
+  updated: 2026-02-28T18:41:36Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.2 — The 32B model is already at 92.7% HumanEval. Push past ceiling: (1) DPO with execution feedback (primary lever), (2) merge with R1-Distill-Qwen-32B for reasoning, (3) speculative decoding for faster eval iteration, (4) N-sampling N=50 + reranking for maximum pass@1. Success gate: ≥94% HumanEval, ≥88% HumanEval+, ≥45% BigCodeBench. Blocked by PMAT-001/002/003.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen-32b
+  - dpo
+  - merge
+  notes: null
+- id: PMAT-013
+  github_issue: null
+  item_type: task
+  title: 'Qwen2.5-Coder-1.5B: sovereign binary demo'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:41:43Z
+  updated: 2026-02-28T18:41:43Z
+  spec: null
+  acceptance_criteria:
+  - '§4.3.3 — The marketing win: ship model AS a Rust binary. Import → LoRA finetune → INT4 quantize → apr compile → single static binary ~800MB. AC-026: binary <1GB generates valid Python code. Demo: ./qwen-coder ''def fibonacci(n):'' just works. No Python, no Docker, no CUDA. While competitors need pip install transformers torch accelerate, we ship one executable.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - model
+  - qwen-1.5b
+  - compile
+  - marketing
+  notes: null
+- id: PMAT-014
+  github_issue: null
+  item_type: task
+  title: Generate preference pairs from execution feedback
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:41:47Z
+  updated: 2026-02-28T18:41:47Z
+  spec: null
+  acceptance_criteria:
+  - '§5.2 alimentar component — Generate DPO training data: (1) apr eval model.apr --n-samples 10 per HumanEval/MBPP problem, (2) execute completions to classify pass/fail, (3) pair correct (chosen) vs incorrect (rejected) completions, (4) output preference-pairs.jsonl. Source corpora: hf-ground-truth-corpus, algorithm-competition-corpus for verified correct/incorrect pairs. Blocked by PMAT-002 (execution sandbox). Target: alimentar 0.3.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - data
+  - alimentar
+  - dpo
+  - preferences
+  notes: null
+- id: PMAT-015
+  github_issue: null
+  item_type: task
+  title: Data decontamination pipeline for benchmark safety
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-02-28T18:41:52Z
+  updated: 2026-02-28T18:41:52Z
+  spec: null
+  acceptance_criteria:
+  - '§8.7 + §5.5 — Implement apr validate --decontaminate: (1) benchmark dataset fingerprinting (n-gram hashing of HumanEval/MBPP/BigCodeBench problem descriptions), (2) n-gram overlap detection against training data, (3) semantic similarity filtering for paraphrased problems. alimentar drift --reference humaneval.jsonl --overlap-threshold 0.01. AC-016: <1% n-gram overlap. Hard requirement — contaminated submissions are penalized/rejected.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - data
+  - alimentar
+  - decontamination
+  - safety
+  notes: null
+- id: PMAT-016
+  github_issue: null
+  item_type: task
+  title: Flash Attention implementation in trueno
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:42:00Z
+  updated: 2026-02-28T18:42:00Z
+  spec: null
+  acceptance_criteria:
+  - '§5.1 — trueno Phase 12: online softmax algorithm (never materializes N×N attention matrix), causal masking, configurable Q/KV tile sizes. Tiling infra and TensorView/PartitionView abstractions already exist. Required for competitive inference throughput on long-context models (128K context Qwen). Target: trueno 0.17.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - gap
+  - trueno
+  - performance
+  - attention
+  notes: null
+- id: PMAT-017
+  github_issue: null
+  item_type: task
+  title: Wire apr-leaderboard scaffolding to real aprender API
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-02-28T18:42:04Z
+  updated: 2026-02-28T18:42:04Z
+  spec: null
+  acceptance_criteria:
+  - 'Current apr-leaderboard code is scaffolding: eval/mod.rs returns hardcoded zeros, finetune/mod.rs prints loss=0.000, convert/mod.rs writes placeholder tensors. Replace with real aprender/entrenar/realizar API calls. Each module (convert, eval, finetune, submit) must call actual apr CLI subcommands or link against aprender crate directly. AC-011: full pipeline completes end-to-end without manual intervention.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - infrastructure
+  - aprender
+  - integration
+  notes: null
+- id: PMAT-018
+  github_issue: null
+  item_type: task
+  title: Provable contracts for DPO kernel
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-02-28T18:42:07Z
+  updated: 2026-02-28T18:42:07Z
+  spec: null
+  acceptance_criteria:
+  - '§16 — Add provable-contracts YAML for DPO loss function: (1) DPO loss gradient correctness (β-scaled log-ratio), (2) preference pair symmetry (swapping chosen/rejected negates gradient), (3) reference model log-prob consistency. Kani L4 bounded model checking. Blocked by PMAT-001 (DPO implementation). Target: provable-contracts 0.2.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - contracts
+  - provable
+  - dpo
+  - verification
+  notes: null
