@@ -546,7 +546,7 @@ When we find a gap:
 1. **Can an existing sovereign crate do it?** → Wire it in via `apr` CLI. No new crates.
 2. **Does a sovereign crate need a new module?** → Add it to that crate, publish to crates.io, bump apr-leaderboard's dependency.
 3. **Is it fundamentally outside the stack's scope?** → Use an external tool (e.g., EvalPlus for code execution) and document the boundary explicitly.
-4. **Is it a research problem with no clear solution?** → Add to §20 Open Questions. Don't block the pipeline.
+4. **Is it a research problem with no clear solution?** → Add to §21 Open Questions. Don't block the pipeline.
 
 **Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
 
@@ -1827,7 +1827,7 @@ Where `n` = total completions generated, `c` = number that pass all tests, `k` =
 aprender does not include a code execution sandbox. Generated completions must be evaluated externally via one of:
 
 1. **EvalPlus harness** (recommended): Docker-based sandbox that runs Python completions against augmented test suites (80x more tests than vanilla HumanEval)
-2. **Custom WASM sandbox**: CPython compiled to WASM for isolated execution (see Open Question §20.14)
+2. **Custom WASM sandbox**: CPython compiled to WASM for isolated execution (see Open Question §21.14)
 3. **Direct Docker**: `docker run --network=none --memory=512m --timeout=10s python:3.11 -c "$CODE"`
 
 ### 13.3 Evaluation Steps
@@ -2144,7 +2144,61 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 - [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
 - [ ] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary
 
-## 19. Scientific Foundation
+## 19. Implementation Status
+
+Tracking table mapping spec sections to `apr-leaderboard` code implementation. Updated as code lands.
+
+### 19.1 CLI Subcommands (§6.2)
+
+| Subcommand | Source Module | Status | Tests | Notes |
+|---|---|---|---|---|
+| `convert` | `src/convert/mod.rs` | ✅ Scaffolded | 13 | HF download + APR v2 bundle |
+| `eval` | `src/eval/mod.rs` | ✅ Scaffolded | 25 | pass@k metrics, prompt strategies, n-samples |
+| `finetune` | `src/finetune/mod.rs` | ✅ Scaffolded | 10 | LoRA/QLoRA config + entrenar integration |
+| `distill` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | Knowledge distillation (3 strategies) |
+| `merge` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | Model merging (4 strategies) |
+| `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | Pruning (3 methods) |
+| `quantize` | `src/optimize/mod.rs` | ✅ Scaffolded | 4 | Quantization (5 schemes) |
+| `compare` | `src/optimize/mod.rs` | ✅ Scaffolded | 2 | HF parity check |
+| `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 12 | HF leaderboard submission |
+| `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 20+ | 10 benchmark definitions |
+| `history` | `src/eval/mod.rs` | ✅ Complete | 3 | Result history viewer |
+| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 10 | Config-driven TOML pipeline |
+
+### 19.2 Prompt Strategies (§8.3)
+
+| Strategy | Enum Variant | Aliases | Status |
+|---|---|---|---|
+| Standard | `PromptStrategy::Standard` | `default` | ✅ Implemented |
+| Structured CoT | `PromptStrategy::SCoT` | `structured-cot` | ✅ Implemented |
+| Few-shot | `PromptStrategy::FewShot` | `fewshot` | ✅ Implemented |
+| Code Gen Opt | `PromptStrategy::Cgo` | `code-gen-opt` | ✅ Implemented |
+| Reflexion | `PromptStrategy::Reflexion` | `reflect` | ✅ Implemented |
+
+### 19.3 Optimization Operations (§7)
+
+| Operation | Strategy/Method Enums | Validation | Status |
+|---|---|---|---|
+| Distill | `Standard`, `Progressive`, `Ensemble` | Empty path check | ✅ Scaffolded |
+| Merge | `Slerp`, `Ties`, `Dare`, `LinearAvg` | Min 2 models, empty path check | ✅ Scaffolded |
+| Prune | `Wanda`, `Magnitude`, `SparseGpt` | Ratio 0.0–1.0, empty path check | ✅ Scaffolded |
+| Quantize | `Int4`, `Int8`, `Q4K`, `Q5K`, `Q6K` | Empty path check | ✅ Scaffolded |
+
+### 19.4 Quality Metrics
+
+| Metric | Current | Target | Gate |
+|---|---|---|---|
+| Test count | 131 | — | `cargo test` |
+| Line coverage | 96.5% | ≥ 95% | `cargo llvm-cov` |
+| Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
+| Max file size | 491 lines | < 500 | `wc -l src/**/*.rs` |
+| pmat pre-commit | ✅ Pass | ✅ Pass | git hook |
+
+### 19.5 What "Scaffolded" Means
+
+**Scaffolded** = CLI parsing, strategy/method enums, input validation, result serialization, and test coverage are all implemented. The actual ML operations (inference, training, merging) are delegated to upstream `apr` CLI calls which are currently printed but not executed. Wiring to real `apr` subprocess calls is tracked by PMAT-017.
+
+## 20. Scientific Foundation (References)
 
 [1] Sun et al., "A Simple and Effective Pruning Approach for Large Language Models" (Wanda), ICLR 2024.
 
@@ -2182,7 +2236,7 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 
 [18] Goddard et al., "Arcee's MergeKit: A Toolkit for Merging Large Language Models", arXiv:2403.13257, 2024.
 
-## 20. Open Questions
+## 21. Open Questions
 
 1. **Calibration data quality:** How much does Wanda calibration data selection affect code model pruning? Need ablation study.
 2. **Merge tournament depth:** Is 2-round merging sufficient or do 3+ rounds compound gains?

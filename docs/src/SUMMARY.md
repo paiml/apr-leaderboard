@@ -32,7 +32,8 @@
 - [Quality Gates](./spec/17-quality-gates.md)
 - [Acceptance Criteria](./spec/18-acceptance-criteria.md)
 
-# References
+# Appendix
 
-- [Scientific Foundation](./spec/19-scientific-foundation.md)
-- [Open Questions](./spec/20-open-questions.md)
+- [Implementation Status](./spec/19-implementation-status.md)
+- [Scientific Foundation](./spec/20-scientific-foundation.md)
+- [Open Questions](./spec/21-open-questions.md)
