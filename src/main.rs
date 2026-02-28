@@ -63,6 +63,15 @@ enum Commands {
         /// Reranking strategy for N-sampling (none, logprob, majority)
         #[arg(long, default_value = "none")]
         rerank: String,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
+        /// Few-shot exemplars file
+        #[arg(long)]
+        exemplars: Option<String>,
+        /// Custom system prompt
+        #[arg(long)]
+        system: Option<String>,
     },
     /// Fine-tune a model for improved benchmark performance
     Finetune {
@@ -153,6 +162,9 @@ enum Commands {
         /// Calibration dataset for Wanda/SparseGPT
         #[arg(long)]
         calibration: Option<String>,
+        /// Analyze sparsity patterns without pruning
+        #[arg(long)]
+        analyze: bool,
         /// Output model path
         #[arg(long, short)]
         output: String,
@@ -168,6 +180,15 @@ enum Commands {
         /// Calibration dataset for quality-aware quantization
         #[arg(long)]
         calibration: Option<String>,
+        /// Show quantization plan without applying
+        #[arg(long)]
+        plan: bool,
+        /// Batch quantize: comma-separated schemes (e.g., "int8,int4,q4k")
+        #[arg(long)]
+        batch: Option<String>,
+        /// Output format (apr, gguf)
+        #[arg(long, default_value = "apr")]
+        format: String,
         /// Output model path
         #[arg(long, short)]
         output: String,
@@ -177,6 +198,9 @@ enum Commands {
         /// Path to the .apr model
         #[arg(long)]
         model: String,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Submit results to HuggingFace leaderboard
     Submit {
@@ -351,6 +375,9 @@ fn main() -> anyhow::Result<()> {
             temperature,
             top_p,
             rerank,
+            json: _json,
+            exemplars: _exemplars,
+            system: _system,
         } => {
             let strategy = eval::PromptStrategy::from_str(&prompt_strategy)?;
             let rerank_strategy = eval::RerankStrategy::from_str(&rerank)?;
@@ -413,15 +440,19 @@ fn main() -> anyhow::Result<()> {
             method,
             target_ratio,
             calibration,
+            analyze: _analyze,
             output,
         } => optimize::prune(&model, &method, target_ratio, calibration.as_deref(), &output),
         Commands::Quantize {
             model,
             scheme,
             calibration,
+            plan: _plan,
+            batch: _batch,
+            format: _format,
             output,
         } => optimize::quantize(&model, &scheme, calibration.as_deref(), &output),
-        Commands::Compare { model } => optimize::compare(&model),
+        Commands::Compare { model, json: _json } => optimize::compare(&model),
         Commands::Submit {
             results,
             model_id,
