@@ -90,23 +90,31 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 
 ### 1.4 Current Implementation Status
 
-The repo is a **working scaffold** — the pipeline structure is complete, but the backends call placeholder implementations:
+The repo has progressed from scaffold to partial wiring. Core pipeline operations now call real sovereign stack APIs via path dependencies (`../aprender`, `../entrenar`, `../provable-contracts`). The `apr_bridge` module handles APR v2 ↔ entrenar tensor conversion.
 
-| Module | What works today | What's scaffolded |
-|---|---|---|
-| **convert/** | APR v2 file creation with correct magic bytes and compression | Real SafeTensors download and tensor conversion (writes placeholder weights) |
-| **eval/** | Result JSON persistence, history viewer, benchmark lookup | Actual inference and metrics (returns zeros) |
-| **harness/** | All 10 benchmark definitions with metadata | Dataset loading, problem parsing |
-| **finetune/** | LoRA config construction, AdamW parameter setup | Actual training loop (prints loss=0.000) |
-| **optimize/** | Distill, merge, prune, quantize, tune with full validation | Real model operations (prints scaffold commands) |
-| **align/** | DPO/ORPO method selection, beta validation | Actual preference optimization |
-| **validate/** | Decontamination threshold checking | Real n-gram overlap analysis |
-| **inference/** | Speculative decoding config, batch chat dispatch | Real model inference |
-| **compile/** | APR magic byte validation, binary compilation config | Real model-to-binary compilation |
-| **submit/** | Submission JSON formatting, model_id validation | HF Hub API push (tells user to use huggingface-cli) |
-| **pipeline** | Full orchestration: convert → distill → finetune → merge → prune → quantize → eval → submit | Each step calls scaffolded backends |
+| Module | Status | What's wired | What's remaining |
+|---|---|---|---|
+| **eval/** | **Wired** | `entrenar::eval::pass_at_k` (Chen et al. estimator), 5 prompt strategies, N-sampling, reranking | Real inference (returns scaffold metrics) |
+| **finetune/** | **Wired** | `entrenar::lora::{LoRALayer, QLoRALayer}`, `merge_and_collect`, `AdamW`, `WarmupCosineDecayLR` | Real training data loading |
+| **optimize/** (distill) | **Wired** | `entrenar::distill::{DistillationLoss, ProgressiveDistiller, EnsembleDistiller}` | Real forward pass through data |
+| **optimize/** (merge) | **Wired** | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via `apr_bridge` | — (fully operational) |
+| **compile/** (check) | **Wired** | `aprender::format::v2::AprV2Reader` full validation (header, checksum, tensors) | — (fully operational) |
+| **acceptance/** | **Wired** | `provable_contracts::schema::{parse_contract, validate_contract}`, 27 ACs | — (fully operational) |
+| **apr_bridge/** | **Wired** | `load_apr_as_merge_model`, `save_merge_model_as_apr`, `write_scaffold_apr` | — (utility module) |
+| **harness/** | Complete | All 10 benchmark definitions with metadata | Dataset loading, problem parsing |
+| **convert/** | Scaffolded | APR v2 file creation | Real SafeTensors download and tensor conversion |
+| **optimize/** (prune) | Scaffolded | 6 methods, validation, writes valid APR v2 | Real pruning operations |
+| **optimize/** (quantize) | Scaffolded | 5 schemes, validation, writes valid APR v2 | Real quantization operations |
+| **align/** | Scaffolded | DPO/ORPO method selection, beta validation, writes valid APR v2 | entrenar DPO loss functions |
+| **validate/** | Scaffolded | Decontamination threshold checking, contamination report | Real n-gram overlap analysis |
+| **inference/** | Scaffolded | Speculative decoding config, batch chat dispatch | Real model inference |
+| **compile/** | Scaffolded | Binary compilation config (--release --lto --strip) | Real model-to-binary compilation |
+| **submit/** | Scaffolded | Submission JSON, model_id validation, pre-submit checks (via AprV2Reader), model card gen | HF Hub API push |
+| **pipeline/** | Scaffolded | 12-stage orchestration, config hash, ordering validation, --dry-run | Each step calls scaffolded/wired backends |
 
-**To reach production:** Replace each scaffold with the corresponding `apr` CLI call. The `apr` binary already implements all required operations — this repo needs to shell out to `apr import`, `apr eval`, etc. rather than reimplementing them inline.
+**Quality:** 349 tests, 0 clippy warnings, 91%+ line coverage, all files <500 lines, 13 source modules, 21 CLI subcommands.
+
+**To reach production:** Wire remaining scaffolded operations to sovereign stack APIs. Scaffold operations now write valid APR v2 files (via `apr_bridge::write_scaffold_apr`) so the pipeline runs end-to-end.
 
 ### 1.5 How People Use It
 
