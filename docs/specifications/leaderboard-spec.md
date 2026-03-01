@@ -2206,25 +2206,25 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Subcommand | Source Module | Status | Tests | Notes |
 |---|---|---|---|---|
-| `convert` | `src/convert/mod.rs` | ✅ Scaffolded | 15 | HF download + APR v2 bundle + Display roundtrip |
-| `eval` | `src/eval/mod.rs` | ✅ Scaffolded | 31 | pass@k, prompt strategies, n-samples, temperature/top-p validation, rerank |
-| `finetune` | `src/finetune/mod.rs` | ✅ Scaffolded | 16 | LoRA/QLoRA/full, method selection, Display roundtrip, custom output |
-| `distill` | `src/optimize/mod.rs` | ✅ Scaffolded | 10 | 3 strategies + epochs + data + temperature/alpha validation |
-| `merge` | `src/optimize/mod.rs` | ✅ Scaffolded | 18 | 4 strategies + weights sum-to-1 + base-model required for TIES/DARE + density/drop-rate range validation |
-| `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 7 | 6 methods (wanda, magnitude, sparsegpt, structured, depth, width) + calibration |
-| `quantize` | `src/optimize/mod.rs` | ✅ Scaffolded | 5 | 5 schemes + calibration dataset |
+| `convert` | `src/convert/mod.rs` | ✅ Scaffolded | 17 | HF download + APR v2 bundle + Display roundtrip |
+| `eval` | `src/eval/mod.rs` | ✅ Scaffolded | 34 | pass@k, prompt strategies, n-samples, temperature/top-p validation, rerank, exemplars/system |
+| `finetune` | `src/finetune/mod.rs` | ✅ Scaffolded | 15 | LoRA/QLoRA/full, method selection, Display roundtrip, custom output |
+| `distill` | `src/optimize/mod.rs` | ✅ Scaffolded | 10 | 3 strategies + epochs + data + temperature/alpha validation + scaffold output |
+| `merge` | `src/optimize/mod.rs` | ✅ Scaffolded | 18 | 4 strategies + weights sum-to-1 + base-model required for TIES/DARE + scaffold output |
+| `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 7 | 6 methods (wanda, magnitude, sparsegpt, structured, depth, width) + scaffold output |
+| `quantize` | `src/optimize/mod.rs` | ✅ Scaffolded | 5 | 5 schemes + calibration dataset + scaffold output |
 | `compare` | `src/optimize/mod.rs` | ✅ Scaffolded | 2 | HF parity check + --json flag |
-| `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 14 | HF leaderboard submission + Display roundtrip |
-| `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 20+ | 10 benchmark definitions |
+| `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 14 | HF leaderboard submission + Display roundtrip + --pre-submit-check |
+| `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 21 | 10 benchmark definitions |
 | `history` | `src/eval/mod.rs` | ✅ Complete | 3 | Result history viewer |
-| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 22 | Config-driven TOML pipeline (all 8 stages) + [eval] config + recipe B/D parsing |
-| `align` | `src/align/mod.rs` | ✅ Scaffolded | 10 | DPO/ORPO preference optimization (§8.5) + beta validation |
-| `validate` | `src/validate/mod.rs` | ✅ Scaffolded | 6 | Data decontamination checking (§8.7) + threshold validation |
+| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 37 | Config-driven TOML pipeline (12 stages) + [eval] config + recipe B/D + integration tests |
+| `align` | `src/align/mod.rs` | ✅ Scaffolded | 12 | DPO/ORPO preference optimization (§8.5) + beta validation + output file creation |
+| `validate` | `src/validate/mod.rs` | ✅ Scaffolded | 8 | Data decontamination checking (§8.7) + threshold validation + error messages |
 | `tune` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | HPO: TPE/grid/random strategies (§7.7) + budget validation |
-| `run` | `src/inference/mod.rs` | ✅ Scaffolded | 6 | Speculative decoding (§8.4) + draft model validation |
-| `chat` | `src/inference/mod.rs` | ✅ Scaffolded | 5 | Batch generation (§8.6) + temperature validation |
-| `check` | `src/compile/mod.rs` | ✅ Scaffolded | 4 | APR magic byte validation (§14.4) |
-| `compile` | `src/compile/mod.rs` | ✅ Scaffolded | 4 | Binary compilation with --release --lto (§4.3.1, §9.4) |
+| `run` | `src/inference/mod.rs` | ✅ Scaffolded | 9 | Speculative decoding (§8.4) + draft model validation + JSON output |
+| `chat` | `src/inference/mod.rs` | ✅ Scaffolded | 7 | Batch generation (§8.6) + temperature validation + system prompt |
+| `check` | `src/compile/mod.rs` | ✅ Scaffolded | 6 | APR magic byte validation (§14.4) + boundary tests |
+| `compile` | `src/compile/mod.rs` | ✅ Scaffolded | 7 | Binary compilation with --release --lto --strip (§4.3.1, §9.4) |
 
 ### 19.1.1 CLI Flag Coverage Matrix
 
@@ -2238,7 +2238,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `quantize` | `--model`, `-o` | `--scheme`, `--calibration`, `--plan`, `--batch`, `--format` | ✅ Complete |
 | `convert` | `--model-id` | `--output`, `--quantization` | ✅ Complete |
 | `compare` | `--model` | `--json` | ✅ Complete |
-| `submit` | `--results`, `--model-id` | `--leaderboard` | ✅ Complete |
+| `submit` | `--results`, `--model-id` | `--leaderboard`, `--pre-submit-check` | ✅ Complete |
 | `pipeline` | `--config` | — | ✅ Complete |
 | `align` | `--model`, `--data` | `--method`, `--beta`, `--epochs`, `--ref-model`, `-o` | ✅ Complete |
 | `validate` | `--data`, `--benchmarks` | `--threshold`, `--decontaminate`, `-o` | ✅ Complete |
@@ -2272,13 +2272,14 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 251 | — | `cargo test` |
+| Test count | 277 | — | `cargo test` |
 | CLI subcommands | 19 | — | All spec §6.2 subcommands implemented |
 | Line coverage | 96.5% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
-| Max file size | 497 lines | < 500 | `wc -l src/**/*.rs` |
+| Max file size | 484 lines | < 500 | `wc -l src/**/*.rs` |
 | pmat pre-commit | ✅ Pass | ✅ Pass | git hook |
 | Pipeline configs | 4 | — | `configs/*.toml` (recipes A–D) |
+| Pipeline stages | 12 | — | validate → convert → distill → finetune → align → merge → tune → prune → quantize → eval → compile → submit |
 | Source modules | 11 | — | convert, eval, finetune, optimize, harness, pipeline, submit, align, validate, inference, compile |
 
 ### 19.5 What "Scaffolded" Means
