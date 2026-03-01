@@ -220,5 +220,22 @@ fn test_cli_parse_pipeline() {
     }
 }
 
+#[test]
+fn test_cli_parse_export() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "export", "--model", "m.apr",
+        "--format", "gguf", "-o", "out/",
+    ]).unwrap();
+    match cli.command {
+        Commands::Export { model, format, output, results } => {
+            assert_eq!(model, "m.apr");
+            assert_eq!(format, "gguf");
+            assert_eq!(output, "out/");
+            assert!(results.is_none());
+        }
+        _ => panic!("Expected Export"),
+    }
+}
+
 mod defaults_and_flags;
 mod extended;

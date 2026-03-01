@@ -369,6 +369,21 @@ enum Commands {
         #[arg(long, short)]
         output: Option<String>,
     },
+    /// Export model to HuggingFace-compatible format (§14.2)
+    Export {
+        /// Path to the .apr model
+        #[arg(long)]
+        model: String,
+        /// Output format (safetensors, gguf)
+        #[arg(long, default_value = "safetensors")]
+        format: String,
+        /// Output directory
+        #[arg(long, short, default_value = "export/")]
+        output: String,
+        /// Include evaluation results in metadata
+        #[arg(long)]
+        results: Option<String>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -381,18 +396,9 @@ fn main() -> anyhow::Result<()> {
             quantization,
         } => convert::run(&model_id, &output, &quantization),
         Commands::Eval {
-            model,
-            benchmark,
-            samples,
-            output,
-            prompt_strategy,
-            n_samples,
-            temperature,
-            top_p,
-            rerank,
-            json: _json,
-            exemplars,
-            system,
+            model, benchmark, samples, output,
+            prompt_strategy, n_samples, temperature, top_p, rerank,
+            exemplars, system, ..
         } => {
             let strategy = eval::PromptStrategy::from_str(&prompt_strategy)?;
             let rerank_strategy = eval::RerankStrategy::from_str(&rerank)?;
@@ -408,13 +414,7 @@ fn main() -> anyhow::Result<()> {
             eval::run_with_config(&model, &benchmark, samples, &output, &config)
         }
         Commands::Finetune {
-            model,
-            dataset,
-            method,
-            rank,
-            lr,
-            epochs,
-            output,
+            model, dataset, method, rank, lr, epochs, output,
         } => finetune::run(&model, &dataset, &method, rank, lr, epochs, output.as_deref()),
         Commands::Distill {
             teacher, student, strategy, temperature, alpha, epochs, data, output,
@@ -429,21 +429,10 @@ fn main() -> anyhow::Result<()> {
             base_model: base_model.as_deref(), density, drop_rate, output: &output,
         }),
         Commands::Prune {
-            model,
-            method,
-            target_ratio,
-            calibration,
-            analyze: _analyze,
-            output,
+            model, method, target_ratio, calibration, output, ..
         } => optimize::prune(&model, &method, target_ratio, calibration.as_deref(), &output),
         Commands::Quantize {
-            model,
-            scheme,
-            calibration,
-            plan: _plan,
-            batch: _batch,
-            format: _format,
-            output,
+            model, scheme, calibration, output, ..
         } => optimize::quantize(&model, &scheme, calibration.as_deref(), &output),
         Commands::Compare { model, json: _json } => optimize::compare(&model),
         Commands::Submit {
@@ -487,6 +476,9 @@ fn main() -> anyhow::Result<()> {
         Commands::Compile {
             model, release, lto, strip, target: _target, output,
         } => compile::run(&model, release, lto, strip, output.as_deref()),
+        Commands::Export { model, format, output, results } => {
+            submit::export_model(&model, &format, &output, results.as_deref())
+        }
     }
 }
 
