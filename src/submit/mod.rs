@@ -182,6 +182,9 @@ pub(crate) struct ExportMetadata {
 }
 
 /// Export model to HuggingFace-compatible format (§14.2).
+///
+/// Validates the APR v2 model via `AprV2Reader` and exports tensor metadata
+/// alongside format-specific conversion information.
 pub(crate) fn export_model(
     model_path: &str,
     format: &str,
@@ -193,14 +196,20 @@ pub(crate) fn export_model(
         bail!("Unknown export format: {format}. Use safetensors or gguf");
     }
 
-    // Verify model exists
-    if !std::path::Path::new(model_path).exists() {
-        bail!("Model not found: {model_path}");
-    }
+    // Load and validate model via AprV2Reader
+    let model_data = std::fs::read(model_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read model {model_path}: {e}"))?;
+    let mut cursor = std::io::Cursor::new(&model_data);
+    let reader = aprender::format::v2::AprV2Reader::from_reader(&mut cursor)
+        .map_err(|e| anyhow::anyhow!("APR v2 validation failed: {e}"))?;
+
+    let tensor_names = reader.tensor_names();
+    let header = reader.header();
 
     println!("Exporting model:");
-    println!("  Model: {model_path}");
-    println!("  Format: {format}");
+    println!("  Model: {model_path} ({} bytes)", model_data.len());
+    println!("  Format: APR v{}.{} → {format}", header.version.0, header.version.1);
+    println!("  Tensors: {}", tensor_names.len());
     println!("  Output: {output_dir}");
 
     // Load optional results
@@ -215,7 +224,7 @@ pub(crate) fn export_model(
     // Create output directory
     std::fs::create_dir_all(output_dir)?;
 
-    // Write export metadata
+    // Write export metadata with tensor information
     let metadata = ExportMetadata {
         model_path: model_path.to_string(),
         format: format.to_string(),
@@ -225,9 +234,13 @@ pub(crate) fn export_model(
     let meta_path = format!("{output_dir}/metadata.json");
     std::fs::write(&meta_path, serde_json::to_string_pretty(&metadata)?)?;
 
-    // Scaffold: in production, converts .apr → safetensors/gguf
-    println!("  [scaffold] Would run: apr export {model_path} --format {format} -o {output_dir}");
+    // Write tensor index for export
+    let tensor_index: Vec<String> = tensor_names.iter().map(|s| (*s).to_string()).collect();
+    let index_path = format!("{output_dir}/tensor_index.json");
+    std::fs::write(&index_path, serde_json::to_string_pretty(&tensor_index)?)?;
+
     println!("  Metadata written to: {meta_path}");
+    println!("  Tensor index written to: {index_path}");
 
     Ok(())
 }

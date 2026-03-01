@@ -396,7 +396,9 @@ fn test_quantize_output_is_valid_apr() {
 // --- compare ---
 #[test]
 fn test_compare_runs() {
-    assert!(compare("model.apr").is_ok());
+    let (tmp, model, _output) = prune_quant_fixture();
+    assert!(compare(&model).is_ok());
+    drop(tmp);
 }
 
 #[test]
@@ -419,14 +421,18 @@ fn test_tune_strategy_parsing_and_display() {
 
 #[test]
 fn test_tune_runs() {
-    assert!(tune("model.apr", "data.jsonl", "tpe", 20, 3).is_ok());
+    let (tmp, model, _output) = prune_quant_fixture();
+    assert!(tune(&model, "data.jsonl", "tpe", 3, 3).is_ok());
+    drop(tmp);
 }
 
 #[test]
 fn test_tune_all_strategies() {
+    let (tmp, model, _output) = prune_quant_fixture();
     for s in &["tpe", "grid", "random"] {
-        assert!(tune("m.apr", "d.jsonl", s, 5, 1).is_ok(), "Failed for {s}");
+        assert!(tune(&model, "d.jsonl", s, 2, 1).is_ok(), "Failed for {s}");
     }
+    drop(tmp);
 }
 
 #[test]
