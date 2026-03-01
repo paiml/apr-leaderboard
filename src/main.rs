@@ -397,10 +397,10 @@ enum Commands {
     },
 }
 
-fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+fn main() -> anyhow::Result<()> { dispatch(Cli::parse().command) }
 
-    match cli.command {
+fn dispatch(command: Commands) -> anyhow::Result<()> {
+    match command {
         Commands::Convert {
             model_id,
             output,

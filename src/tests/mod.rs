@@ -272,4 +272,5 @@ fn test_cli_parse_acceptance_category() {
 }
 
 mod defaults_and_flags;
+mod dispatch;
 mod extended;
