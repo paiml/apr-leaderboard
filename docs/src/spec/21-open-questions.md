@@ -19,7 +19,9 @@ Questions marked ✅ have been partially or fully answered by dogfooding.
 
 ## New Questions from Dogfooding
 
-15. ✅ **Coverage measurement methodology:** `cargo llvm-cov` includes path dependencies, inflating missed lines. Must filter to project source. *Answered: filter to `apr-leaderboard/src/` for accurate project coverage (96.1% vs 71.7% total).*
-16. ✅ **Tensor naming conventions:** The pipeline is sensitive to tensor name consistency across stages. What naming convention should convert/distill/merge/finetune standardize on? *Answered by aprender 0.27.2 checkpoint spec (v1.4.0): use HF convention (`model.layers.N.*`) for base model tensors, `lora.*` for adapters, `__training__.*` prefix for optimizer state. The checkpoint taxonomy (`.apr` / `.adapter.apr` / `.ckpt.apr`) with namespace filtering via `AprReader::open_filtered()` resolves the naming ambiguity.*
-17. **ndarray vs Tensor type unification:** `entrenar::distill` uses `ndarray::Array2<f32>` while `entrenar::train` uses `entrenar::Tensor`. Can these be unified, or does the bridge reshape remain necessary?
-18. **Pruning precision at scale:** Wanda achieves 19.9% at 20% target on 256 params. Does floor rounding error vanish at 7B+ parameter counts, or do per-layer targets need adjustment?
+15. ✅ **GGUF vs SafeTensors import path:** SafeTensors imports produce F16/BF16 tensors that realizar cannot run inference on (fused matmul only supports Q4_0/Q8_0/Q4_K/Q5_K/Q6_K). *Answered: Use GGUF import path (pre-quantized Q4_K_M). This is the only working path for end-to-end inference today.*
+16. ✅ **GPU inference readiness:** realizar CUDA path panics with shape mismatch on Qwen2.5-Coder-1.5B. *Workaround: `--no-gpu` flag. Upstream fix needed in realizar.*
+17. **`apr serve` for .apr files:** `apr serve` loads .apr models but HTTP server doesn't bind. Is this a missing feature or a configuration issue? Does it only work with raw GGUF?
+18. **Import prerequisites:** `apr import` requires config.json and tokenizer.json in the HF cache. Should the import command auto-download these, or is manual download expected for non-standard model formats?
+19. **Pruning precision at scale:** Wanda achieves 19.9% at 20% target on 256 params. Does floor rounding error vanish at 7B+ parameter counts, or do per-layer targets need adjustment?
+20. **Tensor naming conventions:** The pipeline is sensitive to tensor name consistency across stages. What naming convention should import/distill/merge/finetune standardize on? *Partial answer: aprender 0.27.2 checkpoint spec (v1.4.0) uses HF convention (`model.layers.N.*`) for base model tensors.*

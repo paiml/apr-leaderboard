@@ -1,10 +1,10 @@
 # CLI Toolchain
 
-Two CLIs work together: **`apr`** (upstream aprender — ML operations) and **`apr-leaderboard`** (this repo — orchestration). Every technique maps to a single shell command. Our competitors use 500-line Python scripts; we use one-liners.
+Two layers work together: **`apr`** (upstream aprender — ML operations) and **`make`** (this repo — orchestration via Makefile + shell scripts). Every technique maps to a single shell command. Our competitors use 500-line Python scripts; we use one-liners.
 
 ## 6.1 The `apr` CLI (aprender)
 
-The upstream `apr` binary provides all ML operations. `apr-leaderboard` calls these under the hood.
+The upstream `apr` binary provides all ML operations. The Makefile and shell scripts call these under the hood.
 
 ## 6.1.1 Import (HF → APR)
 
@@ -41,247 +41,205 @@ apr prune merged.apr --method wanda --target-ratio 0.2 --calibration calib.jsonl
 apr quantize pruned.apr --scheme int4 -o submit.apr
 ```
 
-## 6.2 The `apr-leaderboard` CLI (this repo)
+## 6.2 The `make` Orchestration Layer (this repo)
 
-The orchestration layer that drives the pipeline. Each subcommand maps to one or more upstream `apr` operations.
+The orchestration layer that drives the pipeline. Each Makefile target maps to one or more `apr` CLI subcommands or shell scripts.
 
-| Subcommand | Maps to | Description | Status |
-|---|---|---|---|
-| `convert` | `apr import` | Download HF model → `.apr` format | **Wired** (`aprender::format::v2::AprV2Writer`) |
-| `eval` | `apr eval` | Run benchmark suite with pass@k metrics | **Wired** (`entrenar::eval::pass_at_k`) |
-| `finetune` | `apr finetune` (entrenar) | LoRA/QLoRA fine-tuning | **Wired** (`entrenar::lora` + `entrenar::optim`) |
-| `distill` | `apr distill` | Knowledge distillation (teacher → student) | **Wired** (`entrenar::distill`) |
-| `merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) | **Wired** (`entrenar::merge` + `apr_bridge`) |
-| `prune` | `apr prune` | Structured/unstructured pruning | **Wired** (`aprender::pruning` + `entrenar::prune`) |
-| `quantize` | `apr quantize` | Post-training quantization | **Wired** (`entrenar::quant`) |
-| `compare` | `apr compare-hf` | Parity check against HF reference | **Wired** (`apr_bridge` + weight statistics) |
-| `submit` | — | Format + push results to HF leaderboard | **Wired** (`AprV2Reader` pre-submit validation) |
-| `benchmarks` | — | List available benchmark suites | Complete |
-| `history` | — | Show past evaluation results | Complete |
-| `pipeline` | all of the above | Config-driven end-to-end pipeline (12 stages) | **Wired** (all stages call wired backends) |
-| `align` | `apr align` (entrenar) | DPO/ORPO preference optimization | **Wired** (`entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}`) |
-| `validate` | `alimentar` | Data decontamination checking | **Wired** (n-gram fingerprinting + `harness::get_benchmark`) |
-| `tune` | `apr tune` (entrenar) | HPO: TPE/grid/random strategies | **Wired** (`entrenar::train::CrossEntropyLoss` + `apr_bridge`) |
-| `run` | `apr run` (realizar) | Inference with speculative decoding | **Wired** (`entrenar::train::CrossEntropyLoss` + `apr_bridge`) |
-| `chat` | `apr chat` (realizar) | Batch generation / chat completions | **Wired** (`entrenar::train::CrossEntropyLoss` + temperature scaling) |
-| `check` | `apr check` | Validate APR format and integrity | **Wired** (`aprender::format::v2::AprV2Reader`) |
-| `compile` | `apr compile` | Compile model to standalone binary | **Wired** (`aprender::format::v2::AprV2Reader` pre-validation) |
-| `export` | — | SafeTensors/GGUF metadata export | **Wired** (`aprender::format::v2::AprV2Reader` + tensor index export) |
-| `acceptance` | — | List/verify 27 acceptance criteria (§18) | **Wired** (`provable_contracts`) |
+| Make Target | Calls | Description |
+|---|---|---|
+| `make import` | `apr import` | Download HF model → `.apr` format |
+| `make eval-humaneval` | `scripts/eval-pass-at-k.sh` | Generate completions → sandbox execute → pass@k |
+| `make eval-mbpp` | `scripts/eval-pass-at-k.sh` | Same pipeline, MBPP dataset |
+| `make eval-bigcodebench` | `scripts/eval-pass-at-k.sh` | Same pipeline, BigCodeBench dataset |
+| `make eval-all` | `scripts/eval-pass-at-k.sh` × 3 | All benchmarks sequentially |
+| `make eval-perplexity` | `apr eval --dataset wikitext-2` | Perplexity baseline |
+| `make finetune` | `apr finetune` | LoRA/QLoRA fine-tuning |
+| `make distill` | `apr distill` | Knowledge distillation (teacher → student) |
+| `make merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) |
+| `make prune` | `apr prune` | Structured/unstructured pruning |
+| `make quantize` | `apr quantize` | Post-training quantization |
+| `make compile` | `apr compile` | Compile model to standalone binary |
+| `make check` | `apr check` | Validate APR format and integrity |
+| `make inspect` | `apr inspect` | Model inspection |
+| `make export` | `apr export` | SafeTensors/GGUF export |
+| `make publish` | `scripts/submit.sh` | Export + model card + HF Hub upload |
+| `make model-card` | `apr eval --generate-card` | Generate model card |
+| `make pipeline` | `scripts/pipeline.sh` | Config-driven end-to-end pipeline (12 stages) |
+| `make pipeline-plan` | `scripts/pipeline.sh --plan` | Dry-run: validate config, show commands |
+| `make verify` | smoke-tests all `apr` subcommands | Validate `apr` CLI installation |
+| `make dogfood` | CLI + config validation | End-to-end smoke test |
 
-## 6.2.1 Convert
+## 6.2.1 Import
 
 ```bash
-# Convert a HuggingFace model to .apr format
-apr-leaderboard convert --model-id Qwen/Qwen2.5-Coder-7B
+# Import a HuggingFace model to .apr format
+make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
 
-# With custom output and quantization
-apr-leaderboard convert --model-id Qwen/Qwen2.5-Coder-7B --output models/ --quantization int8
+# Import with custom output path
+make import MODEL=Qwen/Qwen2.5-Coder-7B CHECKPOINT=checkpoints/qwen7b.apr
+
+# Import via standalone script (with validation)
+./scripts/import.sh Qwen/Qwen2.5-Coder-7B checkpoints/qwen7b.apr
 ```
 
 ## 6.2.2 Eval
 
 ```bash
-# Run HumanEval with defaults (standard prompt, 1 sample)
-apr-leaderboard eval --model models/qwen-7b.apr --benchmark humaneval
+# Run HumanEval with defaults (512 tokens, temperature 0.0, 1 sample)
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr
 
-# Full benchmark with structured CoT and best-of-20 selection
-apr-leaderboard eval --model models/qwen-7b.apr --benchmark humaneval \
-    --samples 0 --prompt-strategy scot --n-samples 20
+# Full benchmark suite
+make eval-all CHECKPOINT=checkpoints/qwen-7b.apr
 
-# Subset evaluation on BigCodeBench
-apr-leaderboard eval --model models/qwen-7b.apr --benchmark bigcodebench \
-    --samples 100 --output results/
+# Custom parameters
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr \
+    MAX_TOKENS=1024 TEMPERATURE=0.2 NUM_SAMPLES=10
+
+# Perplexity baseline
+make eval-perplexity CHECKPOINT=checkpoints/qwen-7b.apr
 ```
 
-**Prompt strategies** (§8.3):
-
-| Strategy | Flag value | Description |
-|---|---|---|
-| Standard | `standard` / `default` | Direct prompt, no special formatting |
-| Structured CoT | `scot` / `structured-cot` | Step-by-step reasoning before code |
-| Few-shot | `few-shot` / `fewshot` | Include solved examples in prompt |
-| Code Gen Opt | `cgo` / `code-gen-opt` | Optimization-focused generation |
-| Reflexion | `reflexion` / `reflect` | Generate → test → reflect → regenerate |
-
-**N-samples:** `--n-samples N` generates N completions per problem, selects the best (maximizes pass@k). Default: 1.
+The eval script (`scripts/eval-pass-at-k.sh`) handles the full pipeline:
+1. Downloads benchmark data (HumanEval, MBPP, BigCodeBench) if not cached
+2. For each problem: generates completion via `apr run`
+3. Combines completion + test cases
+4. Executes in sandbox with `timeout 10`
+5. Computes pass@k and writes result JSON
 
 ## 6.2.3 Finetune
 
 ```bash
-# LoRA fine-tune with defaults (method=lora, rank 16, lr 1e-4, 3 epochs)
-apr-leaderboard finetune --model models/qwen-7b.apr --dataset data/code-instruct.jsonl
+# LoRA fine-tune with defaults (method=lora, rank 16, lr 0.0002, 3 epochs)
+make finetune CHECKPOINT=checkpoints/qwen-7b.apr DATA=data/code-instruct.jsonl
 
-# QLoRA with custom config and explicit output
-apr-leaderboard finetune --model models/qwen-7b.apr --dataset data/code-instruct.jsonl \
-    --method qlora --rank 32 --lr 0.001 --epochs 5 -o tuned.apr
-
-# Full fine-tune (all parameters)
-apr-leaderboard finetune --model models/qwen-7b.apr --dataset data/code-instruct.jsonl \
-    --method full --lr 1e-5 --epochs 2
+# QLoRA with custom config
+make finetune CHECKPOINT=checkpoints/qwen-7b.apr DATA=data/code-instruct.jsonl \
+    METHOD=qlora RANK=32 LR=0.001 EPOCHS=5
 ```
 
 **Methods:** `lora` (default), `qlora` (quantized LoRA), `full` (all parameters).
 
-| Flag | Default | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `--method` | `lora` | Fine-tuning method |
-| `--rank` | `16` | LoRA rank |
-| `--lr` | `1e-4` | Learning rate |
-| `--epochs` | `3` | Number of epochs |
-| `-o` | `<input>_finetuned.apr` | Output model path |
+| `METHOD` | `lora` | Fine-tuning method |
+| `RANK` | `16` | LoRA rank |
+| `LR` | `0.0002` | Learning rate |
+| `EPOCHS` | `3` | Number of epochs |
+| `DATA` | `data/code-instruct.jsonl` | Training dataset |
 
 ## 6.2.4 Distill
 
 ```bash
 # Progressive distillation (recommended for code models)
-apr-leaderboard distill --teacher teacher-32b.apr --student student-7b.apr \
-    --strategy progressive --temperature 3.0 --alpha 0.7 -o distilled-7b.apr
-
-# Distillation with training data and custom epochs
-apr-leaderboard distill --teacher teacher-32b.apr --student student-7b.apr \
-    --strategy progressive --epochs 10 --data code-corpus.jsonl -o distilled-7b.apr
+make distill TEACHER=checkpoints/teacher-32b.apr STUDENT=checkpoints/student-7b.apr \
+    DIST_STRATEGY=progressive DIST_TEMP=3.0 DIST_ALPHA=0.7
 ```
 
 **Strategies:** `standard` (KL divergence), `progressive` (curriculum learning), `ensemble` (multi-teacher).
 
-| Flag | Default | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `--strategy` | `progressive` | Distillation strategy |
-| `--temperature` | `3.0` | Softmax temperature |
-| `--alpha` | `0.7` | Mixing coefficient (0=student, 1=teacher) |
-| `--epochs` | `5` | Number of distillation epochs |
-| `--data` | — | Training data corpus |
+| `DIST_STRATEGY` | `standard` | Distillation strategy |
+| `DIST_TEMP` | `3.0` | Softmax temperature |
+| `DIST_ALPHA` | `0.7` | Mixing coefficient (0=student, 1=teacher) |
 
 ## 6.2.5 Merge
 
 ```bash
-# SLERP merge of two models with weights
-apr-leaderboard merge model-a.apr model-b.apr --strategy slerp \
-    --weights 0.7,0.3 -o merged.apr
+# SLERP merge of two models
+make merge MODELS="checkpoints/a.apr checkpoints/b.apr" STRATEGY=slerp
 
-# TIES merge with base model and density
-apr-leaderboard merge a.apr b.apr --strategy ties \
-    --base-model base.apr --density 0.2 -o merged.apr
-
-# DARE merge with drop rate
-apr-leaderboard merge a.apr b.apr --strategy dare \
-    --base-model base.apr --drop-rate 0.3 -o merged.apr
+# TIES merge (set via recipe TOML for full control)
+make pipeline RECIPE=recipe-b-merge-alchemist
 ```
 
 **Strategies:** `slerp`, `ties` (TIES-Merging), `dare` (DARE-TIES), `linear` (linear average).
 
-| Flag | Default | Description |
-|---|---|---|
-| `--strategy` | `slerp` | Merge strategy |
-| `--weights` | — | Comma-separated merge weights (e.g., `0.7,0.3`) |
-| `--base-model` | — | Base model for task-vector strategies (ties, dare) |
-| `--density` | — | Sparse mask density for TIES (0.0–1.0) |
-| `--drop-rate` | — | Drop rate for DARE (0.0–1.0) |
-
 ## 6.2.6 Prune
 
 ```bash
-# Wanda pruning with 20% sparsity (default)
-apr-leaderboard prune --model tuned.apr --method wanda --target-ratio 0.2 -o pruned.apr
+# Wanda pruning with 50% sparsity (default)
+make prune CHECKPOINT=checkpoints/tuned.apr PRUNE_METHOD=wanda SPARSITY=0.5
 
-# SparseGPT with calibration data
-apr-leaderboard prune --model tuned.apr --method sparsegpt --target-ratio 0.3 \
-    --calibration calib-code.jsonl -o pruned.apr
+# Magnitude pruning
+make prune CHECKPOINT=checkpoints/tuned.apr PRUNE_METHOD=magnitude SPARSITY=0.3
 ```
 
-**Methods:** `wanda` (default), `magnitude`, `sparsegpt`. Target ratio: 0.0–1.0 (exclusive).
-
-| Flag | Default | Description |
-|---|---|---|
-| `--method` | `wanda` | Pruning method |
-| `--target-ratio` | `0.2` | Target sparsity ratio |
-| `--calibration` | — | Calibration dataset for Wanda/SparseGPT |
+**Methods:** `wanda` (default), `magnitude`, `sparsegpt`. Sparsity: 0.0–1.0.
 
 ## 6.2.7 Quantize
 
 ```bash
-# INT4 quantization (default, best compression)
-apr-leaderboard quantize --model pruned.apr --scheme int4 -o submit.apr
+# INT4 quantization
+make quantize CHECKPOINT=checkpoints/pruned.apr SCHEME=int4
 
-# Q6K quantization with calibration data
-apr-leaderboard quantize --model pruned.apr --scheme q6k \
-    --calibration calib-code.jsonl -o submit.apr
+# Q6K quantization
+make quantize CHECKPOINT=checkpoints/pruned.apr SCHEME=q6k
 ```
 
 **Schemes:** `int4`, `int8`, `q4k`, `q5k`, `q6k`.
 
-| Flag | Default | Description |
-|---|---|---|
-| `--scheme` | `int4` | Quantization scheme |
-| `--calibration` | — | Calibration dataset for quality-aware quantization |
-
-## 6.2.8 Compare
+## 6.2.8 Pipeline (config-driven)
 
 ```bash
-# Check parity against HuggingFace reference implementation
-apr-leaderboard compare --model models/qwen-7b.apr
+# Run entire pipeline from a recipe TOML config
+make pipeline RECIPE=recipe-a-quick-lora
+
+# Dry-run: show commands without executing
+make pipeline-plan RECIPE=recipe-c-full-pipeline
 ```
+
+The pipeline script (`scripts/pipeline.sh`) reads a recipe TOML and runs each stage in order:
+
+```
+import → [distill] → [finetune] → [align] → [merge] → [prune] → [quantize] → eval → [submit] → [compile]
+```
+
+Stages in brackets are optional — only included if the corresponding TOML section exists.
 
 ## 6.2.9 Submit
 
 ```bash
-# Submit results to the Open LLM Leaderboard
-apr-leaderboard submit --results results/humaneval_20260228.json \
-    --model-id paiml/qwen-coder-7b-apr
+# Export and publish to HuggingFace Hub
+make publish CHECKPOINT=checkpoints/model.apr HF_REPO=paiml/qwen-coder-7b-apr
 
-# Submit to BigCodeBench leaderboard
-apr-leaderboard submit --results results/bigcodebench_20260228.json \
-    --model-id paiml/qwen-coder-7b-apr --leaderboard bigcode
+# Export only (SafeTensors)
+make export CHECKPOINT=checkpoints/model.apr EXPORT_FORMAT=safetensors
 ```
 
-## 6.2.10 Pipeline (config-driven)
+The submit script (`scripts/submit.sh`):
+1. Exports model to SafeTensors via `apr export`
+2. Generates model card with benchmark results table
+3. Dry-run preview via `apr publish --dry-run`
+4. Prompts for confirmation before actual upload
+
+## 6.2.10 Verification
 
 ```bash
-# Run entire pipeline from a TOML config file
-apr-leaderboard pipeline --config configs/qwen-coder-7b.toml
+# Verify apr CLI and all subcommands
+make verify
+
+# End-to-end smoke test (CLI + configs)
+make dogfood
 ```
 
-Example pipeline config:
+## 6.3 Orchestration Surface Mapping
 
-```toml
-[model]
-model_id = "Qwen/Qwen2.5-Coder-7B"
-quantization = "fp16"
-
-[eval]
-benchmarks = ["humaneval", "mbpp", "bigcodebench"]
-samples = 0  # full benchmark
-
-[finetune]
-enabled = true
-dataset = "data/code-instruct.jsonl"
-rank = 16
-lr = 1e-4
-epochs = 3
-
-[submit]
-model_id = "paiml/qwen-coder-7b-apr"
-leaderboard = "open-llm-leaderboard"
-```
-
-## 6.3 CLI Surface Mapping
-
-The full mapping between `apr-leaderboard` orchestration and `apr` ML operations:
+The full mapping between Makefile targets and `apr` CLI operations:
 
 ```
-apr-leaderboard pipeline --config pipeline.toml
+make pipeline RECIPE=recipe-c-full-pipeline.toml
     │
-    ├── apr-leaderboard validate ──►  alimentar decontamination check
-    ├── apr-leaderboard convert  ──►  apr import hf://... -o base.apr
-    ├── apr-leaderboard distill  ──►  entrenar::distill (DistillationLoss, ProgressiveDistiller)
-    ├── apr-leaderboard finetune ──►  apr finetune base.apr --method qlora ...
-    ├── apr-leaderboard align    ──►  DPO/ORPO preference optimization
-    ├── apr-leaderboard merge    ──►  entrenar::merge (slerp_merge, ensemble_merge) + apr_bridge
-    ├── apr-leaderboard tune     ──►  HPO (TPE/grid/random)
-    ├── apr-leaderboard prune    ──►  apr prune model.apr --method wanda ...
-    ├── apr-leaderboard quantize ──►  apr quantize model.apr --scheme int4 ...
-    ├── apr-leaderboard eval     ──►  entrenar::eval::pass_at_k + prompt strategies
-    ├── apr-leaderboard compile  ──►  apr compile --release --lto --strip
-    └── apr-leaderboard submit   ──►  (HTTP POST to HF Hub API)
+    │  scripts/pipeline.sh reads TOML, runs stages:
+    │
+    ├── [import]    ──► apr import hf://... -o checkpoints/base.apr
+    ├── [distill]   ──► apr distill teacher.apr --student base.apr -o distilled.apr
+    ├── [finetune]  ──► apr finetune distilled.apr --method lora -o tuned.apr
+    ├── [align]     ──► apr finetune tuned.apr --method dpo -o aligned.apr
+    ├── [merge]     ──► apr merge aligned.apr variant.apr --strategy slerp -o merged.apr
+    ├── [prune]     ──► apr prune merged.apr --method wanda -o pruned.apr
+    ├── [quantize]  ──► apr quantize pruned.apr --scheme int4 -o quantized.apr
+    ├── [eval]      ──► scripts/eval-pass-at-k.sh humaneval quantized.apr
+    ├── [submit]    ──► scripts/submit.sh quantized.apr org/model
+    └── [compile]   ──► apr compile quantized.apr --release --lto --strip
 ```

@@ -4,7 +4,7 @@
 
 **apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without an external CUDA toolkit.
 
-It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer (~1,400 lines of Rust) that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
+It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile, four shell scripts, and nine TOML configs — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
 
 ```
 apr import → apr distill → apr finetune → apr merge → apr prune → apr quantize → apr eval → apr submit
@@ -33,8 +33,8 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 ┌──────────────────────────────────────────────────────────┐
 │                    apr-leaderboard                        │
 │                                                          │
-│  Pipeline configs    Benchmark metadata    Result JSON    │
-│  (TOML)              (10 benchmarks)       persistence   │
+│  Makefile           TOML configs        Shell scripts    │
+│  (orchestration)    (9 configs)         (4 scripts)      │
 │                                                          │
 │  ┌──────────────── calls ─────────────────────────────┐  │
 │  │                                                     │  │
@@ -60,11 +60,11 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
    pmat comply ◄───── quality gate ─────────────────────────┘
 ```
 
-**apr-leaderboard does NOT reimplement aprender.** It calls `apr` subcommands. The relationship is:
+**apr-leaderboard does NOT reimplement aprender.** It calls `apr` subcommands via Makefile targets and shell scripts. The relationship is:
 
 | Layer | Repo | Responsibility |
 |---|---|---|
-| **Orchestration** | apr-leaderboard | Pipeline config, benchmark metadata, result tracking, strategy spec |
+| **Orchestration** | apr-leaderboard | Makefile targets, shell scripts, pipeline configs, benchmark metadata, result tracking, strategy spec |
 | **ML Operations** | aprender (apr CLI) | Model import, inference, eval, distillation, merging, pruning, quantization |
 | **Training** | entrenar | LoRA/QLoRA, autograd, optimizers, gradient checkpointing |
 | **Compute** | trueno | SIMD tensor ops, GPU kernels, quantized matmul |
@@ -73,71 +73,58 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 
 ## 1.4 Current Implementation Status
 
-**All 21 CLI subcommands are wired to real sovereign stack APIs.** Every operation produces valid APR v2 files that pass `check` validation end-to-end.
+All orchestration is implemented via Makefile + shell scripts. Every `make` target calls real `apr` CLI subcommands.
 
-| Module | Status | What's wired |
+| Component | Status | What It Does |
 |---|---|---|
-| **convert/** | **Wired** | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 + 4 quant formats |
-| **eval/** | **Wired** | `entrenar::eval::pass_at_k` (Chen et al. estimator), 5 prompt strategies, N-sampling |
-| **finetune/** | **Wired** | `entrenar::lora::{LoRALayer, QLoRALayer}`, `AdamW`, `WarmupCosineDecayLR`, adapter merge |
-| **distill/** | **Wired** | `entrenar::distill::{DistillationLoss, ProgressiveDistiller, EnsembleDistiller}` |
-| **merge/** | **Wired** | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via `apr_bridge` |
-| **prune/** | **Wired** | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` |
-| **quantize/** | **Wired** | `entrenar::quant::{Calibrator, quantize_tensor, quantization_mse}` |
-| **align/** | **Wired** | `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss, LossFn}` + DPO/ORPO preference loss |
-| **validate/** | **Wired** | N-gram fingerprinting via `HashSet` + `harness::get_benchmark` integration |
-| **inference/** | **Wired** | `entrenar::train::{CrossEntropyLoss, LossFn}` + token log-probs + temperature scaling |
-| **compile/** | **Wired** | `aprender::format::v2::AprV2Reader` pre-compilation validation |
-| **check/** | **Wired** | `aprender::format::v2::AprV2Reader` full validation |
-| **acceptance/** | **Wired** | `provable_contracts::schema::{parse_contract, validate_contract}`, 27 ACs |
-| **compare/** | **Wired** | `apr_bridge::load_apr_as_merge_model` + per-tensor weight statistics |
-| **tune/** | **Wired** | `entrenar::train::CrossEntropyLoss` HPO trials + APR v2 I/O via `apr_bridge` |
-| **submit/** | **Wired** | `aprender::format::v2::AprV2Reader` pre-submit validation + model card gen |
-| **pipeline/** | **Wired** | 12-stage orchestration — all stages call wired backends |
-| **export/** | **Wired** | `aprender::format::v2::AprV2Reader` tensor index export + metadata |
-| **harness/** | Complete | All 10 benchmark definitions with metadata |
+| **Makefile** | **Working** | 21 targets: import, finetune, merge, prune, quantize, distill, compile, eval-*, export, publish, pipeline, verify, dogfood |
+| **scripts/eval-pass-at-k.sh** | **Working** | Downloads benchmark data, generates completions via `apr run`, executes in sandbox, computes pass@k |
+| **scripts/pipeline.sh** | **Working** | Parses recipe TOML, runs up to 12 stages sequentially, supports `--plan` dry-run |
+| **scripts/submit.sh** | **Working** | Exports to SafeTensors, generates model card, publishes to HF Hub with dry-run confirmation |
+| **scripts/import.sh** | **Working** | Wraps `apr import` with HF Hub reachability check and `apr check` validation |
+| **configs/models/** | **Complete** | 5 model configs (Qwen-7B, Qwen-32B, Qwen-1.5B, DeepSeek-R1-7B, Phi-4) |
+| **configs/recipes/** | **Complete** | 4 recipe configs (quick-lora, merge-alchemist, full-pipeline, sovereign-binary) |
+| **docs/** | **Updating** | Strategy spec (mdbook), being updated to reflect orchestrator architecture |
 
-**Quality:** 368 tests, 0 clippy warnings, 96.1% line coverage, all files ≤500 lines, 13 source modules.
+**Quality:** All 9 TOML configs valid, all 4 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B.
 
 ## 1.5 How People Use It
 
 **For leaderboard competitors:**
 
 ```bash
-# 1. Install
-cargo install --path .
+# 1. Verify the pipeline
+make verify
 
-# 2. Configure your model and benchmarks
-cp configs/qwen-coder-7b.toml configs/my-model.toml
-# Edit: model_id, quantization, benchmarks, finetune params
+# 2. Import a model from HuggingFace
+make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
 
-# 3. Run the full pipeline
-apr-leaderboard pipeline --config configs/my-model.toml
+# 3. Evaluate on benchmarks
+make eval-humaneval CHECKPOINT=checkpoints/qwen_qwen2.5-coder-7b-instruct.apr
+make eval-all CHECKPOINT=checkpoints/qwen_qwen2.5-coder-7b-instruct.apr
 
-# 4. Review results
-apr-leaderboard history
-apr-leaderboard history --model qwen
+# 4. Optimize (quantize, prune, merge, etc.)
+make quantize CHECKPOINT=checkpoints/base.apr SCHEME=int4
+make prune CHECKPOINT=checkpoints/base.apr PRUNE_METHOD=wanda SPARSITY=0.5
 
-# 5. Submit to leaderboard
-apr-leaderboard submit --results results/latest.json \
-    --model paiml/qwen-coder-7b-apr --leaderboard bigcode
+# 5. Run a full recipe pipeline
+make pipeline RECIPE=recipe-a-quick-lora
+
+# 6. Submit to HuggingFace Hub
+make publish CHECKPOINT=checkpoints/model.apr HF_REPO=org/model-name
 ```
 
 **For sovereign stack developers:**
 
-This repo is an integration test for the sovereign stack. If `apr-leaderboard pipeline` produces competitive scores, the stack works. If it doesn't, `apr compare-hf` and the per-step eval results pinpoint the weak component.
+This repo is an integration test for the sovereign stack. If `make pipeline` produces competitive scores, the stack works. If it doesn't, the per-step eval results pinpoint the weak component.
 
 ```bash
 # Run baseline parity check
-apr import hf://Qwen/Qwen2.5-Coder-7B-Instruct -o baseline.apr
-apr compare-hf baseline.apr --json    # identifies inference parity gap
-apr eval baseline.apr --dataset wikitext-2   # perplexity sanity check
-apr bench baseline.apr --json                # throughput measurement
-
-# If parity gap > 5%, investigate:
-apr trace baseline.apr --verbose      # layer-by-layer analysis
-apr diff baseline.apr reference.apr   # weight comparison
-apr parity baseline.apr               # GPU/CPU divergence check
+make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
+apr run checkpoints/qwen_qwen2.5-coder-7b-instruct.apr \
+    --prompt "def fibonacci(n):" --max-tokens 256 --no-gpu
+apr eval checkpoints/qwen_qwen2.5-coder-7b-instruct.apr --dataset wikitext-2
+apr bench checkpoints/qwen_qwen2.5-coder-7b-instruct.apr --json
 ```
 
 **For researchers:**

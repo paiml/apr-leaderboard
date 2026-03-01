@@ -37,3 +37,4 @@
 - [Implementation Status](./spec/19-implementation-status.md)
 - [Scientific Foundation](./spec/20-scientific-foundation.md)
 - [Open Questions](./spec/21-open-questions.md)
+- [Dogfooding Findings](./spec/22-dogfooding-findings.md)
