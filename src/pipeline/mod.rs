@@ -126,8 +126,74 @@ pub(crate) struct EvalConfigToml {
     pub system: Option<String>,
 }
 
+/// Validate pipeline ordering against the technique interaction matrix (§10).
+///
+/// Golden ordering: distill → finetune → merge → prune → quantize
+/// Warns about known anti-patterns that degrade quality.
+pub(crate) fn validate_pipeline_order(config: &PipelineConfig) -> Vec<String> {
+    let mut warnings = Vec::new();
+
+    // Anti-pattern 1: prune → finetune (LoRA can't recover pruned knowledge)
+    if config.prune.is_some() && config.finetune.is_some() {
+        // In our golden ordering, finetune comes before prune — this is correct.
+        // But if someone had prune without finetune, that's fine too.
+        // The real anti-pattern would be if ordering were reversed,
+        // but our pipeline enforces golden ordering already.
+    }
+
+    // Anti-pattern 2: finetune → distill (overwrites fine-tuned specialization)
+    if config.finetune.is_some() && config.distill.is_some() {
+        // Our pipeline runs distill before finetune (golden ordering).
+        // This is correct — warn only if distill is absent but finetune is present
+        // AND the user might be feeding an already-finetuned model.
+    }
+
+    // Anti-pattern 3: quantize → anything else (quality loss compounds)
+    // Our pipeline always runs quantize last — this is enforced by ordering.
+
+    // Warn about suboptimal combos
+    if config.merge.is_some() && config.finetune.is_none() {
+        warnings.push(
+            "Merge without finetune: merging untrained variants is suboptimal. \
+             Consider adding [finetune] before [merge] (§10 golden ordering).".into()
+        );
+    }
+
+    if config.prune.is_some() && config.quantize.is_none() {
+        warnings.push(
+            "Prune without quantize: pruning alone may not reduce model size effectively. \
+             Consider adding [quantize] after [prune].".into()
+        );
+    }
+
+    if config.distill.is_some() && config.finetune.is_none() && config.merge.is_none() {
+        warnings.push(
+            "Distill without finetune or merge: distilled knowledge benefits from \
+             task-specific adaptation. Consider adding [finetune] after [distill].".into()
+        );
+    }
+
+    if config.align.is_some() && config.finetune.is_none() {
+        warnings.push(
+            "Align without finetune: preference optimization (DPO/ORPO) works best \
+             after supervised fine-tuning. Consider adding [finetune] before [align].".into()
+        );
+    }
+
+    warnings
+}
+
 pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
     println!("=== APR Leaderboard Pipeline ===\n");
+
+    // Check pipeline ordering for anti-patterns (§10)
+    let warnings = validate_pipeline_order(config);
+    for warning in &warnings {
+        println!("  WARNING: {warning}");
+    }
+    if !warnings.is_empty() {
+        println!();
+    }
 
     let total_steps = count_steps(config);
     let mut step = 0;
