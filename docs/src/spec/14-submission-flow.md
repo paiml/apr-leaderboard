@@ -46,9 +46,11 @@ The model card (`README.md` in the HF repo) MUST include:
 
 Before `apr-leaderboard submit`:
 
-- [ ] `apr check model.apr` passes (format validation)
+- [ ] `apr check model.apr` passes (format validation via `aprender::format::v2::AprV2Reader` — **wired**)
 - [ ] `apr compare-hf model.apr` shows <5% parity gap
 - [ ] `pmat comply check --strict` passes
 - [ ] Decontamination report shows <1% n-gram overlap
 - [ ] Model card generated and reviewed
 - [ ] Results JSON includes all required benchmarks
+
+**Implementation note:** The `--pre-submit-check` flag in `apr-leaderboard submit` runs 5 automated checks: APR format validation (via `AprV2Reader::from_reader()`), results JSON parsing, required benchmark presence, model ID format, and model card existence. See §19.6 for wiring status.

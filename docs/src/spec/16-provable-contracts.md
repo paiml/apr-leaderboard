@@ -2,6 +2,34 @@
 
 Every kernel in the pipeline MUST have a provable-contracts YAML contract binding it to its mathematical specification. This ensures the optimization techniques produce correct results, not just plausible ones.
 
+## 16.0 Implementation Status
+
+The `provable-contracts` crate is wired into `apr-leaderboard` as a path dependency (`../provable-contracts/crates/provable-contracts`). Contract validation is integrated into the `acceptance --verify` command:
+
+```bash
+# Validate all contracts in contracts/ directory
+apr-leaderboard acceptance --verify
+# Output:
+#   Acceptance Criteria Scaffold Verification:
+#     Scaffolded: 12/27
+#     Pending (needs real models): 11
+#     External (needs tooling): 4
+#
+#   Contract validation:
+#     contracts/pass-at-k.yaml — 1 equations, 3 obligations
+```
+
+**Wired APIs:**
+- `provable_contracts::schema::parse_contract(path)` — Parse YAML contract files
+- `provable_contracts::schema::validate_contract(&contract)` — Check equations, proof obligations, falsification tests
+- `provable_contracts::error::Severity` — Filter validation violations by severity
+
+**Current contracts (in `contracts/` directory):**
+
+| Contract | Equations | Proof Obligations | Falsification Tests |
+|---|---|---|---|
+| `pass-at-k.yaml` | 1 (`pass_at_k = 1 - C(n-c,k)/C(n,k)`) | 3 (bound, monotonicity, equivalence) | 3 (FT-001, FT-002, FT-003) |
+
 ## 16.1 Contract Coverage Requirements
 
 The leaderboard pipeline touches these kernel equivalence classes from the provable-contracts registry:

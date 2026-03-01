@@ -66,8 +66,8 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Operation | Strategy/Method Enums | Extended Flags | Validation | Status |
 |---|---|---|---|---|
-| Distill | `Standard`, `Progressive`, `Ensemble` | `--epochs`, `--data` | temperature > 0, alpha 0.0–1.0, empty path check | ✅ Scaffolded |
-| Merge | `Slerp`, `Ties`, `Dare`, `LinearAvg` (alias: `average`) | `--weights`, `--base-model`, `--density`, `--drop-rate` | Min 2 models, weights sum to 1.0, TIES/DARE require base-model, density/drop-rate 0.0–1.0 | ✅ Scaffolded |
+| Distill | `Standard`, `Progressive`, `Ensemble` | `--epochs`, `--data` | temperature > 0, alpha 0.0–1.0, empty path check | ✅ Wired (`entrenar::distill`) |
+| Merge | `Slerp`, `Ties`, `Dare`, `LinearAvg` (alias: `average`) | `--weights`, `--base-model`, `--density`, `--drop-rate` | Min 2 models, weights sum to 1.0, TIES/DARE require base-model, density/drop-rate 0.0–1.0 | ✅ Wired (`entrenar::merge` + `apr_bridge`) |
 | Prune | `Wanda`, `Magnitude`, `SparseGpt`, `Structured`, `Depth`, `Width` | `--calibration` | Ratio 0.0–1.0, empty path check | ✅ Scaffolded |
 | Quantize | `Int4`, `Int8`, `Q4K`, `Q5K`, `Q6K` | `--calibration` | Empty path check | ✅ Scaffolded |
 | Finetune | `Lora`, `Qlora`, `Full` | `--method`, `-o` | Model file exists check | ✅ Scaffolded |

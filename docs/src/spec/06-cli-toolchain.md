@@ -45,20 +45,29 @@ apr quantize pruned.apr --scheme int4 -o submit.apr
 
 The orchestration layer that drives the pipeline. Each subcommand maps to one or more upstream `apr` operations.
 
-| Subcommand | Maps to | Description |
-|---|---|---|
-| `convert` | `apr import` | Download HF model → `.apr` format |
-| `eval` | `apr eval` | Run benchmark suite with pass@k metrics |
-| `finetune` | `apr finetune` (entrenar) | LoRA/QLoRA fine-tuning |
-| `distill` | `apr distill` | Knowledge distillation (teacher → student) |
-| `merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) |
-| `prune` | `apr prune` | Structured/unstructured pruning |
-| `quantize` | `apr quantize` | Post-training quantization |
-| `compare` | `apr compare-hf` | Parity check against HF reference |
-| `submit` | — | Format + push results to HF leaderboard |
-| `benchmarks` | — | List available benchmark suites |
-| `history` | — | Show past evaluation results |
-| `pipeline` | all of the above | Config-driven end-to-end pipeline |
+| Subcommand | Maps to | Description | Status |
+|---|---|---|---|
+| `convert` | `apr import` | Download HF model → `.apr` format | Scaffolded |
+| `eval` | `apr eval` | Run benchmark suite with pass@k metrics | **Wired** (`entrenar::eval::pass_at_k`) |
+| `finetune` | `apr finetune` (entrenar) | LoRA/QLoRA fine-tuning | Scaffolded |
+| `distill` | `apr distill` | Knowledge distillation (teacher → student) | **Wired** (`entrenar::distill`) |
+| `merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) | **Wired** (`entrenar::merge` + `apr_bridge`) |
+| `prune` | `apr prune` | Structured/unstructured pruning | Scaffolded |
+| `quantize` | `apr quantize` | Post-training quantization | Scaffolded |
+| `compare` | `apr compare-hf` | Parity check against HF reference | Scaffolded |
+| `submit` | — | Format + push results to HF leaderboard | Scaffolded |
+| `benchmarks` | — | List available benchmark suites | Complete |
+| `history` | — | Show past evaluation results | Complete |
+| `pipeline` | all of the above | Config-driven end-to-end pipeline (12 stages) | Scaffolded |
+| `align` | `apr align` (entrenar) | DPO/ORPO preference optimization | Scaffolded |
+| `validate` | `alimentar` | Data decontamination checking | Scaffolded |
+| `tune` | `apr tune` (entrenar) | HPO: TPE/grid/random strategies | Scaffolded |
+| `run` | `apr run` (realizar) | Inference with speculative decoding | Scaffolded |
+| `chat` | `apr chat` (realizar) | Batch generation / chat completions | Scaffolded |
+| `check` | `apr check` | Validate APR format and integrity | **Wired** (`aprender::format::v2::AprV2Reader`) |
+| `compile` | `apr compile` | Compile model to standalone binary | Scaffolded |
+| `export` | — | SafeTensors/GGUF metadata export | Scaffolded |
+| `acceptance` | — | List/verify 27 acceptance criteria (§18) | **Wired** (`provable_contracts`) |
 
 ## 6.2.1 Convert
 
@@ -263,12 +272,16 @@ The full mapping between `apr-leaderboard` orchestration and `apr` ML operations
 ```
 apr-leaderboard pipeline --config pipeline.toml
     │
+    ├── apr-leaderboard validate ──►  alimentar decontamination check
     ├── apr-leaderboard convert  ──►  apr import hf://... -o base.apr
-    ├── apr-leaderboard distill  ──►  apr distill teacher.apr --student base.apr ...
+    ├── apr-leaderboard distill  ──►  entrenar::distill (DistillationLoss, ProgressiveDistiller)
     ├── apr-leaderboard finetune ──►  apr finetune base.apr --method qlora ...
-    ├── apr-leaderboard merge    ──►  apr merge a.apr b.apr --strategy slerp ...
+    ├── apr-leaderboard align    ──►  DPO/ORPO preference optimization
+    ├── apr-leaderboard merge    ──►  entrenar::merge (slerp_merge, ensemble_merge) + apr_bridge
+    ├── apr-leaderboard tune     ──►  HPO (TPE/grid/random)
     ├── apr-leaderboard prune    ──►  apr prune model.apr --method wanda ...
     ├── apr-leaderboard quantize ──►  apr quantize model.apr --scheme int4 ...
-    ├── apr-leaderboard eval     ──►  apr eval model.apr --benchmark humaneval ...
+    ├── apr-leaderboard eval     ──►  entrenar::eval::pass_at_k + prompt strategies
+    ├── apr-leaderboard compile  ──►  apr compile --release --lto --strip
     └── apr-leaderboard submit   ──►  (HTTP POST to HF Hub API)
 ```

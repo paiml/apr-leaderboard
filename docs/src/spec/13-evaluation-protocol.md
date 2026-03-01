@@ -14,6 +14,8 @@ pass@k = 1 - C(n-c, k) / C(n, k)
 
 Where `n` = total completions generated, `c` = number that pass all tests, `k` = samples selected. This avoids biased estimation from sampling exactly k completions.
 
+**Implementation:** `apr-leaderboard eval` delegates pass@k computation to `entrenar::eval::pass_at_k(n, c, k)`, which implements the Chen et al. estimator. This is wired (not scaffolded) — the function is called with real parameters and returns correct results. The implementation is validated by a provable-contracts YAML (`contracts/pass-at-k.yaml`) with 3 proof obligations (bound [0,1], monotonicity, pass@1 equivalence) and 3 falsification tests.
+
 **apr-leaderboard eval flags that map to this:**
 
 | Flag | Effect |
