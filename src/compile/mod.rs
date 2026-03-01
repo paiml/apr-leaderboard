@@ -145,4 +145,37 @@ mod tests {
     fn test_check_model_not_found() {
         assert!(check("/nonexistent.apr").is_err());
     }
+
+    #[test]
+    fn test_check_exactly_3_bytes() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("edge.bin");
+        std::fs::write(&model, b"APR").unwrap();
+        // 3 bytes < 4 → too small
+        let result = check(model.to_str().unwrap());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("too small"));
+    }
+
+    #[test]
+    fn test_check_exactly_4_bytes_valid() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("minimal.apr");
+        std::fs::write(&model, b"APR2").unwrap();
+        assert!(check(model.to_str().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn test_compile_strip_only() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("test.apr");
+        std::fs::write(&model, b"APR2data").unwrap();
+        assert!(run(model.to_str().unwrap(), false, false, true, None).is_ok());
+    }
+
+    #[test]
+    fn test_compile_error_message() {
+        let err = run("/nonexistent.apr", false, false, false, None).unwrap_err();
+        assert!(err.to_string().contains("Failed to load model"));
+    }
 }

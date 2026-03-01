@@ -94,4 +94,18 @@ mod tests {
         assert!(run("data.jsonl", &["humaneval".into()], 0.0, false, None).is_ok());
         assert!(run("data.jsonl", &["humaneval".into()], 1.0, false, None).is_ok());
     }
+
+    #[test]
+    fn test_run_decontaminate_with_output() {
+        let result = run("data.jsonl", &["humaneval".into(), "mbpp".into()], 0.05, true, Some("clean.jsonl"));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_threshold_error_messages() {
+        let err = run("data.jsonl", &["humaneval".into()], 1.5, false, None).unwrap_err();
+        assert!(err.to_string().contains("threshold"));
+        let err = run("data.jsonl", &["humaneval".into()], -0.1, false, None).unwrap_err();
+        assert!(err.to_string().contains("threshold"));
+    }
 }

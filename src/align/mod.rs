@@ -174,4 +174,27 @@ mod tests {
         let input = "models/test.apr";
         assert_eq!(input.replace(".apr", "_aligned.apr"), "models/test_aligned.apr");
     }
+
+    #[test]
+    fn test_run_beta_error_message() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("test.apr");
+        std::fs::write(&model, b"APR2data").unwrap();
+        let err = run(model.to_str().unwrap(), "pairs.jsonl", "dpo", -0.5, 3, None, None).unwrap_err();
+        assert!(err.to_string().contains("beta"));
+    }
+
+    #[test]
+    fn test_run_with_custom_output() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("test.apr");
+        std::fs::write(&model, b"APR2data").unwrap();
+        let output = tmp.path().join("custom_aligned.apr");
+        let result = run(
+            model.to_str().unwrap(), "pairs.jsonl", "dpo", 0.1, 2,
+            None, Some(output.to_str().unwrap()),
+        );
+        assert!(result.is_ok());
+        assert!(output.exists());
+    }
 }

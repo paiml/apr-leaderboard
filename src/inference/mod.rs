@@ -186,4 +186,34 @@ mod tests {
     fn test_chat_model_not_found() {
         assert!(chat("/nonexistent.apr", None, Some("test"), 1, 0.0, None, false).is_err());
     }
+
+    #[test]
+    fn test_run_speculative_json() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("test.apr");
+        std::fs::write(&model, b"APR2data").unwrap();
+        assert!(run(model.to_str().unwrap(), "test", true, 8, Some("draft.apr"), true).is_ok());
+    }
+
+    #[test]
+    fn test_chat_both_batch_and_prompt() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("test.apr");
+        std::fs::write(&model, b"APR2data").unwrap();
+        assert!(chat(model.to_str().unwrap(), Some("batch.txt"), Some("prompt"), 3, 0.5, Some("Be concise"), true).is_ok());
+    }
+
+    #[test]
+    fn test_chat_temperature_zero() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let model = tmp.path().join("test.apr");
+        std::fs::write(&model, b"APR2data").unwrap();
+        assert!(chat(model.to_str().unwrap(), None, Some("test"), 1, 0.0, None, false).is_ok());
+    }
+
+    #[test]
+    fn test_run_model_error_message() {
+        let err = run("/nonexistent.apr", "test", false, 4, None, false).unwrap_err();
+        assert!(err.to_string().contains("Failed to load model"));
+    }
 }

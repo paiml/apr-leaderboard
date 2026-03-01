@@ -375,3 +375,41 @@ fn test_category_score_serialization() {
     assert!((parsed.score - 0.9).abs() < f64::EPSILON);
     assert_eq!(parsed.count, 15);
 }
+
+#[test]
+fn test_validate_config_error_messages() {
+    let config = EvalConfig { temperature: -1.0, ..EvalConfig::default() };
+    let err = validate_config(&config).unwrap_err();
+    assert!(err.to_string().contains("temperature"));
+
+    let config = EvalConfig { top_p: 1.5, ..EvalConfig::default() };
+    let err = validate_config(&config).unwrap_err();
+    assert!(err.to_string().contains("top_p"));
+}
+
+#[test]
+fn test_run_with_exemplars_and_system() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("test.apr");
+    std::fs::write(&model_path, b"APR2test").unwrap();
+
+    let config = EvalConfig {
+        prompt_strategy: PromptStrategy::FewShot,
+        exemplars: Some("examples.jsonl".into()),
+        system: Some("You are a code expert".into()),
+        ..EvalConfig::default()
+    };
+    let results_dir = tmp.path().join("results");
+    let result = run_with_config(
+        model_path.to_str().unwrap(), "humaneval", 5,
+        results_dir.to_str().unwrap(), &config,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_prompt_strategy_case_insensitive() {
+    assert!(matches!(PromptStrategy::from_str("SCOT").unwrap(), PromptStrategy::SCoT));
+    assert!(matches!(PromptStrategy::from_str("FEW-SHOT").unwrap(), PromptStrategy::FewShot));
+    assert!(matches!(PromptStrategy::from_str("Reflexion").unwrap(), PromptStrategy::Reflexion));
+}
