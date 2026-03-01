@@ -10,7 +10,7 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        finetune merge prune quantize distill compile \
+        prep-data finetune finetune-instruct merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all \
         export publish model-card \
         pipeline pipeline-plan \
@@ -42,7 +42,7 @@ NUM_SAMPLES   ?= 1
 import:
 	@test -n "$(MODEL)" || { echo "ERROR: MODEL required (e.g., make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct)"; exit 1; }
 	@mkdir -p $(OUTPUT_DIR)
-	$(APR) import "hf://$(MODEL)" -o "$(CHECKPOINT)" --verbose
+	$(APR) import "hf://$(MODEL)" -o "$(CHECKPOINT)" --quantize $(QUANTIZE) --verbose
 
 import-plan:
 	@test -n "$(MODEL)" || { echo "ERROR: MODEL required"; exit 1; }
@@ -54,7 +54,30 @@ import-plan:
 	@echo "Checking HF Hub reachability..."
 	@curl -sf "https://huggingface.co/api/models/$(MODEL)" > /dev/null && echo "OK: Model exists on HF Hub" || echo "WARN: Could not reach HF Hub"
 
+# ── Data Preparation ───────────────────────────────────────────────────────
+
+prep-data:
+	@echo "=== Preparing instruction corpus from ground truth corpora ==="
+	@mkdir -p data
+	python3 scripts/prep-instruct-data.py --output data/instruct-corpus.jsonl
+	@echo ""
+	@wc -l data/instruct-corpus.jsonl | awk '{print "  " $$1 " instruction pairs"}'
+
+prep-data-stats:
+	python3 scripts/prep-instruct-data.py --stats
+
 # ── Optimization ────────────────────────────────────────────────────────────
+
+finetune-instruct:
+	@test -f "data/instruct-corpus.jsonl" || { echo "ERROR: Run 'make prep-data' first"; exit 1; }
+	$(APR) finetune --task instruct \
+		--data data/instruct-corpus.jsonl \
+		--model-size $(MODEL_SIZE) \
+		--rank $(RANK) \
+		--epochs $(EPOCHS) \
+		--learning-rate $(LR) \
+		--output "$(OUTPUT_DIR)/$(NAME)-instruct.apr" \
+		--verbose
 
 finetune:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
@@ -248,7 +271,8 @@ METHOD        ?= lora
 RANK          ?= 16
 LR            ?= 0.0002
 EPOCHS        ?= 3
-DATA          ?= data/code-instruct.jsonl
+DATA          ?= data/instruct-corpus.jsonl
+MODEL_SIZE    ?= 7B
 TEACHER       ?=
 STUDENT       ?=
 

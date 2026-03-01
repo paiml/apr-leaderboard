@@ -29,7 +29,33 @@ apr eval qwen-7b.apr --dataset wikitext-2 --threshold 20.0
 apr eval qwen-7b.apr --task classify --data humaneval.jsonl --json
 ```
 
-## 6.1.3 Full Optimization Pipeline (preview)
+## 6.1.3 Instruction Fine-tuning (GH-371)
+
+```bash
+# Instruction fine-tuning with LoRA on Q/V projections
+apr finetune --task instruct --data instruct.jsonl --epochs 3 --rank 16
+
+# With pretrained model and custom model size
+apr finetune --task instruct --data instruct.jsonl \
+    --model-size 7B --rank 32 --learning-rate 0.0002 --epochs 5
+
+# Plan-only mode (shows config without training)
+apr finetune --task instruct --model-size 7B --plan
+```
+
+**Corpus format (JSONL):**
+```json
+{"instruction": "Write a function that...", "response": "def foo():\n    ..."}
+{"instruction": "...", "response": "...", "system": "You are...", "metadata": {"source": "depyler"}}
+```
+
+**Contracts:**
+- F-INST-001: Non-empty instruction and response
+- F-INST-002: Cross-entropy loss computed only on response tokens
+- F-INST-003: Perplexity reported per epoch
+- F-INST-004: Qwen chat template (`<|im_start|>` / `<|im_end|>`)
+
+## 6.1.4 Full Optimization Pipeline (preview)
 
 ```bash
 # The complete leaderboard recipe in 6 commands (follows golden ordering §10):
@@ -48,12 +74,14 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | Make Target | Calls | Description |
 |---|---|---|
 | `make import` | `apr import` | Download HF model → `.apr` format |
+| `make prep-data` | `scripts/prep-instruct-data.py` | Extract instruct pairs from ground truth corpora |
 | `make eval-humaneval` | `scripts/eval-pass-at-k.sh` | Generate completions → sandbox execute → pass@k |
 | `make eval-mbpp` | `scripts/eval-pass-at-k.sh` | Same pipeline, MBPP dataset |
 | `make eval-bigcodebench` | `scripts/eval-pass-at-k.sh` | Same pipeline, BigCodeBench dataset |
 | `make eval-all` | `scripts/eval-pass-at-k.sh` × 3 | All benchmarks sequentially |
 | `make eval-perplexity` | `apr eval --dataset wikitext-2` | Perplexity baseline |
-| `make finetune` | `apr finetune` | LoRA/QLoRA fine-tuning |
+| `make finetune-instruct` | `apr finetune --task instruct` | Instruction LoRA fine-tuning (GH-371) |
+| `make finetune` | `apr finetune` | Classification LoRA/QLoRA fine-tuning |
 | `make distill` | `apr distill` | Knowledge distillation (teacher → student) |
 | `make merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) |
 | `make prune` | `apr prune` | Structured/unstructured pruning |
@@ -106,10 +134,35 @@ The eval script (`scripts/eval-pass-at-k.sh`) handles the full pipeline:
 4. Executes in sandbox with `timeout 10`
 5. Computes pass@k and writes result JSON
 
-## 6.2.3 Finetune
+## 6.2.3 Data Preparation
 
 ```bash
-# LoRA fine-tune with defaults (method=lora, rank 16, lr 0.0002, 3 epochs)
+# Extract instruction pairs from all 4 ground truth corpora
+make prep-data
+
+# View corpus statistics
+make prep-data-stats
+```
+
+The data prep script (`scripts/prep-instruct-data.py`) extracts function/class definitions with docstrings from:
+- **depyler** (~11.8K pairs): Python algorithms, data structures, CLI examples
+- **hf-gtc** (~3.5K pairs): HuggingFace production recipes
+- **jax-gtc** (~58 pairs): JAX numerical computing patterns
+- **vllm-gtc** (~81 pairs): vLLM inference optimization patterns
+
+Total: **~15.5K instruction/response pairs** in JSONL format.
+
+## 6.2.4 Finetune
+
+```bash
+# Instruction fine-tuning with data from ground truth corpora (GH-371)
+make prep-data                    # generate data/instruct-corpus.jsonl
+make finetune-instruct            # defaults: model_size=7B, rank=16, lr=0.0002, 3 epochs
+
+# Custom instruction fine-tuning config
+make finetune-instruct MODEL_SIZE=7B RANK=32 LR=0.001 EPOCHS=5
+
+# Classification LoRA fine-tune (original path)
 make finetune CHECKPOINT=checkpoints/qwen-7b.apr DATA=data/code-instruct.jsonl
 
 # QLoRA with custom config
@@ -117,6 +170,7 @@ make finetune CHECKPOINT=checkpoints/qwen-7b.apr DATA=data/code-instruct.jsonl \
     METHOD=qlora RANK=32 LR=0.001 EPOCHS=5
 ```
 
+**Tasks:** `instruct` (generative, GH-371), `classify` (classification).
 **Methods:** `lora` (default), `qlora` (quantized LoRA), `full` (all parameters).
 
 | Variable | Default | Description |
@@ -125,7 +179,8 @@ make finetune CHECKPOINT=checkpoints/qwen-7b.apr DATA=data/code-instruct.jsonl \
 | `RANK` | `16` | LoRA rank |
 | `LR` | `0.0002` | Learning rate |
 | `EPOCHS` | `3` | Number of epochs |
-| `DATA` | `data/code-instruct.jsonl` | Training dataset |
+| `DATA` | `data/instruct-corpus.jsonl` | Training dataset |
+| `MODEL_SIZE` | `7B` | Model size for instruct task (tiny/0.5B/7B/9B) |
 
 ## 6.2.4 Distill
 

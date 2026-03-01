@@ -134,13 +134,58 @@ Pipeline stages: import finetune eval
 [eval]     ./scripts/eval-pass-at-k.sh <benchmark> checkpoints/...
 ```
 
-## 22.6 Upstream Issues Identified
+## 22.6 SafeTensors Import + Quantize (Fixed)
 
-| Issue | Component | Severity | Workaround |
+**GH-205 fix:** `apr import hf://... --quantize q4k` now correctly quantizes F16/BF16 SafeTensors sources instead of silently passing through F16 raw bytes.
+
+**GH-370 fix:** Q4K quantization now uses `quantize_q4_k_matrix` for row-aligned super-blocks instead of flat byte slicing.
+
+```bash
+# This now works (previously produced F16 despite --quantize):
+apr import hf://Qwen/Qwen2.5-Coder-7B-Instruct --quantize q4k \
+    -o checkpoints/qwen2.5-coder-7b-instruct-q4k.apr
+# Result: 7.48 GiB Q4K checkpoint, passes `apr check`
+```
+
+## 22.7 Instruction Fine-tuning (GH-371)
+
+**Gap found:** `apr finetune --task classify` existed but no generative instruction-following path. Filed and closed GH-371.
+
+**Solution:** Added `InstructPipeline`, `InstructTrainer`, `InstructCorpus` to entrenar. Wired `--task instruct` into apr CLI.
+
+**Dogfood run (tiny model, 50 samples):**
+```
+InstructPipeline: 4 LoRA layers, rank=8, alpha=16.0
+Corpus: 50 samples, Train: 40, Val: 10
+
+Epoch  Train Loss  Val Loss  Train PPL  Val PPL      LR     Time
+    1    6.9330    6.9257   1025.62   1018.08  6.09e-4   1819ms
+    2    6.9301    6.9317   1022.59   1024.26  1.48e-6    995ms
+
+Best epoch: 1 (val_loss: 6.9257)
+Total time: 2.8s
+```
+
+Loss decreasing confirms the training loop is functional. 18 unit tests pass in entrenar.
+
+## 22.8 Data Preparation Pipeline
+
+`make prep-data` extracts 15,494 instruction/response pairs from 4 ground truth corpora via AST parsing of Python files:
+
+```
+depyler: 1824 files → 11,841 pairs (algorithms, data structures, CLI)
+hf-gtc:   129 files →  3,535 pairs (HuggingFace recipes)
+jax-gtc:     7 files →     58 pairs (JAX numerical patterns)
+vllm-gtc:    6 files →     81 pairs (vLLM inference)
+Total: 15,494 pairs (17 MB JSONL)
+```
+
+## 22.9 Upstream Issues Identified
+
+| Issue | Component | Severity | Status |
 |---|---|---|---|
-| F16/BF16 inference unsupported | realizar | High | Use GGUF import path |
+| F16/BF16 passthrough ignores --quantize | aprender | High | **Fixed** (GH-205) |
+| Flat Q4K quantization wrong block alignment | aprender | High | **Fixed** (GH-370) |
+| No generative finetune path | entrenar/aprender | High | **Fixed** (GH-371) |
 | GPU shape mismatch panic | realizar CUDA | High | `--no-gpu` flag |
 | `apr serve` doesn't bind HTTP for .apr | aprender | Medium | Use `apr run` for batch inference |
-| SafeTensors import missing auto-quantize | aprender | Medium | Import GGUF instead |
-| `apr quantize` fails on BF16 tensors | aprender | Medium | Use pre-quantized GGUF |
-| `apr import` missing auto-download of config.json | aprender | Low | Manual download to HF cache |

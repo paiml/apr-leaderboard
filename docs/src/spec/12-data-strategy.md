@@ -1,10 +1,25 @@
 # Data Strategy
 
-The model is only as good as the fine-tuning data. Key datasets for code leaderboards:
+The model is only as good as the fine-tuning data. Our primary data comes from four ground truth corpora in the paiml ecosystem.
+
+## 12.0 Ground Truth Corpora (Tier 1)
+
+Extracted via `make prep-data` → `scripts/prep-instruct-data.py`. These are high-quality, hand-crafted Python implementations with full type annotations, docstrings, and test coverage.
+
+| Corpus | Raw Pairs | Description | Source Repo |
+|--------|-----------|-------------|-------------|
+| depyler | ~11,841 | Algorithms, data structures, CLI patterns, TDD examples | `~/src/depyler/` |
+| hf-gtc | ~3,535 | HuggingFace production recipes (training, inference, RAG) | `~/src/hf-ground-truth-corpus/` |
+| jax-gtc | ~58 | JAX numerical computing (autodiff, transforms, training) | `~/src/jax-ground-truth-corpus/` |
+| vllm-gtc | ~81 | vLLM inference optimization (KV cache, sampling, serving) | `~/src/vllm-ground-truth-corpus/` |
+| **Total** | **~15,494** | | |
+
+**Extraction method:** AST parsing extracts function/class definitions with docstrings. Instruction = signature + docstring reformulated as natural language. Response = full source code. Filtered by response length (3–200 lines).
+
+## 12.0.1 Supplemental Datasets (Tier 2)
 
 | Dataset | Size | Purpose | Source | Format |
 |---------|------|---------|--------|--------|
-| Code Instruct (curated) | 50K | Instruction-following for code | Self-curated from OSS repos | JSONL (instruction, response) |
 | Code Reasoning | 20K | Chain-of-thought for complex problems | Synthetic from teacher model | JSONL (problem, reasoning, code) |
 | Code Tests | 10K | Test-driven examples (input→test→code) | HumanEval/MBPP-style | JSONL (prompt, tests, solution) |
 | Multilingual Code | 30K | Python/Rust/TS/Go/Java coverage | MultiPL-E format | JSONL (language, prompt, solution) |
