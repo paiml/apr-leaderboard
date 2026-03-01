@@ -47,13 +47,13 @@ The orchestration layer that drives the pipeline. Each subcommand maps to one or
 
 | Subcommand | Maps to | Description | Status |
 |---|---|---|---|
-| `convert` | `apr import` | Download HF model → `.apr` format | Scaffolded |
+| `convert` | `apr import` | Download HF model → `.apr` format | **Wired** (`aprender::format::v2::AprV2Writer`) |
 | `eval` | `apr eval` | Run benchmark suite with pass@k metrics | **Wired** (`entrenar::eval::pass_at_k`) |
 | `finetune` | `apr finetune` (entrenar) | LoRA/QLoRA fine-tuning | **Wired** (`entrenar::lora` + `entrenar::optim`) |
 | `distill` | `apr distill` | Knowledge distillation (teacher → student) | **Wired** (`entrenar::distill`) |
 | `merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) | **Wired** (`entrenar::merge` + `apr_bridge`) |
-| `prune` | `apr prune` | Structured/unstructured pruning | Scaffolded |
-| `quantize` | `apr quantize` | Post-training quantization | Scaffolded |
+| `prune` | `apr prune` | Structured/unstructured pruning | **Wired** (`aprender::pruning` + `entrenar::prune`) |
+| `quantize` | `apr quantize` | Post-training quantization | **Wired** (`entrenar::quant`) |
 | `compare` | `apr compare-hf` | Parity check against HF reference | Scaffolded |
 | `submit` | — | Format + push results to HF leaderboard | Scaffolded |
 | `benchmarks` | — | List available benchmark suites | Complete |
