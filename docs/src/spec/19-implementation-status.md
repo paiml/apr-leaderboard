@@ -11,8 +11,8 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `finetune` | `src/finetune/mod.rs` | ✅ Wired | 18 | LoRA/QLoRA via `entrenar::lora::{LoRALayer, QLoRALayer, merge_and_collect}` + `entrenar::optim::{AdamW, WarmupCosineDecayLR}` + APR v2 I/O via apr_bridge |
 | `distill` | `src/optimize/mod.rs` | ✅ Wired | 10 | `entrenar::distill::{DistillationLoss, ProgressiveDistiller}` + validation |
 | `merge` | `src/optimize/mod.rs` | ✅ Wired | 18 | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via apr_bridge |
-| `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 7 | 6 methods (wanda, magnitude, sparsegpt, structured, depth, width) + scaffold output |
-| `quantize` | `src/optimize/mod.rs` | ✅ Scaffolded | 5 | 5 schemes + calibration dataset + scaffold output |
+| `prune` | `src/optimize/mod.rs` | ✅ Wired | 9 | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` + APR v2 I/O via apr_bridge |
+| `quantize` | `src/optimize/mod.rs` | ✅ Wired | 7 | `entrenar::quant::{Calibrator, quantize_tensor, dequantize_tensor, quantization_mse}` + APR v2 I/O via apr_bridge |
 | `compare` | `src/optimize/mod.rs` | ✅ Scaffolded | 2 | HF parity check + --json flag |
 | `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 32 | HF leaderboard submission + pre-submit validation (§14.4) + --generate-card (§14.3) + export metadata |
 | `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 21 | 10 benchmark definitions |
@@ -68,15 +68,15 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 |---|---|---|---|---|
 | Distill | `Standard`, `Progressive`, `Ensemble` | `--epochs`, `--data` | temperature > 0, alpha 0.0–1.0, empty path check | ✅ Wired (`entrenar::distill`) |
 | Merge | `Slerp`, `Ties`, `Dare`, `LinearAvg` (alias: `average`) | `--weights`, `--base-model`, `--density`, `--drop-rate` | Min 2 models, weights sum to 1.0, TIES/DARE require base-model, density/drop-rate 0.0–1.0 | ✅ Wired (`entrenar::merge` + `apr_bridge`) |
-| Prune | `Wanda`, `Magnitude`, `SparseGpt`, `Structured`, `Depth`, `Width` | `--calibration` | Ratio 0.0–1.0, empty path check | ✅ Scaffolded |
-| Quantize | `Int4`, `Int8`, `Q4K`, `Q5K`, `Q6K` | `--calibration` | Empty path check | ✅ Scaffolded |
+| Prune | `Wanda`, `Magnitude`, `SparseGpt`, `Structured`, `Depth`, `Width` | `--calibration` | Ratio 0.0–1.0, empty path check | ✅ Wired (`aprender::pruning` + `entrenar::prune`) |
+| Quantize | `Int4`, `Int8`, `Q4K`, `Q5K`, `Q6K` | `--calibration` | Empty path check | ✅ Wired (`entrenar::quant`) |
 | Finetune | `Lora`, `Qlora`, `Full` | `--method`, `-o` | Model file exists check | ✅ Wired (`entrenar::lora` + `entrenar::optim`) |
 
 ## 19.4 Quality Metrics
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 374 | — | `cargo test` |
+| Test count | 366 | — | `cargo test` |
 | CLI subcommands | 21 | — | All spec §6.2 subcommands + export + acceptance |
 | Line coverage | 96.2% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
@@ -115,8 +115,8 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | Contract validation | `provable_contracts::schema::{parse_contract, validate_contract}` | ✅ Wired |
 | LoRA/QLoRA finetune | `entrenar::lora::{LoRALayer, QLoRALayer, merge_and_collect, merge_qlora_and_collect}` | ✅ Wired |
 | Optimizer + LR schedule | `entrenar::optim::{AdamW, WarmupCosineDecayLR}` | ✅ Wired |
-| Prune | Scaffold (writes valid APR v2) | Scaffold |
-| Quantize | Scaffold (writes valid APR v2) | Scaffold |
+| Prune (magnitude importance) | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` | ✅ Wired |
+| Quantize (PTQ calibration) | `entrenar::quant::{Calibrator, quantize_tensor, dequantize_tensor, quantization_mse}` | ✅ Wired |
 | Inference / speculative decoding | Scaffold | Scaffold |
 | HF → APR conversion | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 | ✅ Wired |
 

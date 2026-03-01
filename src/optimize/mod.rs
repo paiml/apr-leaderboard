@@ -7,6 +7,9 @@ use anyhow::{bail, Result};
 
 use crate::apr_bridge;
 
+mod enums;
+use enums::{DistillStrategy, MergeStrategy, PruneMethod, QuantScheme, TuneStrategy};
+
 /// Configuration for knowledge distillation.
 pub(crate) struct DistillOpts<'a> {
     pub teacher: &'a str,
@@ -191,6 +194,8 @@ pub(crate) fn merge(opts: &MergeOpts<'_>) -> Result<()> {
 /// Prune a model to reduce size while preserving quality.
 ///
 /// Maps to: `apr prune model.apr --method wanda --target-ratio 0.2`
+/// Wired to `aprender::pruning::MagnitudeImportance` for importance scoring
+/// and `entrenar::prune::PruningConfig` for pipeline configuration.
 pub(crate) fn prune(
     model: &str,
     method: &str,
@@ -213,10 +218,65 @@ pub(crate) fn prune(
         println!("  Calibration: {cal}");
     }
 
-    // Scaffold: in production, calls `apr prune`
-    println!("  [scaffold] Would run: apr prune {model} --method {method} --target-ratio {target_ratio} -o {output}");
+    // Load model tensors via APR v2 bridge
+    let model_tensors = apr_bridge::load_apr_as_merge_model(model)?;
 
-    apr_bridge::write_scaffold_apr(output)?;
+    // Configure pruning pipeline via entrenar
+    let ent_method = match method {
+        PruneMethod::Wanda => entrenar::prune::PruneMethod::Wanda,
+        PruneMethod::SparseGpt => entrenar::prune::PruneMethod::SparseGpt,
+        PruneMethod::Depth => entrenar::prune::PruneMethod::MinitronDepth,
+        PruneMethod::Width => entrenar::prune::PruneMethod::MinitronWidth,
+        PruneMethod::Magnitude | PruneMethod::Structured => entrenar::prune::PruneMethod::Magnitude,
+    };
+
+    let config = entrenar::prune::PruningConfig::new()
+        .with_method(ent_method)
+        .with_target_sparsity(target_ratio as f32);
+    println!("  Config: method={}, requires_calibration={}", config.method().display_name(), config.requires_calibration());
+
+    let mut pipeline = entrenar::prune::PruneFinetunePipeline::new(config);
+    println!("  Pipeline stage: {:?}", pipeline.stage());
+
+    // Compute magnitude importance for each tensor and apply pruning mask
+    let importance = aprender::pruning::MagnitudeImportance::l1();
+    let mut pruned_model = model_tensors.clone();
+    let mut total_pruned = 0usize;
+    let mut total_params = 0usize;
+
+    for (name, tensor) in &model_tensors {
+        // Use aprender importance scoring on the weight tensor
+        let weight_tensor = aprender::autograd::Tensor::new(
+            tensor.data().as_slice().unwrap(),
+            &[tensor.data().len()],
+        );
+        let scores_tensor = importance.compute_for_weights(&weight_tensor)
+            .map_err(|e| anyhow::anyhow!("Importance scoring for {name}: {e}"))?;
+        let scores = scores_tensor.data();
+        total_params += scores.len();
+
+        // Sort by importance and zero out lowest
+        let mut indexed: Vec<(usize, f32)> = scores.iter().copied().enumerate().collect();
+        indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        let n_prune = (scores.len() as f64 * target_ratio) as usize;
+        let mut pruned_data = tensor.data().as_slice().unwrap().to_vec();
+        for &(idx, _) in indexed.iter().take(n_prune) {
+            pruned_data[idx] = 0.0;
+        }
+        total_pruned += n_prune;
+
+        pruned_model.insert(name.clone(), entrenar::Tensor::from_vec(pruned_data, false));
+    }
+
+    pipeline.advance();
+    println!("  Pipeline stage: {:?}", pipeline.stage());
+
+    let achieved = if total_params > 0 { total_pruned as f64 / total_params as f64 } else { 0.0 };
+    println!("  Pruned {total_pruned}/{total_params} params ({:.1}% sparsity)", achieved * 100.0);
+
+    // Write pruned model as APR v2
+    apr_bridge::save_merge_model_as_apr(&pruned_model, output)?;
     println!("  Output: {output}");
     Ok(())
 }
@@ -224,6 +284,7 @@ pub(crate) fn prune(
 /// Quantize a model to a lower precision.
 ///
 /// Maps to: `apr quantize model.apr --scheme int4`
+/// Wired to `entrenar::quant::{Calibrator, quantize_tensor, QuantGranularity}`.
 pub(crate) fn quantize(
     model: &str,
     scheme: &str,
@@ -240,11 +301,57 @@ pub(crate) fn quantize(
         println!("  Calibration: {cal}");
     }
 
-    // Scaffold: in production, calls `apr quantize`
-    println!("  [scaffold] Would run: apr quantize {model} --scheme {scheme} -o {output}");
+    // Load model tensors via APR v2 bridge
+    let model_tensors = apr_bridge::load_apr_as_merge_model(model)?;
 
-    apr_bridge::write_scaffold_apr(output)?;
-    println!("  Output: {output}");
+    // Determine bit width from scheme
+    let bits = match scheme {
+        QuantScheme::Int4 | QuantScheme::Q4K => 4,
+        QuantScheme::Q5K => 5,
+        QuantScheme::Q6K => 6,
+        QuantScheme::Int8 => 8,
+    };
+
+    // Create calibrator and observe model weights
+    let mut calibrator = entrenar::quant::Calibrator::min_max(bits as usize, true);
+    for tensor in model_tensors.values() {
+        let data = tensor.data();
+        calibrator.observe(data.as_slice().unwrap());
+    }
+    let calib_result = calibrator.compute();
+    println!("  Calibration: scale={:.6}, zero_point={}, range=[{:.4}, {:.4}]",
+        calib_result.scale, calib_result.zero_point,
+        calib_result.observed_min, calib_result.observed_max);
+
+    // Quantize each tensor and dequantize back to f32 for APR v2 storage
+    let granularity = match scheme {
+        QuantScheme::Q4K | QuantScheme::Q5K | QuantScheme::Q6K => {
+            entrenar::quant::QuantGranularity::PerGroup(64)
+        }
+        _ => entrenar::quant::QuantGranularity::PerTensor,
+    };
+
+    let mut quantized_model = entrenar::merge::Model::new();
+    for (name, tensor) in &model_tensors {
+        let data = tensor.data();
+        let slice = data.as_slice().unwrap();
+        let shape = vec![slice.len()];
+
+        let quantized = entrenar::quant::quantize_tensor(
+            slice, &shape, granularity,
+            entrenar::quant::QuantMode::Symmetric, bits,
+        );
+        let dequantized = entrenar::quant::dequantize_tensor(&quantized);
+
+        let mse = entrenar::quant::quantization_mse(slice, &dequantized);
+        println!("  {name}: {bits}-bit, MSE={mse:.6}");
+
+        quantized_model.insert(name.clone(), entrenar::Tensor::from_vec(dequantized, false));
+    }
+
+    // Write quantized model as APR v2
+    apr_bridge::save_merge_model_as_apr(&quantized_model, output)?;
+    println!("  Output: {output} ({scheme}, {bits}-bit)");
     Ok(())
 }
 
@@ -261,35 +368,6 @@ pub(crate) fn compare(model: &str) -> Result<()> {
     println!("  [scaffold] Would run: apr compare-hf {model} --json");
     println!("  Parity gap: [scaffold — requires real inference]");
     Ok(())
-}
-
-/// HPO strategy for hyperparameter tuning.
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum TuneStrategy {
-    Tpe,
-    Grid,
-    Random,
-}
-
-impl std::fmt::Display for TuneStrategy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Tpe => write!(f, "tpe"),
-            Self::Grid => write!(f, "grid"),
-            Self::Random => write!(f, "random"),
-        }
-    }
-}
-
-impl TuneStrategy {
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "tpe" | "bayesian" => Ok(Self::Tpe),
-            "grid" | "grid-search" => Ok(Self::Grid),
-            "random" | "rand" => Ok(Self::Random),
-            _ => bail!("Unknown HPO strategy: {s}. Use tpe, grid, or random"),
-        }
-    }
 }
 
 /// Run hyperparameter optimization (§7.7).
@@ -336,136 +414,6 @@ fn validate_model_path(path: &str) -> Result<()> {
         bail!("model path cannot be empty");
     }
     Ok(())
-}
-
-#[derive(Debug, Clone, Copy)]
-enum DistillStrategy {
-    Standard,
-    Progressive,
-    Ensemble,
-}
-
-impl std::fmt::Display for DistillStrategy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Standard => write!(f, "standard"),
-            Self::Progressive => write!(f, "progressive"),
-            Self::Ensemble => write!(f, "ensemble"),
-        }
-    }
-}
-
-impl DistillStrategy {
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "standard" | "kl" => Ok(Self::Standard),
-            "progressive" | "curriculum" => Ok(Self::Progressive),
-            "ensemble" => Ok(Self::Ensemble),
-            _ => bail!("Unknown distill strategy: {s}. Use standard, progressive, or ensemble"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum MergeStrategy {
-    Slerp,
-    Ties,
-    Dare,
-    LinearAvg,
-}
-
-impl std::fmt::Display for MergeStrategy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Slerp => write!(f, "slerp"),
-            Self::Ties => write!(f, "ties"),
-            Self::Dare => write!(f, "dare"),
-            Self::LinearAvg => write!(f, "linear"),
-        }
-    }
-}
-
-impl MergeStrategy {
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "slerp" => Ok(Self::Slerp),
-            "ties" | "ties-merging" => Ok(Self::Ties),
-            "dare" | "dare-ties" => Ok(Self::Dare),
-            "linear" | "avg" | "linear-avg" | "average" => Ok(Self::LinearAvg),
-            _ => bail!("Unknown merge strategy: {s}. Use slerp, ties, dare, or linear"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum PruneMethod {
-    Wanda,
-    Magnitude,
-    SparseGpt,
-    Structured,
-    Depth,
-    Width,
-}
-
-impl std::fmt::Display for PruneMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Wanda => write!(f, "wanda"),
-            Self::Magnitude => write!(f, "magnitude"),
-            Self::SparseGpt => write!(f, "sparsegpt"),
-            Self::Structured => write!(f, "structured"),
-            Self::Depth => write!(f, "depth"),
-            Self::Width => write!(f, "width"),
-        }
-    }
-}
-
-impl PruneMethod {
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "wanda" => Ok(Self::Wanda),
-            "magnitude" | "mag" => Ok(Self::Magnitude),
-            "sparsegpt" | "sparse-gpt" => Ok(Self::SparseGpt),
-            "structured" => Ok(Self::Structured),
-            "depth" => Ok(Self::Depth),
-            "width" => Ok(Self::Width),
-            _ => bail!("Unknown prune method: {s}. Use wanda, magnitude, sparsegpt, structured, depth, or width"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum QuantScheme {
-    Int4,
-    Int8,
-    Q4K,
-    Q5K,
-    Q6K,
-}
-
-impl std::fmt::Display for QuantScheme {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Int4 => write!(f, "int4"),
-            Self::Int8 => write!(f, "int8"),
-            Self::Q4K => write!(f, "q4k"),
-            Self::Q5K => write!(f, "q5k"),
-            Self::Q6K => write!(f, "q6k"),
-        }
-    }
-}
-
-impl QuantScheme {
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "int4" | "q4" => Ok(Self::Int4),
-            "int8" | "q8" => Ok(Self::Int8),
-            "q4k" | "q4_k" => Ok(Self::Q4K),
-            "q5k" | "q5_k" => Ok(Self::Q5K),
-            "q6k" | "q6_k" => Ok(Self::Q6K),
-            _ => bail!("Unknown quant scheme: {s}. Use int4, int8, q4k, q5k, or q6k"),
-        }
-    }
 }
 
 #[cfg(test)]

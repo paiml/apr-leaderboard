@@ -12,65 +12,36 @@ fn write_test_apr(path: &str) {
 
 // --- DistillStrategy ---
 #[test]
-fn test_distill_strategy_parsing() {
+fn test_distill_strategy_parsing_and_display() {
     assert!(matches!(DistillStrategy::from_str("standard").unwrap(), DistillStrategy::Standard));
     assert!(matches!(DistillStrategy::from_str("kl").unwrap(), DistillStrategy::Standard));
     assert!(matches!(DistillStrategy::from_str("progressive").unwrap(), DistillStrategy::Progressive));
     assert!(matches!(DistillStrategy::from_str("curriculum").unwrap(), DistillStrategy::Progressive));
     assert!(matches!(DistillStrategy::from_str("ensemble").unwrap(), DistillStrategy::Ensemble));
     assert!(DistillStrategy::from_str("invalid").is_err());
-}
-
-#[test]
-fn test_distill_strategy_display() {
-    assert_eq!(DistillStrategy::Standard.to_string(), "standard");
-    assert_eq!(DistillStrategy::Progressive.to_string(), "progressive");
-    assert_eq!(DistillStrategy::Ensemble.to_string(), "ensemble");
-}
-
-#[test]
-fn test_distill_strategy_roundtrip() {
     for s in &["standard", "progressive", "ensemble"] {
-        let parsed = DistillStrategy::from_str(s).unwrap();
-        assert_eq!(parsed.to_string(), *s);
+        assert_eq!(DistillStrategy::from_str(s).unwrap().to_string(), *s);
     }
 }
 
 // --- MergeStrategy ---
 #[test]
-fn test_merge_strategy_parsing() {
+fn test_merge_strategy_parsing_and_display() {
     assert!(matches!(MergeStrategy::from_str("slerp").unwrap(), MergeStrategy::Slerp));
     assert!(matches!(MergeStrategy::from_str("ties").unwrap(), MergeStrategy::Ties));
     assert!(matches!(MergeStrategy::from_str("dare").unwrap(), MergeStrategy::Dare));
     assert!(matches!(MergeStrategy::from_str("linear").unwrap(), MergeStrategy::LinearAvg));
-    assert!(MergeStrategy::from_str("invalid").is_err());
-}
-
-#[test]
-fn test_merge_strategy_average_alias() {
     assert!(matches!(MergeStrategy::from_str("average").unwrap(), MergeStrategy::LinearAvg));
     assert!(matches!(MergeStrategy::from_str("avg").unwrap(), MergeStrategy::LinearAvg));
-}
-
-#[test]
-fn test_merge_strategy_display() {
-    assert_eq!(MergeStrategy::Slerp.to_string(), "slerp");
-    assert_eq!(MergeStrategy::Ties.to_string(), "ties");
-    assert_eq!(MergeStrategy::Dare.to_string(), "dare");
-    assert_eq!(MergeStrategy::LinearAvg.to_string(), "linear");
-}
-
-#[test]
-fn test_merge_strategy_roundtrip() {
+    assert!(MergeStrategy::from_str("invalid").is_err());
     for s in &["slerp", "ties", "dare", "linear"] {
-        let parsed = MergeStrategy::from_str(s).unwrap();
-        assert_eq!(parsed.to_string(), *s);
+        assert_eq!(MergeStrategy::from_str(s).unwrap().to_string(), *s);
     }
 }
 
 // --- PruneMethod ---
 #[test]
-fn test_prune_method_parsing() {
+fn test_prune_method_parsing_and_display() {
     assert!(matches!(PruneMethod::from_str("wanda").unwrap(), PruneMethod::Wanda));
     assert!(matches!(PruneMethod::from_str("magnitude").unwrap(), PruneMethod::Magnitude));
     assert!(matches!(PruneMethod::from_str("sparsegpt").unwrap(), PruneMethod::SparseGpt));
@@ -78,51 +49,22 @@ fn test_prune_method_parsing() {
     assert!(matches!(PruneMethod::from_str("depth").unwrap(), PruneMethod::Depth));
     assert!(matches!(PruneMethod::from_str("width").unwrap(), PruneMethod::Width));
     assert!(PruneMethod::from_str("invalid").is_err());
-}
-
-#[test]
-fn test_prune_method_display() {
-    assert_eq!(PruneMethod::Wanda.to_string(), "wanda");
-    assert_eq!(PruneMethod::Magnitude.to_string(), "magnitude");
-    assert_eq!(PruneMethod::SparseGpt.to_string(), "sparsegpt");
-    assert_eq!(PruneMethod::Structured.to_string(), "structured");
-    assert_eq!(PruneMethod::Depth.to_string(), "depth");
-    assert_eq!(PruneMethod::Width.to_string(), "width");
-}
-
-#[test]
-fn test_prune_method_roundtrip() {
     for s in &["wanda", "magnitude", "sparsegpt", "structured", "depth", "width"] {
-        let parsed = PruneMethod::from_str(s).unwrap();
-        assert_eq!(parsed.to_string(), *s);
+        assert_eq!(PruneMethod::from_str(s).unwrap().to_string(), *s);
     }
 }
 
 // --- QuantScheme ---
 #[test]
-fn test_quant_scheme_parsing() {
+fn test_quant_scheme_parsing_and_display() {
     assert!(matches!(QuantScheme::from_str("int4").unwrap(), QuantScheme::Int4));
     assert!(matches!(QuantScheme::from_str("int8").unwrap(), QuantScheme::Int8));
     assert!(matches!(QuantScheme::from_str("q4k").unwrap(), QuantScheme::Q4K));
     assert!(matches!(QuantScheme::from_str("q5k").unwrap(), QuantScheme::Q5K));
     assert!(matches!(QuantScheme::from_str("q6k").unwrap(), QuantScheme::Q6K));
     assert!(QuantScheme::from_str("invalid").is_err());
-}
-
-#[test]
-fn test_quant_scheme_display() {
-    assert_eq!(QuantScheme::Int4.to_string(), "int4");
-    assert_eq!(QuantScheme::Int8.to_string(), "int8");
-    assert_eq!(QuantScheme::Q4K.to_string(), "q4k");
-    assert_eq!(QuantScheme::Q5K.to_string(), "q5k");
-    assert_eq!(QuantScheme::Q6K.to_string(), "q6k");
-}
-
-#[test]
-fn test_quant_scheme_roundtrip() {
     for s in &["int4", "int8", "q4k", "q5k", "q6k"] {
-        let parsed = QuantScheme::from_str(s).unwrap();
-        assert_eq!(parsed.to_string(), *s);
+        assert_eq!(QuantScheme::from_str(s).unwrap().to_string(), *s);
     }
 }
 
@@ -361,19 +303,31 @@ fn test_merge_drop_rate_out_of_range() {
 }
 
 // --- prune ---
+/// Helper: create a fixture model and output path for prune/quantize tests.
+fn prune_quant_fixture() -> (tempfile::TempDir, String, String) {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("model.apr");
+    write_test_apr(model_path.to_str().unwrap());
+    let output_path = tmp.path().join("out.apr");
+    (tmp, model_path.to_str().unwrap().into(), output_path.to_str().unwrap().into())
+}
+
 #[test]
 fn test_prune_runs() {
-    assert!(prune("model.apr", "wanda", 0.2, None, "out.apr").is_ok());
+    let (_tmp, model, output) = prune_quant_fixture();
+    assert!(prune(&model, "wanda", 0.2, None, &output).is_ok());
 }
 
 #[test]
 fn test_prune_invalid_ratio_high() {
-    assert!(prune("model.apr", "wanda", 1.0, None, "out.apr").is_err());
+    let (_tmp, model, output) = prune_quant_fixture();
+    assert!(prune(&model, "wanda", 1.0, None, &output).is_err());
 }
 
 #[test]
 fn test_prune_invalid_ratio_negative() {
-    assert!(prune("model.apr", "wanda", -0.1, None, "out.apr").is_err());
+    let (_tmp, model, output) = prune_quant_fixture();
+    assert!(prune(&model, "wanda", -0.1, None, &output).is_err());
 }
 
 #[test]
@@ -384,19 +338,31 @@ fn test_prune_empty_model() {
 #[test]
 fn test_prune_all_methods() {
     for m in &["wanda", "magnitude", "sparsegpt", "structured", "depth", "width"] {
-        assert!(prune("m.apr", m, 0.2, None, "o.apr").is_ok(), "Failed for {m}");
+        let (_tmp, model, output) = prune_quant_fixture();
+        assert!(prune(&model, m, 0.2, None, &output).is_ok(), "Failed for {m}");
     }
 }
 
 #[test]
 fn test_prune_with_calibration() {
-    assert!(prune("m.apr", "wanda", 0.3, Some("calib.jsonl"), "o.apr").is_ok());
+    let (_tmp, model, output) = prune_quant_fixture();
+    assert!(prune(&model, "wanda", 0.3, Some("calib.jsonl"), &output).is_ok());
+}
+
+#[test]
+fn test_prune_output_is_valid_apr() {
+    let (_tmp, model, output) = prune_quant_fixture();
+    prune(&model, "magnitude", 0.5, None, &output).unwrap();
+    let pruned = apr_bridge::load_apr_as_merge_model(&output);
+    assert!(pruned.is_ok(), "Pruned output is not valid APR v2");
+    assert!(!pruned.unwrap().is_empty());
 }
 
 // --- quantize ---
 #[test]
 fn test_quantize_runs() {
-    assert!(quantize("model.apr", "int4", None, "out.apr").is_ok());
+    let (_tmp, model, output) = prune_quant_fixture();
+    assert!(quantize(&model, "int4", None, &output).is_ok());
 }
 
 #[test]
@@ -407,13 +373,24 @@ fn test_quantize_empty_model() {
 #[test]
 fn test_quantize_all_schemes() {
     for s in &["int4", "int8", "q4k", "q5k", "q6k"] {
-        assert!(quantize("m.apr", s, None, "o.apr").is_ok(), "Failed for {s}");
+        let (_tmp, model, output) = prune_quant_fixture();
+        assert!(quantize(&model, s, None, &output).is_ok(), "Failed for {s}");
     }
 }
 
 #[test]
 fn test_quantize_with_calibration() {
-    assert!(quantize("m.apr", "int4", Some("calib.jsonl"), "o.apr").is_ok());
+    let (_tmp, model, output) = prune_quant_fixture();
+    assert!(quantize(&model, "int4", Some("calib.jsonl"), &output).is_ok());
+}
+
+#[test]
+fn test_quantize_output_is_valid_apr() {
+    let (_tmp, model, output) = prune_quant_fixture();
+    quantize(&model, "int8", None, &output).unwrap();
+    let quantized = apr_bridge::load_apr_as_merge_model(&output);
+    assert!(quantized.is_ok(), "Quantized output is not valid APR v2");
+    assert!(!quantized.unwrap().is_empty());
 }
 
 // --- compare ---
@@ -429,26 +406,14 @@ fn test_compare_empty_model() {
 
 // --- tune ---
 #[test]
-fn test_tune_strategy_parsing() {
+fn test_tune_strategy_parsing_and_display() {
     assert!(matches!(TuneStrategy::from_str("tpe").unwrap(), TuneStrategy::Tpe));
     assert!(matches!(TuneStrategy::from_str("grid").unwrap(), TuneStrategy::Grid));
     assert!(matches!(TuneStrategy::from_str("random").unwrap(), TuneStrategy::Random));
     assert!(matches!(TuneStrategy::from_str("bayesian").unwrap(), TuneStrategy::Tpe));
     assert!(TuneStrategy::from_str("invalid").is_err());
-}
-
-#[test]
-fn test_tune_strategy_display() {
-    assert_eq!(TuneStrategy::Tpe.to_string(), "tpe");
-    assert_eq!(TuneStrategy::Grid.to_string(), "grid");
-    assert_eq!(TuneStrategy::Random.to_string(), "random");
-}
-
-#[test]
-fn test_tune_strategy_roundtrip() {
     for s in &["tpe", "grid", "random"] {
-        let parsed = TuneStrategy::from_str(s).unwrap();
-        assert_eq!(parsed.to_string(), *s);
+        assert_eq!(TuneStrategy::from_str(s).unwrap().to_string(), *s);
     }
 }
 
