@@ -10,8 +10,8 @@
 | Metric | Value |
 |---|---|
 | CLI subcommands | 21 |
-| Wired to real APIs | 11 (eval, finetune, distill, merge, prune, quantize, convert, check, acceptance, apr_bridge) |
-| Tests | 366 |
+| Wired to real APIs | 13 (eval, finetune, distill, merge, prune, quantize, convert, check, acceptance, apr_bridge, align, validate) |
+| Tests | 368 |
 | Line coverage | 96.2% |
 | Clippy warnings | 0 |
 | Source modules | 13 |

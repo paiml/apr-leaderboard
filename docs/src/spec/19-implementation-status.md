@@ -18,8 +18,8 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 21 | 10 benchmark definitions |
 | `history` | `src/eval/mod.rs` | ✅ Complete | 3 | Result history viewer |
 | `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 49 | Config-driven TOML pipeline (12 stages) + [eval] config + recipe B/D + integration tests + ordering validation (§10) + config hash (§11) + --dry-run |
-| `align` | `src/align/mod.rs` | ✅ Scaffolded | 12 | DPO/ORPO preference optimization (§8.5) + beta validation + output file creation |
-| `validate` | `src/validate/mod.rs` | ✅ Scaffolded | 11 | Data decontamination checking (§8.7) + threshold validation + contamination report (§12.1) |
+| `align` | `src/align/mod.rs` | ✅ Wired | 12 | `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss, LossFn}` + APR v2 I/O via apr_bridge + DPO/ORPO preference loss |
+| `validate` | `src/validate/mod.rs` | ✅ Wired | 13 | N-gram fingerprinting via `HashSet` + `harness::get_benchmark` integration + contamination report (§12.1) |
 | `tune` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | HPO: TPE/grid/random strategies (§7.7) + budget validation |
 | `run` | `src/inference/mod.rs` | ✅ Scaffolded | 9 | Speculative decoding (§8.4) + draft model validation + JSON output |
 | `chat` | `src/inference/mod.rs` | ✅ Scaffolded | 6 | Batch generation (§8.6) + temperature validation + system prompt |
@@ -76,7 +76,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 366 | — | `cargo test` |
+| Test count | 368 | — | `cargo test` |
 | CLI subcommands | 21 | — | All spec §6.2 subcommands + export + acceptance |
 | Line coverage | 96.2% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
@@ -117,6 +117,9 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | Optimizer + LR schedule | `entrenar::optim::{AdamW, WarmupCosineDecayLR}` | ✅ Wired |
 | Prune (magnitude importance) | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` | ✅ Wired |
 | Quantize (PTQ calibration) | `entrenar::quant::{Calibrator, quantize_tensor, dequantize_tensor, quantization_mse}` | ✅ Wired |
+| DPO preference loss | `entrenar::train::{BCEWithLogitsLoss, LossFn}` | ✅ Wired |
+| ORPO SFT loss | `entrenar::train::{CrossEntropyLoss, LossFn}` | ✅ Wired |
+| N-gram decontamination | `std::collections::HashSet` + `harness::get_benchmark` | ✅ Wired |
 | Inference / speculative decoding | Scaffold | Scaffold |
 | HF → APR conversion | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 | ✅ Wired |
 

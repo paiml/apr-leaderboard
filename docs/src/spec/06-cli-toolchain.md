@@ -59,8 +59,8 @@ The orchestration layer that drives the pipeline. Each subcommand maps to one or
 | `benchmarks` | — | List available benchmark suites | Complete |
 | `history` | — | Show past evaluation results | Complete |
 | `pipeline` | all of the above | Config-driven end-to-end pipeline (12 stages) | Scaffolded |
-| `align` | `apr align` (entrenar) | DPO/ORPO preference optimization | Scaffolded |
-| `validate` | `alimentar` | Data decontamination checking | Scaffolded |
+| `align` | `apr align` (entrenar) | DPO/ORPO preference optimization | **Wired** (`entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}`) |
+| `validate` | `alimentar` | Data decontamination checking | **Wired** (n-gram fingerprinting + `harness::get_benchmark`) |
 | `tune` | `apr tune` (entrenar) | HPO: TPE/grid/random strategies | Scaffolded |
 | `run` | `apr run` (realizar) | Inference with speculative decoding | Scaffolded |
 | `chat` | `apr chat` (realizar) | Batch generation / chat completions | Scaffolded |
