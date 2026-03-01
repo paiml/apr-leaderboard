@@ -115,7 +115,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 | **pipeline/** | **Wired** | 12-stage orchestration — all stages call wired backends + ordering validation (§10) + config hash (§11) |
 | **export/** | **Wired** | `aprender::format::v2::AprV2Reader` tensor index export + metadata (§14.2) |
 
-**Quality:** 368 tests, 0 clippy warnings, 96%+ line coverage, all files ≤500 lines, 13 source modules, 21 CLI subcommands, all wired to real APIs.
+**Quality:** 375 tests, 0 clippy warnings, 96%+ line coverage, all files ≤500 lines, 13 source modules, 21 CLI subcommands, all wired to real APIs.
 
 ### 1.5 How People Use It
 
@@ -2290,7 +2290,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 368 | — | `cargo test` |
+| Test count | 375 | — | `cargo test` |
 | CLI subcommands | 21 | — | All spec §6.2 subcommands + export + acceptance |
 | Wired to real APIs | 21 | — | All subcommands wired to sovereign stack APIs |
 | Line coverage | 96.1% | ≥ 95% | `cargo llvm-cov` (project source only — see §19.7.1) |
@@ -2310,14 +2310,13 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 **All 21 CLI subcommands are now wired to real sovereign stack APIs.** No scaffold-only operations remain. Every operation loads/saves valid APR v2 files via `apr_bridge` or validates via `aprender::format::v2::AprV2Reader`.
 
-**Checkpoint API upgrade path (aprender 0.27.2):** The `apr_bridge` module currently uses `AprV2Writer` (raw bytes + `std::fs::write`) and unchecked `AprV2Reader`. aprender 0.27.2 now provides enterprise-grade checkpoint APIs with 18 verified contracts (APR Checkpoint Spec v1.4.0):
+**Checkpoint contracts wired (aprender 0.27.2):** The `apr_bridge` module implements three APR Checkpoint Spec v1.4.0 contracts:
 
-- `AprWriter::write(path)` — atomic writes via tmp+fsync+rename (F-CKPT-009)
-- `AprReader::open_filtered(path, predicate)` — skip `__training__.*` tensors at load time (F-CKPT-016)
-- `AprReader::read_tensor_f32_checked(name)` — NaN/Inf validation (F-CKPT-013)
-- `AprReader::validate_tensor_shape(name, expected)` — shape-config validation (F-CKPT-014)
+- **F-CKPT-009:** `save_merge_model_as_apr` writes atomically via tmp+fsync+rename — crash never corrupts output
+- **F-CKPT-013:** `load_apr_as_merge_model` rejects tensors containing NaN or Inf values
+- **F-CKPT-016:** `load_apr_as_merge_model` skips `__training__.*` tensors (optimizer moments, grad scaler state)
 
-The checkpoint taxonomy (`.apr` / `.adapter.apr` / `.ckpt.apr`) enables richer pipeline semantics: `finetune` outputs `.adapter.apr` with LoRA metadata, `distill` embeds provenance (teacher hash), and training checkpoints enable fault-tolerant resume.
+Uses `AprWriter` for serialization and `AprV2ReaderRef::get_tensor_as_f32()` for dtype-agnostic loading (auto-dequantizes F16, Q8, Q4). All 21 subcommands inherit these safety guarantees. The checkpoint taxonomy (`.apr` / `.adapter.apr` / `.ckpt.apr`) enables richer pipeline semantics for future work.
 
 ## 20. Scientific Foundation (References)
 

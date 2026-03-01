@@ -76,7 +76,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 368 | — | `cargo test` |
+| Test count | 375 | — | `cargo test` |
 | CLI subcommands | 21 | — | All spec §6.2 subcommands + export + acceptance |
 | Line coverage | 96.1% | ≥ 95% | `cargo llvm-cov` (project source only — see §19.7.1) |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
@@ -122,10 +122,9 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | N-gram decontamination | `std::collections::HashSet` + `harness::get_benchmark` | ✅ Wired |
 | Inference / token log-probs | `entrenar::train::{CrossEntropyLoss, LossFn}` + APR v2 I/O | ✅ Wired |
 | HF → APR conversion | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 | ✅ Wired |
-| Checkpoint atomic write | `aprender::serialization::apr::AprWriter::write()` (tmp+fsync+rename, F-CKPT-009) | ✅ Available |
-| Checkpoint filtered load | `aprender::serialization::apr::AprReader::open_filtered()` (F-CKPT-016) | ✅ Available |
-| Checkpoint NaN validation | `aprender::serialization::apr::AprReader::read_tensor_f32_checked()` (F-CKPT-013) | ✅ Available |
-| Checkpoint shape validation | `aprender::serialization::apr::AprReader::validate_tensor_shape()` (F-CKPT-014) | ✅ Available |
+| Checkpoint atomic write | `apr_bridge::save_merge_model_as_apr` — tmp+fsync+rename (F-CKPT-009) | ✅ Wired |
+| Checkpoint filtered load | `apr_bridge::load_apr_as_merge_model` — skips `__training__.*` (F-CKPT-016) | ✅ Wired |
+| Checkpoint NaN validation | `apr_bridge::load_apr_as_merge_model` — rejects NaN/Inf (F-CKPT-013) | ✅ Wired |
 
 **All 21 CLI subcommands are now wired to real sovereign stack APIs.** No scaffold-only operations remain. Every operation loads/saves valid APR v2 files via `apr_bridge` or validates via `aprender::format::v2::AprV2Reader`.
 
@@ -200,15 +199,16 @@ The §10 golden ordering enforcement works. The pipeline allows violation but wa
 
 This affects any future integration where distillation loss is composed with training losses (e.g., combined DPO + distillation objective).
 
-### 19.7.9 Checkpoint API Upgrade Path (aprender 0.27.2)
+### 19.7.9 Checkpoint Contracts Wired (aprender 0.27.2)
 
-aprender 0.27.2 completed its APR Checkpoint Specification v1.4.0 with 18/18 contracts. The `apr_bridge` module currently uses `AprV2Writer::write()` (raw bytes) and `AprV2Reader` (unchecked). Four new APIs are available for adoption:
+The `apr_bridge` module now implements three APR Checkpoint Spec v1.4.0 contracts:
 
-| Current apr_bridge | Upgrade to | Contract | Benefit |
-|---|---|---|---|
-| `std::fs::write(output, &bytes)` | `AprWriter::write(path)` | F-CKPT-009 | Atomic writes (tmp+fsync+rename) — crash safety |
-| `AprV2Reader` + iterate all | `AprReader::open_filtered()` | F-CKPT-016 | Skip `__training__.*` tensors at load time |
-| `reader.get_tensor_as_f32()` | `AprReader::read_tensor_f32_checked()` | F-CKPT-013 | NaN/Inf validation on load |
-| (none) | `AprReader::validate_tensor_shape()` | F-CKPT-014 | Shape mismatch detection before merge/distill |
+| Contract | Implementation | Test |
+|---|---|---|
+| F-CKPT-009 | `save_merge_model_as_apr` writes via tmp+fsync+rename | `test_atomic_write_no_tmp_residue` |
+| F-CKPT-013 | `load_apr_as_merge_model` rejects NaN/Inf tensors | `test_nan_rejection`, `test_inf_rejection` |
+| F-CKPT-016 | `load_apr_as_merge_model` skips `__training__.*` tensors | `test_training_tensor_filtering` |
 
-**Impact:** The `save_merge_model_as_apr()` function writes non-atomically. A crash during write could corrupt the output. Upgrading to `AprWriter::write()` eliminates this risk. The checkpoint taxonomy (`.apr` / `.adapter.apr` / `.ckpt.apr`) also enables richer pipeline semantics — e.g., `finetune` could output `.adapter.apr` files with proper LoRA metadata, and `distill` could embed provenance (teacher hash, data hash) in checkpoint metadata.
+The bridge uses `AprWriter` for serialization and `AprV2ReaderRef::get_tensor_as_f32()` for dtype-agnostic loading (auto-dequantizes F16, Q8, Q4). All 21 subcommands that call `apr_bridge` now inherit these safety guarantees.
+
+**Future:** When aprender publishes `AprReader::open_filtered()` and `read_tensor_f32_checked()` to crates.io, the bridge can delegate to upstream instead of implementing the contracts inline. The checkpoint taxonomy (`.apr` / `.adapter.apr` / `.ckpt.apr`) also enables richer pipeline semantics — e.g., `finetune` could output `.adapter.apr` with LoRA metadata, and `distill` could embed provenance (teacher hash, data hash).
