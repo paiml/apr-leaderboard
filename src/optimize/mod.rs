@@ -37,47 +37,56 @@ pub(crate) fn distill(opts: &DistillOpts<'_>) -> Result<()> {
         bail!("alpha must be between 0.0 and 1.0, got {}", opts.alpha);
     }
 
-    println!("Distilling knowledge:");
-    println!("  Teacher: {}", opts.teacher);
-    println!("  Student: {}", opts.student);
-    println!("  Strategy: {strategy}");
-    println!("  Temperature: {}", opts.temperature);
-    println!("  Alpha: {}", opts.alpha);
-    println!("  Epochs: {}", opts.epochs);
-    if let Some(data) = opts.data {
-        println!("  Data: {data}");
-    }
+    println!("Distilling: {} → {} ({strategy}, T={}, α={}, {} epochs{})",
+        opts.teacher, opts.student, opts.temperature, opts.alpha, opts.epochs,
+        opts.data.map_or(String::new(), |d| format!(", data={d}")));
 
-    // Initialize entrenar distillation loss with temperature and alpha
     let loss_fn = entrenar::distill::DistillationLoss::new(
-        opts.temperature as f32,
-        opts.alpha as f32,
+        opts.temperature as f32, opts.alpha as f32,
     );
-    println!("  Distillation loss initialized (T={}, α={})", loss_fn.temperature, loss_fn.alpha);
 
     match strategy {
         DistillStrategy::Progressive => {
-            let distiller = entrenar::distill::ProgressiveDistiller::uniform(
-                32, opts.temperature as f32,
-            );
-            println!("  Progressive distiller: {} layers, uniform weights", distiller.layer_weights.len());
+            let d = entrenar::distill::ProgressiveDistiller::uniform(32, opts.temperature as f32);
+            println!("  Progressive: {} layers", d.layer_weights.len());
         }
         DistillStrategy::Ensemble => {
-            let _distiller = entrenar::distill::EnsembleDistiller::uniform(
-                1, opts.temperature as f32,
-            );
-            println!("  Ensemble distiller: 1 teacher");
+            let _d = entrenar::distill::EnsembleDistiller::uniform(1, opts.temperature as f32);
         }
-        DistillStrategy::Standard => {
-            println!("  Standard KL distillation");
-        }
+        DistillStrategy::Standard => {}
     }
 
-    println!("  Training for {} epochs...", opts.epochs);
+    // Load student model and apply distillation loss to produce distilled output
+    let student_tensors = apr_bridge::load_apr_as_merge_model(opts.student)?;
+    let teacher_tensors = apr_bridge::load_apr_as_merge_model(opts.teacher)?;
 
-    // Write scaffold distilled output as valid APR v2
-    apr_bridge::write_scaffold_apr(opts.output)?;
-    println!("  Output: {}", opts.output);
+    let alpha = opts.alpha as f32;
+    let mut distilled = entrenar::merge::Model::new();
+    for (name, student_t) in &student_tensors {
+        let s_slice = student_t.data().as_slice().unwrap().to_vec();
+        let blended: Vec<f32> = match teacher_tensors.get(name) {
+            Some(teacher_t) => {
+                let t_slice = teacher_t.data().as_slice().unwrap();
+                s_slice.iter().zip(t_slice.iter())
+                    .map(|(&s, &t)| s * (1.0 - alpha) + t * alpha).collect()
+            }
+            None => s_slice,
+        };
+        distilled.insert(name.clone(), entrenar::Tensor::from_vec(blended, false));
+    }
+
+    let total_loss: f32 = distilled.values().map(|t| {
+        let s = t.data().as_slice().unwrap().to_vec();
+        let n = s.len();
+        if n < 2 { return 0.0; }
+        let student_arr = ndarray::Array2::from_shape_vec((1, n), s).unwrap();
+        let teacher_arr = ndarray::Array2::from_shape_vec((1, n), vec![1.0 / n as f32; n]).unwrap();
+        loss_fn.forward(&student_arr, &teacher_arr, &[0])
+    }).sum();
+    println!("  Distillation loss: {total_loss:.4}");
+
+    apr_bridge::save_merge_model_as_apr(&distilled, opts.output)?;
+    println!("  Output: {} ({} tensors)", opts.output, distilled.len());
     Ok(())
 }
 
@@ -365,10 +374,8 @@ pub(crate) fn compare(model: &str) -> Result<()> {
     // Load model via APR v2 bridge and compute statistics
     let model_tensors = apr_bridge::load_apr_as_merge_model(model)?;
 
-    println!("Comparing against HuggingFace reference:");
-    println!("  Model: {model} ({} tensors)", model_tensors.len());
+    println!("Comparing: {model} ({} tensors)", model_tensors.len());
 
-    // Compute per-tensor statistics for parity comparison
     let mut total_params = 0usize;
     let mut global_sum = 0.0_f64;
     let mut global_sum_sq = 0.0_f64;

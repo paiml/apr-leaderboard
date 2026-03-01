@@ -171,9 +171,13 @@ fn test_run_pipeline_invalid_quantization() {
 #[test]
 fn test_run_pipeline_with_distill() {
     let tmp = tempfile::TempDir::new().unwrap();
+    // Create teacher APR v2 fixture
+    let teacher_path = tmp.path().join("teacher.apr");
+    let apr_bytes = crate::apr_bridge::create_minimal_apr_bytes().unwrap();
+    std::fs::write(&teacher_path, &apr_bytes).unwrap();
     let mut config = base_config(tmp.path().to_str().unwrap());
     config.distill = Some(DistillConfig {
-        teacher: "teacher.apr".into(),
+        teacher: teacher_path.to_str().unwrap().into(),
         strategy: "progressive".into(),
         temperature: 3.0,
         alpha: 0.7,

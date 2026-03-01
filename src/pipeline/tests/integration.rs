@@ -127,11 +127,20 @@ fn test_run_pipeline_validate_then_finetune_then_align() {
 fn test_run_pipeline_full_11_steps() {
     let tmp = tempfile::TempDir::new().unwrap();
     let out = tmp.path().to_str().unwrap();
-    // Create "other.apr" fixture for merge step (needs valid APR v2)
+    // Create APR v2 fixtures with matching tensor names for merge/distill steps.
+    // Convert produces "model.embed_tokens.weight", so fixtures must match.
+    let fixture_bytes = {
+        let metadata = aprender::format::v2::AprV2Metadata::default();
+        let mut writer = aprender::format::v2::AprV2Writer::new(metadata);
+        writer.add_f32_tensor("model.embed_tokens.weight", vec![1, 256], &vec![0.5_f32; 256]);
+        writer.write().unwrap()
+    };
     let other_apr = tmp.path().join("other.apr");
-    let apr_bytes = crate::apr_bridge::create_minimal_apr_bytes().unwrap();
-    std::fs::write(&other_apr, &apr_bytes).unwrap();
+    std::fs::write(&other_apr, &fixture_bytes).unwrap();
     let other_path = other_apr.to_str().unwrap().to_string();
+    let teacher_apr = tmp.path().join("teacher.apr");
+    std::fs::write(&teacher_apr, &fixture_bytes).unwrap();
+    let teacher_path = teacher_apr.to_str().unwrap().to_string();
     let mut config = base_config(out);
     config.validate = Some(ValidateConfig {
         data: "d.jsonl".into(),
@@ -140,7 +149,7 @@ fn test_run_pipeline_full_11_steps() {
         decontaminate: None,
     });
     config.distill = Some(DistillConfig {
-        teacher: "teacher.apr".into(),
+        teacher: teacher_path,
         strategy: "standard".into(),
         temperature: 2.0,
         alpha: 0.5,

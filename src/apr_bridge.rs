@@ -42,17 +42,8 @@ pub(crate) fn save_merge_model_as_apr(model: &entrenar::merge::Model, output: &s
     Ok(())
 }
 
-/// Write a minimal valid APR v2 file to disk (for scaffold outputs).
-pub(crate) fn write_scaffold_apr(output: &str) -> Result<()> {
-    if let Some(parent) = std::path::Path::new(output).parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let bytes = create_minimal_apr_bytes()?;
-    std::fs::write(output, &bytes)?;
-    Ok(())
-}
-
-/// Create minimal valid APR v2 bytes with a single tensor.
+/// Create minimal valid APR v2 bytes with a single tensor (used by test fixtures).
+#[cfg(test)]
 pub(crate) fn create_minimal_apr_bytes() -> Result<Vec<u8>> {
     let metadata = aprender::format::v2::AprV2Metadata::default();
     let mut writer = aprender::format::v2::AprV2Writer::new(metadata);
