@@ -49,7 +49,7 @@ The orchestration layer that drives the pipeline. Each subcommand maps to one or
 |---|---|---|---|
 | `convert` | `apr import` | Download HF model → `.apr` format | Scaffolded |
 | `eval` | `apr eval` | Run benchmark suite with pass@k metrics | **Wired** (`entrenar::eval::pass_at_k`) |
-| `finetune` | `apr finetune` (entrenar) | LoRA/QLoRA fine-tuning | Scaffolded |
+| `finetune` | `apr finetune` (entrenar) | LoRA/QLoRA fine-tuning | **Wired** (`entrenar::lora` + `entrenar::optim`) |
 | `distill` | `apr distill` | Knowledge distillation (teacher → student) | **Wired** (`entrenar::distill`) |
 | `merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) | **Wired** (`entrenar::merge` + `apr_bridge`) |
 | `prune` | `apr prune` | Structured/unstructured pruning | Scaffolded |

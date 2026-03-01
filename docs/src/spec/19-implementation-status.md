@@ -8,7 +8,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 |---|---|---|---|---|
 | `convert` | `src/convert/mod.rs` | ✅ Scaffolded | 17 | HF download + APR v2 bundle + Display roundtrip |
 | `eval` | `src/eval/mod.rs` | ✅ Wired | 45 | pass@k via `entrenar::eval::pass_at_k`, prompt strategies, n-samples, temperature/top-p, rerank |
-| `finetune` | `src/finetune/mod.rs` | ✅ Scaffolded | 15 | LoRA/QLoRA/full, method selection, Display roundtrip, custom output |
+| `finetune` | `src/finetune/mod.rs` | ✅ Wired | 18 | LoRA/QLoRA via `entrenar::lora::{LoRALayer, QLoRALayer, merge_and_collect}` + `entrenar::optim::{AdamW, WarmupCosineDecayLR}` + APR v2 I/O via apr_bridge |
 | `distill` | `src/optimize/mod.rs` | ✅ Wired | 10 | `entrenar::distill::{DistillationLoss, ProgressiveDistiller}` + validation |
 | `merge` | `src/optimize/mod.rs` | ✅ Wired | 18 | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via apr_bridge |
 | `prune` | `src/optimize/mod.rs` | ✅ Scaffolded | 7 | 6 methods (wanda, magnitude, sparsegpt, structured, depth, width) + scaffold output |
@@ -70,13 +70,13 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | Merge | `Slerp`, `Ties`, `Dare`, `LinearAvg` (alias: `average`) | `--weights`, `--base-model`, `--density`, `--drop-rate` | Min 2 models, weights sum to 1.0, TIES/DARE require base-model, density/drop-rate 0.0–1.0 | ✅ Wired (`entrenar::merge` + `apr_bridge`) |
 | Prune | `Wanda`, `Magnitude`, `SparseGpt`, `Structured`, `Depth`, `Width` | `--calibration` | Ratio 0.0–1.0, empty path check | ✅ Scaffolded |
 | Quantize | `Int4`, `Int8`, `Q4K`, `Q5K`, `Q6K` | `--calibration` | Empty path check | ✅ Scaffolded |
-| Finetune | `Lora`, `Qlora`, `Full` | `--method`, `-o` | Model file exists check | ✅ Scaffolded |
+| Finetune | `Lora`, `Qlora`, `Full` | `--method`, `-o` | Model file exists check | ✅ Wired (`entrenar::lora` + `entrenar::optim`) |
 
 ## 19.4 Quality Metrics
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| Test count | 346 | — | `cargo test` |
+| Test count | 349 | — | `cargo test` |
 | CLI subcommands | 21 | — | All spec §6.2 subcommands + export + acceptance |
 | Line coverage | 96.5% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
@@ -113,6 +113,8 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | APR format validation | `aprender::format::v2::AprV2Reader` | ✅ Wired |
 | APR I/O bridge | `apr_bridge::{load_apr_as_merge_model, save_merge_model_as_apr}` | ✅ Wired |
 | Contract validation | `provable_contracts::schema::{parse_contract, validate_contract}` | ✅ Wired |
+| LoRA/QLoRA finetune | `entrenar::lora::{LoRALayer, QLoRALayer, merge_and_collect, merge_qlora_and_collect}` | ✅ Wired |
+| Optimizer + LR schedule | `entrenar::optim::{AdamW, WarmupCosineDecayLR}` | ✅ Wired |
 | Prune | Scaffold (writes valid APR v2) | Scaffold |
 | Quantize | Scaffold (writes valid APR v2) | Scaffold |
 | Inference / speculative decoding | Scaffold | Scaffold |
