@@ -275,4 +275,15 @@ mod tests {
         let apr_file = tmp.path().join("org_model-name.apr");
         assert!(apr_file.exists());
     }
+
+    #[test]
+    fn test_output_is_valid_apr_v2() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        run("test/model", tmp.path().to_str().unwrap(), "fp16").unwrap();
+        let apr_file = tmp.path().join("test_model.apr");
+        // Validate with AprV2Reader roundtrip
+        let model = crate::apr_bridge::load_apr_as_merge_model(apr_file.to_str().unwrap());
+        assert!(model.is_ok(), "Output is not valid APR v2");
+        assert!(!model.unwrap().is_empty());
+    }
 }

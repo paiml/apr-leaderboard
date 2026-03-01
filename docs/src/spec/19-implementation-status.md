@@ -6,7 +6,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 
 | Subcommand | Source Module | Status | Tests | Notes |
 |---|---|---|---|---|
-| `convert` | `src/convert/mod.rs` | ✅ Scaffolded | 17 | HF download + APR v2 bundle + Display roundtrip |
+| `convert` | `src/convert/mod.rs` | ✅ Wired | 18 | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 compression + 4 quant formats + AprV2Reader readback validation |
 | `eval` | `src/eval/mod.rs` | ✅ Wired | 45 | pass@k via `entrenar::eval::pass_at_k`, prompt strategies, n-samples, temperature/top-p, rerank |
 | `finetune` | `src/finetune/mod.rs` | ✅ Wired | 18 | LoRA/QLoRA via `entrenar::lora::{LoRALayer, QLoRALayer, merge_and_collect}` + `entrenar::optim::{AdamW, WarmupCosineDecayLR}` + APR v2 I/O via apr_bridge |
 | `distill` | `src/optimize/mod.rs` | ✅ Wired | 10 | `entrenar::distill::{DistillationLoss, ProgressiveDistiller}` + validation |
@@ -118,6 +118,6 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | Prune | Scaffold (writes valid APR v2) | Scaffold |
 | Quantize | Scaffold (writes valid APR v2) | Scaffold |
 | Inference / speculative decoding | Scaffold | Scaffold |
-| HF Hub download | Scaffold (local APR generation) | Scaffold |
+| HF → APR conversion | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 | ✅ Wired |
 
 **Scaffolded** = CLI parsing, enums, validation, serialization, and tests are implemented. Scaffold operations now write valid APR v2 files (via `apr_bridge::write_scaffold_apr`) so downstream pipeline steps can parse them.
