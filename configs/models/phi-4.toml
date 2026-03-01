@@ -4,10 +4,10 @@
 # Focus: Architecture diversity, 14B parameter sweet spot.
 #
 # Usage:
-#   apr-leaderboard pipeline --config configs/phi-4.toml
+#   make import MODEL=microsoft/phi-4
 
 model_id = "microsoft/phi-4"
-output_dir = "models"
+output_dir = "checkpoints"
 quantization = "fp16"
 submit = false
 leaderboard = "open-llm-leaderboard"

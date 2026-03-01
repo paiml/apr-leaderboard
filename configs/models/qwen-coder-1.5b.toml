@@ -5,10 +5,10 @@
 # See also: recipe-d-sovereign-binary.toml for the recipe pattern.
 #
 # Usage:
-#   apr-leaderboard pipeline --config configs/qwen-coder-1.5b.toml
+#   make pipeline RECIPE=recipe-d-sovereign-binary
 
 model_id = "Qwen/Qwen2.5-Coder-1.5B"
-output_dir = "models"
+output_dir = "checkpoints"
 quantization = "fp16"
 submit = false
 leaderboard = "bigcode"

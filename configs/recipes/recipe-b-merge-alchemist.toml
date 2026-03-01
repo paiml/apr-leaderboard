@@ -4,10 +4,10 @@
 # No GPU training. Pure weight manipulation for best score.
 #
 # Usage:
-#   apr-leaderboard pipeline --config configs/recipe-b-merge-alchemist.toml
+#   make pipeline RECIPE=recipe-b-merge-alchemist
 
 model_id = "Qwen/Qwen2.5-Coder-7B-Instruct"
-output_dir = "models"
+output_dir = "checkpoints"
 quantization = "fp16"
 submit = false
 leaderboard = "bigcode"
@@ -19,9 +19,9 @@ benchmarks = [
 ]
 
 [merge]
-models = ["models/reasoning-variant.apr"]
+models = ["checkpoints/reasoning-variant.apr"]
 strategy = "ties"
-base_model = "models/Qwen_Qwen2.5-Coder-7B.apr"
+base_model = "checkpoints/qwen_qwen2.5-coder-7b.apr"
 density = 0.2
 
 [prune]

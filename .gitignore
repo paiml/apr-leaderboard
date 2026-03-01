@@ -1,9 +1,21 @@
-/target
-/models
+# Model checkpoints (large binary files)
+/checkpoints/
 *.apr
+
+# Training/calibration data
+/data/
+
+# Evaluation results (regenerable)
 results/*.json
-!configs/
+
+# Build artifacts (if any rust remains)
+/target/
+/models/
+
+# Tool caches
 .pmat/
 .pmat-work/
 .pmat-metrics/
+
+# Documentation build output
 docs/book/

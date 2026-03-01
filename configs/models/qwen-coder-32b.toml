@@ -1,10 +1,10 @@
 # Pipeline config for Qwen2.5-Coder-32B leaderboard evaluation.
 #
 # Usage:
-#   apr-leaderboard pipeline --config configs/qwen-coder-32b.toml
+#   make import MODEL=Qwen/Qwen2.5-Coder-32B
 
 model_id = "Qwen/Qwen2.5-Coder-32B"
-output_dir = "models"
+output_dir = "checkpoints"
 quantization = "q8"
 submit = false
 leaderboard = "bigcode"

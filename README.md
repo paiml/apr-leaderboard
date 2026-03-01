@@ -21,7 +21,7 @@ If no: `apr compare-hf` pinpoints exactly where the stack falls short.
 ## Pipeline
 
 ```
-apr import → apr distill → apr finetune → apr merge → apr prune → apr quantize → apr eval → apr submit
+apr import → apr distill → apr finetune → apr merge → apr prune → apr quantize → eval → apr publish
 ```
 
 Every command is provided by the `apr` CLI (aprender). This repo provides the pipeline config, benchmark metadata, result persistence, and the strategy spec.
@@ -29,17 +29,20 @@ Every command is provided by the `apr` CLI (aprender). This repo provides the pi
 ## Quick Start
 
 ```bash
-# Build
-cargo build --release
+# Verify apr CLI is available
+make verify
 
-# List available benchmarks (10 code generation benchmarks)
-cargo run --release -- benchmarks
+# Import a model from HuggingFace
+make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
 
-# Run full pipeline from config
-cargo run --release -- pipeline --config configs/qwen-coder-7b.toml
+# Evaluate on HumanEval
+make eval-humaneval CHECKPOINT=checkpoints/qwen_qwen2.5-coder-7b-instruct.apr
 
-# View evaluation history
-cargo run --release -- history
+# Run a full recipe pipeline
+make pipeline RECIPE=recipe-a-quick-lora
+
+# Dry-run a pipeline (validate config, show commands)
+make pipeline-plan RECIPE=recipe-c-full-pipeline
 ```
 
 ## Sovereign Stack
@@ -49,7 +52,6 @@ cargo run --release -- history
 | [aprender](https://crates.io/crates/aprender) | .apr format, inference, distillation, merging, pruning, quantization | 0.27 |
 | [entrenar](https://crates.io/crates/entrenar) | LoRA/QLoRA training, autograd, AdamW, gradient checkpointing | 0.7 |
 | [trueno](https://crates.io/crates/trueno) | SIMD tensor ops (AVX2/NEON), wgpu GPU, PTX generation | 0.16 |
-| [provable-contracts](https://crates.io/crates/provable-contracts) | Kernel correctness via Kani bounded model checking | 0.1 |
 
 ## Benchmarks Supported
 
@@ -70,30 +72,50 @@ cargo run --release -- history
 
 ```
 apr-leaderboard/
-├── src/
-│   ├── main.rs          # CLI dispatcher + pipeline orchestrator
-│   ├── convert/         # HF Hub → .apr conversion
-│   ├── eval/            # Benchmark evaluation harness
-│   ├── harness/         # 10 benchmark definitions
-│   ├── finetune/        # LoRA training configuration
-│   └── submit/          # HF leaderboard submission
+├── Makefile                    # All orchestration (top-level entry point)
+├── scripts/
+│   ├── import.sh               # HF model download + convert to .apr
+│   ├── eval-pass-at-k.sh       # Generate completions → execute → score
+│   ├── pipeline.sh             # Run a full recipe from TOML config
+│   └── submit.sh               # Export + publish to HF Hub
 ├── configs/
-│   ├── qwen-coder-7b.toml
-│   └── qwen-coder-32b.toml
-├── docs/
-│   ├── specifications/
-│   │   └── leaderboard-spec.md   # Full spec (published as mdBook)
-│   └── hero.svg
-└── Makefile
+│   ├── models/                 # Per-model configs (5 models)
+│   │   ├── qwen-coder-7b.toml
+│   │   ├── qwen-coder-1.5b.toml
+│   │   ├── qwen-coder-32b.toml
+│   │   ├── deepseek-r1-distill-7b.toml
+│   │   └── phi-4.toml
+│   └── recipes/                # Multi-stage pipeline recipes (4 recipes)
+│       ├── recipe-a-quick-lora.toml
+│       ├── recipe-b-merge-alchemist.toml
+│       ├── recipe-c-full-pipeline.toml
+│       └── recipe-d-sovereign-binary.toml
+├── contracts/
+│   └── pass-at-k.yaml          # Formal pass@k metric contract
+├── checkpoints/                # .apr model files (gitignored)
+├── results/                    # Evaluation result JSONs
+├── data/                       # Training/calibration data (gitignored)
+└── docs/                       # Specification (mdBook)
 ```
 
-## Quality Gates
+## Makefile Targets
 
-```bash
-make check          # fmt + clippy + test
-pmat comply check --strict   # 30+ compliance checks
-pv proof-status     # Kani bounded model checking status
-```
+| Target | Description |
+|--------|-------------|
+| `make verify` | Check `apr` CLI available, all subcommands work |
+| `make dogfood` | End-to-end smoke test |
+| `make import MODEL=...` | Download HF model → .apr |
+| `make eval-humaneval CHECKPOINT=...` | HumanEval pass@k evaluation |
+| `make eval-mbpp CHECKPOINT=...` | MBPP pass@k evaluation |
+| `make eval-all CHECKPOINT=...` | All benchmarks |
+| `make finetune CHECKPOINT=...` | LoRA/QLoRA fine-tuning |
+| `make merge MODELS="a.apr b.apr"` | Model merging (SLERP/TIES/DARE) |
+| `make prune CHECKPOINT=...` | Pruning (Wanda/magnitude) |
+| `make quantize CHECKPOINT=...` | Quantization (INT4/INT8/FP16) |
+| `make distill TEACHER=... STUDENT=...` | Knowledge distillation |
+| `make pipeline RECIPE=...` | Run a multi-stage recipe |
+| `make pipeline-plan RECIPE=...` | Dry-run: show commands |
+| `make publish CHECKPOINT=... HF_REPO=...` | Publish to HF Hub |
 
 ## Specification
 
