@@ -85,6 +85,10 @@ pub(crate) struct EvalConfig {
     pub temperature: f64,
     pub top_p: f64,
     pub rerank: RerankStrategy,
+    /// Few-shot exemplars file for FewShot/SCoT strategies.
+    pub exemplars: Option<String>,
+    /// Custom system prompt override.
+    pub system: Option<String>,
 }
 
 impl Default for EvalConfig {
@@ -95,6 +99,8 @@ impl Default for EvalConfig {
             temperature: 0.0,
             top_p: 0.95,
             rerank: RerankStrategy::None,
+            exemplars: None,
+            system: None,
         }
     }
 }
@@ -169,6 +175,12 @@ pub(crate) fn run_with_config(
     }
     if !matches!(config.rerank, RerankStrategy::None) {
         println!("  Rerank: {}", config.rerank);
+    }
+    if let Some(exemplars) = &config.exemplars {
+        println!("  Exemplars: {exemplars}");
+    }
+    if let Some(system) = &config.system {
+        println!("  System prompt: {system}");
     }
 
     // Load the model

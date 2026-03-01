@@ -382,8 +382,8 @@ fn main() -> anyhow::Result<()> {
             top_p,
             rerank,
             json: _json,
-            exemplars: _exemplars,
-            system: _system,
+            exemplars,
+            system,
         } => {
             let strategy = eval::PromptStrategy::from_str(&prompt_strategy)?;
             let rerank_strategy = eval::RerankStrategy::from_str(&rerank)?;
@@ -393,6 +393,8 @@ fn main() -> anyhow::Result<()> {
                 temperature,
                 top_p,
                 rerank: rerank_strategy,
+                exemplars,
+                system,
             };
             eval::run_with_config(&model, &benchmark, samples, &output, &config)
         }

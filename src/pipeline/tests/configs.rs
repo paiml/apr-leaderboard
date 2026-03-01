@@ -58,6 +58,8 @@ fn test_build_eval_config_with_values() {
         temperature: Some(0.5),
         top_p: Some(0.8),
         rerank: Some("logprob".into()),
+        exemplars: None,
+        system: None,
     };
     let config = build_eval_config(Some(&toml_config)).unwrap();
     assert!(matches!(config.prompt_strategy, eval::PromptStrategy::SCoT));
@@ -65,6 +67,45 @@ fn test_build_eval_config_with_values() {
     assert!((config.temperature - 0.5).abs() < f64::EPSILON);
     assert!((config.top_p - 0.8).abs() < f64::EPSILON);
     assert!(matches!(config.rerank, eval::RerankStrategy::LogProb));
+}
+
+#[test]
+fn test_build_eval_config_with_exemplars_and_system() {
+    let toml_config = EvalConfigToml {
+        samples: None,
+        prompt_strategy: Some("few-shot".into()),
+        n_samples: None,
+        temperature: None,
+        top_p: None,
+        rerank: None,
+        exemplars: Some("examples.jsonl".into()),
+        system: Some("You are a code assistant".into()),
+    };
+    let config = build_eval_config(Some(&toml_config)).unwrap();
+    assert!(matches!(config.prompt_strategy, eval::PromptStrategy::FewShot));
+    assert_eq!(config.exemplars.as_deref(), Some("examples.jsonl"));
+    assert_eq!(config.system.as_deref(), Some("You are a code assistant"));
+}
+
+#[test]
+fn test_eval_config_toml_with_exemplars() {
+    let toml_str = r#"
+model_id = "test/model"
+output_dir = "models"
+quantization = "fp16"
+benchmarks = ["humaneval"]
+submit = false
+leaderboard = "bigcode"
+
+[eval]
+prompt_strategy = "few-shot"
+exemplars = "examples.jsonl"
+system = "You are a code expert"
+"#;
+    let config: PipelineConfig = toml::from_str(toml_str).unwrap();
+    let ec = config.eval.unwrap();
+    assert_eq!(ec.exemplars.as_deref(), Some("examples.jsonl"));
+    assert_eq!(ec.system.as_deref(), Some("You are a code expert"));
 }
 
 #[test]

@@ -122,6 +122,8 @@ pub(crate) struct EvalConfigToml {
     pub temperature: Option<f64>,
     pub top_p: Option<f64>,
     pub rerank: Option<String>,
+    pub exemplars: Option<String>,
+    pub system: Option<String>,
 }
 
 pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
@@ -304,6 +306,12 @@ fn build_eval_config(toml: Option<&EvalConfigToml>) -> Result<eval::EvalConfig> 
         }
         if let Some(r) = &t.rerank {
             config.rerank = eval::RerankStrategy::from_str(r)?;
+        }
+        if t.exemplars.is_some() {
+            config.exemplars.clone_from(&t.exemplars);
+        }
+        if t.system.is_some() {
+            config.system.clone_from(&t.system);
         }
     }
     Ok(config)
