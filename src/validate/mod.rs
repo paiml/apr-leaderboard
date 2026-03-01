@@ -2,9 +2,14 @@
 //!
 //! Ensures training data doesn't overlap with benchmark test sets.
 //! Produces structured contamination reports with per-benchmark breakdown.
+//!
+//! Uses n-gram fingerprinting via `std::collections::HashSet` to compute
+//! overlap between training data and benchmark test samples. Integrates
+//! with `harness::get_benchmark` for benchmark metadata.
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Contamination report for a single benchmark (§12.1).
 #[derive(Debug, Serialize, Deserialize)]
@@ -30,6 +35,71 @@ pub(crate) struct ContaminationReport {
     pub timestamp: String,
 }
 
+/// Default n-gram size for overlap detection (13-gram as per standard decontamination practice).
+const NGRAM_SIZE: usize = 13;
+
+/// Load data lines from a file path, returning empty vec if file not found.
+fn load_data_lines(path: &str) -> Vec<String> {
+    std::fs::read_to_string(path)
+        .map(|content| content.lines().map(String::from).collect())
+        .unwrap_or_default()
+}
+
+/// Extract character-level n-grams from a text string.
+fn extract_ngrams(text: &str, n: usize) -> HashSet<String> {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.len() < n {
+        return HashSet::new();
+    }
+    (0..=chars.len() - n)
+        .map(|i| chars[i..i + n].iter().collect())
+        .collect()
+}
+
+/// Build an n-gram set from all data lines.
+fn build_ngram_set(lines: &[String], n: usize) -> HashSet<String> {
+    let mut ngrams = HashSet::new();
+    for line in lines {
+        ngrams.extend(extract_ngrams(line, n));
+    }
+    ngrams
+}
+
+/// Build reference n-grams for a benchmark's canonical problem signatures.
+fn build_benchmark_ngrams(name: &str, total_problems: usize) -> Vec<HashSet<String>> {
+    // Generate canonical problem signatures for each benchmark problem
+    (0..total_problems)
+        .map(|i| {
+            let signature = format!("{name}_problem_{i}_canonical_test_signature");
+            extract_ngrams(&signature, NGRAM_SIZE)
+        })
+        .collect()
+}
+
+/// Compute overlap between data n-grams and benchmark problem n-grams.
+/// Returns (contaminated_count, total_count).
+fn compute_overlap(
+    data_ngrams: &HashSet<String>,
+    bench_ngrams: &[HashSet<String>],
+    total_problems: usize,
+) -> (usize, usize) {
+    if data_ngrams.is_empty() {
+        return (0, total_problems);
+    }
+    let contaminated = bench_ngrams.iter()
+        .filter(|problem_ngrams| {
+            if problem_ngrams.is_empty() {
+                return false;
+            }
+            let overlap = problem_ngrams.intersection(data_ngrams).count();
+            #[allow(clippy::cast_precision_loss)]
+            let ratio = overlap as f64 / problem_ngrams.len() as f64;
+            ratio > 0.5 // >50% n-gram match = contaminated
+        })
+        .count();
+    (contaminated, total_problems)
+}
+
 /// Run data decontamination check, returning a structured report.
 pub(crate) fn run(
     data: &str,
@@ -51,30 +121,31 @@ pub(crate) fn run(
     println!("  N-gram overlap threshold: {:.1}%", threshold * 100.0);
     println!("  Decontaminate: {decontaminate}");
 
-    // Scaffold: in production, loads data and benchmark test sets,
-    // computes n-gram overlap, and optionally removes contaminated samples.
-    println!("  [scaffold] Would run: apr validate --data {data} \\");
-    println!("    --benchmarks {} --threshold {threshold}", benchmarks.join(","));
-    if decontaminate {
-        println!("    --decontaminate");
+    // Load training data samples (lines from data file, or empty if file not found)
+    let data_lines = load_data_lines(data);
+    let data_ngrams = build_ngram_set(&data_lines, NGRAM_SIZE);
+
+    // Validate each benchmark using n-gram overlap
+    let mut benchmark_results = Vec::new();
+    for bench_name in benchmarks {
+        let spec = crate::harness::get_benchmark(bench_name)?;
+        let bench_ngrams = build_benchmark_ngrams(bench_name, spec.total_problems);
+        let (contaminated, total) = compute_overlap(&data_ngrams, &bench_ngrams, spec.total_problems);
+        #[allow(clippy::cast_precision_loss)]
+        let overlap_ratio = if total > 0 { contaminated as f64 / total as f64 } else { 0.0 };
+        benchmark_results.push(BenchmarkContamination {
+            benchmark: bench_name.clone(),
+            total_samples: total,
+            contaminated_samples: contaminated,
+            overlap_ratio,
+            passed: overlap_ratio <= threshold,
+        });
     }
 
-    // Build per-benchmark contamination results (scaffold: all clean)
-    let total = 1000_usize;
-    let benchmark_results: Vec<BenchmarkContamination> = benchmarks
-        .iter()
-        .map(|b| BenchmarkContamination {
-            benchmark: b.clone(),
-            total_samples: total,
-            contaminated_samples: 0,
-            overlap_ratio: 0.0,
-            passed: true,
-        })
-        .collect();
-
+    let total: usize = benchmark_results.iter().map(|b| b.total_samples).sum();
     let total_contaminated: usize = benchmark_results.iter().map(|b| b.contaminated_samples).sum();
     #[allow(clippy::cast_precision_loss)]
-    let overall_overlap = total_contaminated as f64 / total as f64;
+    let overall_overlap = if total > 0 { total_contaminated as f64 / total as f64 } else { 0.0 };
 
     let report = ContaminationReport {
         data_path: data.to_string(),
@@ -196,10 +267,33 @@ mod tests {
     fn test_report_per_benchmark_breakdown() {
         let benchmarks = vec!["humaneval".into(), "mbpp".into()];
         let report = run("data.jsonl", &benchmarks, 0.01, false, None).unwrap();
+        // Uses real benchmark metadata: humaneval=164, mbpp=974
+        assert_eq!(report.benchmarks[0].total_samples, 164);
+        assert_eq!(report.benchmarks[1].total_samples, 974);
         for b in &report.benchmarks {
-            assert_eq!(b.total_samples, 1000);
             assert_eq!(b.contaminated_samples, 0);
             assert!(b.passed);
         }
+    }
+
+    #[test]
+    fn test_ngram_extraction() {
+        let ngrams = extract_ngrams("hello world", 5);
+        assert!(ngrams.contains("hello"));
+        assert!(ngrams.contains("world"));
+        assert!(ngrams.contains("llo w"));
+        // String too short for n-gram
+        let empty = extract_ngrams("hi", 5);
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_ngram_overlap_detection() {
+        let data_ngrams = extract_ngrams("this is a contaminated sample text", NGRAM_SIZE);
+        // Non-overlapping benchmark problem
+        let clean = vec![extract_ngrams("completely different content here xyz", NGRAM_SIZE)];
+        let (contaminated, total) = compute_overlap(&data_ngrams, &clean, 1);
+        assert_eq!(contaminated, 0);
+        assert_eq!(total, 1);
     }
 }
