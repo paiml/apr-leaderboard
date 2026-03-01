@@ -55,6 +55,54 @@ def assemble_mbpp(problem: dict, completion: str) -> str:
     return completion + "\n\n" + tests + "\n"
 
 
+def assemble_bigcodebench(problem: dict, completion: str) -> str:
+    """Assemble BigCodeBench test: imports + completion + unittest harness.
+
+    BigCodeBench tasks use unittest format. The completion should define
+    the entry_point function. The test field contains a unittest.TestCase class.
+    """
+    completion = strip_markdown_fences(completion)
+    entry_point = problem.get("entry_point", "task_func")
+    test_code = problem.get("test", "")
+
+    # Extract required library imports from the code_prompt if available
+    code_prompt = problem.get("code_prompt", "")
+    prompt_imports = []
+    if code_prompt:
+        for line in code_prompt.split("\n"):
+            if line.startswith(("import ", "from ")):
+                prompt_imports.append(line)
+
+    parts = []
+
+    # If completion includes the function definition, use it
+    if f"def {entry_point}" in completion:
+        # Add imports from code_prompt that aren't in the completion
+        for imp in prompt_imports:
+            if imp not in completion:
+                parts.append(imp)
+        if parts:
+            parts.append("")
+        parts.append(completion)
+    else:
+        # Completion is just the body — prepend code_prompt
+        if code_prompt:
+            parts.append(code_prompt + completion)
+        else:
+            parts.append(completion)
+
+    parts.append("")
+    parts.append(test_code)
+
+    # BigCodeBench tests use unittest — add runner
+    parts.append("")
+    parts.append("if __name__ == '__main__':")
+    parts.append("    unittest.main()")
+    parts.append("")
+
+    return "\n".join(parts)
+
+
 def main():
     if len(sys.argv) != 5:
         print(f"Usage: {sys.argv[0]} <benchmark> <problem.json> <completion.py> <output.py>")
@@ -75,6 +123,8 @@ def main():
         code = assemble_humaneval(problem, completion)
     elif benchmark == "mbpp":
         code = assemble_mbpp(problem, completion)
+    elif benchmark == "bigcodebench":
+        code = assemble_bigcodebench(problem, completion)
     else:
         # Generic: completion + test
         completion = strip_markdown_fences(completion)

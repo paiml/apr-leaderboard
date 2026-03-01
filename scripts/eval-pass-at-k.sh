@@ -90,6 +90,9 @@ build_instruction() {
     if [[ "$benchmark" == "humaneval" ]]; then
         # HumanEval: prompt is function signature + docstring, we need the body
         printf "Complete the following Python function. Return ONLY the function body as Python code. No markdown, no explanation.\n\n%s" "$prompt"
+    elif [[ "$benchmark" == "bigcodebench" ]]; then
+        # BigCodeBench: instruct_prompt is already a clear instruction
+        printf "Write a Python function to solve this task. Return ONLY the complete Python function with all necessary imports. No markdown, no explanation.\n\n%s" "$prompt"
     else
         # MBPP / other: prompt is a task description
         printf "Write a Python function to solve this task. Return ONLY Python code, no explanation.\n\n%s" "$prompt"
@@ -108,8 +111,8 @@ TOTAL_LATENCY=0
 while IFS= read -r line; do
     TASK_ID="$(echo "$line" | jq -r '.task_id // .name // "unknown"' 2>/dev/null)"
 
-    # Extract prompt
-    PROMPT="$(echo "$line" | jq -r '.prompt // .text // .instruction // ""' 2>/dev/null)"
+    # Extract prompt (BigCodeBench uses instruct_prompt for instruction variant)
+    PROMPT="$(echo "$line" | jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' 2>/dev/null)"
     if [[ -z "$PROMPT" || "$PROMPT" == "null" ]]; then
         continue
     fi
