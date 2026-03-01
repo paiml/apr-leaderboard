@@ -216,6 +216,9 @@ enum Commands {
         /// Run model validation check before submitting
         #[arg(long)]
         pre_submit_check: Option<String>,
+        /// Generate HuggingFace model card (README.md)
+        #[arg(long)]
+        generate_card: bool,
     },
     /// List available benchmarks
     Benchmarks,
@@ -441,13 +444,13 @@ fn main() -> anyhow::Result<()> {
         } => optimize::quantize(&model, &scheme, calibration.as_deref(), &output),
         Commands::Compare { model, json: _json } => optimize::compare(&model),
         Commands::Submit {
-            results,
-            model_id,
-            leaderboard,
-            pre_submit_check,
+            results, model_id, leaderboard, pre_submit_check, generate_card,
         } => {
             if let Some(model_path) = &pre_submit_check {
                 compile::check(model_path)?;
+            }
+            if generate_card {
+                submit::generate_model_card(&model_id, &results)?;
             }
             submit::run(&results, &model_id, &leaderboard)
         }

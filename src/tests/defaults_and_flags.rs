@@ -224,3 +224,31 @@ fn test_cli_submit_no_pre_submit_check() {
         _ => panic!("Expected Submit"),
     }
 }
+
+#[test]
+fn test_cli_submit_generate_card() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "submit", "--results", "r.json",
+        "--model-id", "org/model", "--generate-card",
+    ]).unwrap();
+    match cli.command {
+        Commands::Submit { generate_card, .. } => {
+            assert!(generate_card);
+        }
+        _ => panic!("Expected Submit"),
+    }
+}
+
+#[test]
+fn test_cli_submit_no_generate_card() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "submit", "--results", "r.json",
+        "--model-id", "org/model",
+    ]).unwrap();
+    match cli.command {
+        Commands::Submit { generate_card, .. } => {
+            assert!(!generate_card);
+        }
+        _ => panic!("Expected Submit"),
+    }
+}

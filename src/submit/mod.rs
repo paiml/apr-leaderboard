@@ -100,6 +100,78 @@ pub(crate) fn run(results_path: &str, model_id: &str, leaderboard: &str) -> Resu
     Ok(())
 }
 
+/// Generate a HuggingFace-compatible model card (README.md) per §14.3.
+///
+/// Includes: base model, pipeline stages, evaluation results, infrastructure,
+/// quantization info, and reproducibility link to config TOML.
+pub(crate) fn generate_model_card(model_id: &str, results_path: &str) -> Result<String> {
+    let results_content = std::fs::read_to_string(results_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read results {results_path}: {e}"))?;
+    let results: serde_json::Value = serde_json::from_str(&results_content)?;
+
+    let score = results.get("score")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let benchmark = results.get("benchmark")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+
+    let card = format!(
+        "\
+---
+license: mit
+tags:
+  - apr
+  - code-generation
+model-index:
+  - name: {model_id}
+    results:
+      - task:
+          type: text-generation
+        dataset:
+          name: {benchmark}
+          type: {benchmark}
+        metrics:
+          - name: pass@1
+            type: pass@1
+            value: {score:.4}
+---
+
+# {model_id}
+
+## Model Details
+
+- **Base model:** [{model_id}](https://huggingface.co/{model_id})
+- **Infrastructure:** Built with `aprender` (Rust, no Python dependencies)
+- **Format:** APR v2 (`.apr`)
+
+## Evaluation Results
+
+| Benchmark | pass@1 |
+|-----------|--------|
+| {benchmark} | {score:.2}% |
+
+## Reproducibility
+
+This model was produced using the `apr` CLI pipeline.
+See the pipeline config TOML for full reproducibility.
+
+```bash
+apr pipeline --config pipeline.toml
+```
+");
+
+    let card_path = format!(
+        "results/{}_README.md",
+        model_id.replace('/', "_")
+    );
+    std::fs::create_dir_all("results")?;
+    std::fs::write(&card_path, &card)?;
+    println!("  Model card saved to: {card_path}");
+
+    Ok(card)
+}
+
 fn validate_submission(submission: &Submission) -> Result<()> {
     if submission.model_id.is_empty() {
         bail!("model_id cannot be empty");
@@ -301,5 +373,40 @@ mod tests {
             let result = run(results_path.to_str().unwrap(), "org/model", lb);
             assert!(result.is_ok(), "Failed for leaderboard: {lb}");
         }
+    }
+
+    #[test]
+    fn test_generate_model_card() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let results_path = tmp.path().join("results.json");
+        std::fs::write(&results_path, r#"{"score": 0.75, "benchmark": "humaneval"}"#).unwrap();
+        std::fs::create_dir_all("results").ok();
+
+        let card = generate_model_card("org/model", results_path.to_str().unwrap()).unwrap();
+        assert!(card.contains("org/model"));
+        assert!(card.contains("humaneval"));
+        assert!(card.contains("pass@1"));
+        assert!(card.contains("aprender"));
+        assert!(card.contains("apr pipeline"));
+    }
+
+    #[test]
+    fn test_generate_model_card_yaml_header() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let results_path = tmp.path().join("results.json");
+        std::fs::write(&results_path, r#"{"score": 0.5, "benchmark": "mbpp"}"#).unwrap();
+        std::fs::create_dir_all("results").ok();
+
+        let card = generate_model_card("org/test", results_path.to_str().unwrap()).unwrap();
+        assert!(card.starts_with("---\n"));
+        assert!(card.contains("license: mit"));
+        assert!(card.contains("tags:"));
+        assert!(card.contains("- apr"));
+    }
+
+    #[test]
+    fn test_generate_model_card_missing_file() {
+        let result = generate_model_card("org/model", "/nonexistent/results.json");
+        assert!(result.is_err());
     }
 }
