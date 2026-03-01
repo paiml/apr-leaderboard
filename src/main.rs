@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+mod acceptance;
 mod align;
 mod compile;
 mod convert;
@@ -384,6 +385,15 @@ enum Commands {
         #[arg(long)]
         results: Option<String>,
     },
+    /// List and verify acceptance criteria (§18)
+    Acceptance {
+        /// Filter by category (format, technique, pipeline, performance, tooling)
+        #[arg(long)]
+        category: Option<String>,
+        /// Run scaffold verification
+        #[arg(long)]
+        verify: bool,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -452,13 +462,8 @@ fn main() -> anyhow::Result<()> {
         Commands::Benchmarks => { harness::list_benchmarks(); Ok(()) }
         Commands::History { model } => eval::show_history(model.as_deref()),
         Commands::Pipeline { config, dry_run } => {
-            let config_content = std::fs::read_to_string(&config)?;
-            let pipe: pipeline::PipelineConfig = toml::from_str(&config_content)?;
-            if dry_run {
-                pipeline::dry_run(&pipe)
-            } else {
-                pipeline::run_pipeline(&pipe)
-            }
+            let pipe: pipeline::PipelineConfig = toml::from_str(&std::fs::read_to_string(&config)?)?;
+            if dry_run { pipeline::dry_run(&pipe) } else { pipeline::run_pipeline(&pipe) }
         }
         Commands::Align {
             model, data, method, beta, epochs, ref_model, output,
@@ -481,6 +486,10 @@ fn main() -> anyhow::Result<()> {
         } => compile::run(&model, release, lto, strip, output.as_deref()),
         Commands::Export { model, format, output, results } => {
             submit::export_model(&model, &format, &output, results.as_deref())
+        }
+        Commands::Acceptance { category, verify } => {
+            if verify { acceptance::verify_scaffold().map(|_| ()) }
+            else { acceptance::list(category.as_deref()) }
         }
     }
 }

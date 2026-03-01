@@ -237,5 +237,39 @@ fn test_cli_parse_export() {
     }
 }
 
+#[test]
+fn test_cli_parse_acceptance() {
+    let cli = Cli::try_parse_from(["apr-leaderboard", "acceptance"]).unwrap();
+    assert!(matches!(cli.command, Commands::Acceptance { .. }));
+}
+
+#[test]
+fn test_cli_parse_acceptance_verify() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "acceptance", "--verify",
+    ]).unwrap();
+    match cli.command {
+        Commands::Acceptance { verify, category } => {
+            assert!(verify);
+            assert!(category.is_none());
+        }
+        _ => panic!("Expected Acceptance"),
+    }
+}
+
+#[test]
+fn test_cli_parse_acceptance_category() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "acceptance", "--category", "technique",
+    ]).unwrap();
+    match cli.command {
+        Commands::Acceptance { category, verify } => {
+            assert_eq!(category, Some("technique".into()));
+            assert!(!verify);
+        }
+        _ => panic!("Expected Acceptance"),
+    }
+}
+
 mod defaults_and_flags;
 mod extended;
