@@ -80,9 +80,9 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | CLI subcommands | 21 | — | All spec §6.2 subcommands + export + acceptance |
 | Line coverage | 96.2% | ≥ 95% | `cargo llvm-cov` |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
-| Max file size | 500 lines | < 500 | `wc -l src/**/*.rs` |
+| Max file size | 500 lines | ≤ 500 | `wc -l src/**/*.rs` |
 | pmat pre-commit | ✅ Pass | ✅ Pass | git hook |
-| Pipeline configs | 7 | — | `configs/*.toml` (recipes A–D + 3 model targets) |
+| Pipeline configs | 9 | — | `configs/*.toml` (recipes A–D + 5 model targets) |
 | Pipeline stages | 12 | — | validate → convert → distill → finetune → align → merge → tune → prune → quantize → eval → compile → submit |
 | Source modules | 13 | — | acceptance, align, apr_bridge, compile, convert, eval, finetune, harness, inference, optimize, pipeline, submit, validate |
 | Acceptance criteria | 27 | — | §18 falsifiable ACs (12 scaffolded, 11 pending, 4 external) |
