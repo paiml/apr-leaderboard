@@ -2,7 +2,7 @@
 //!
 //! Produces a self-contained executable embedding the model weights.
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 
 /// Run binary compilation of an .apr model.
 pub(crate) fn run(
@@ -48,26 +48,35 @@ pub(crate) fn run(
 }
 
 /// Validate a model before submission (§14.4).
+///
+/// Uses aprender's AprV2Reader to validate magic bytes, header checksum,
+/// metadata, tensor index, and alignment — not just magic bytes.
 pub(crate) fn check(model: &str) -> Result<()> {
     let model_data = std::fs::read(model)
         .map_err(|e| anyhow::anyhow!("Failed to load model {model}: {e}"))?;
 
     println!("Checking model: {model}");
 
-    // Verify APR magic bytes
-    if model_data.len() < 4 {
-        bail!("model file too small ({} bytes)", model_data.len());
-    }
-    if &model_data[0..3] != b"APR" {
-        bail!("invalid APR header: expected APR magic bytes");
-    }
+    // Parse with aprender's AprV2Reader — validates header, checksum, metadata, tensor index
+    let mut cursor = std::io::Cursor::new(&model_data);
+    let reader = aprender::format::v2::AprV2Reader::from_reader(&mut cursor)
+        .map_err(|e| anyhow::anyhow!("APR v2 validation failed: {e}"))?;
 
-    println!("  Format: APR v2");
+    let header = reader.header();
+    let metadata = reader.metadata();
+    let tensors = reader.tensor_names();
+
+    println!("  Format: APR v{}.{}", header.version.0, header.version.1);
     println!("  Size: {} bytes", model_data.len());
-    println!("  Header: valid");
-
-    // Scaffold: in production, also validates tensor shapes, quantization metadata, etc.
-    println!("  [scaffold] Would run: apr check {model}");
+    println!("  Tensors: {}", tensors.len());
+    if let Some(name) = &metadata.name {
+        println!("  Name: {name}");
+    }
+    if metadata.param_count > 0 {
+        println!("  Parameters: {}", metadata.param_count);
+    }
+    println!("  Header checksum: valid");
+    println!("  Alignment: {}", if reader.verify_alignment() { "valid" } else { "MISALIGNED" });
     println!("  Status: PASS");
 
     Ok(())
@@ -77,12 +86,17 @@ pub(crate) fn check(model: &str) -> Result<()> {
 mod tests {
     use super::*;
 
+    fn write_valid_apr(path: &std::path::Path) {
+        let bytes = crate::apr_bridge::create_minimal_apr_bytes().unwrap();
+        std::fs::write(path, &bytes).unwrap();
+    }
+
     // --- compile ---
     #[test]
     fn test_compile_basic() {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("test.apr");
-        std::fs::write(&model, b"APR2data").unwrap();
+        write_valid_apr(&model);
         assert!(run(model.to_str().unwrap(), false, false, false, None).is_ok());
     }
 
@@ -90,7 +104,7 @@ mod tests {
     fn test_compile_release_lto() {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("test.apr");
-        std::fs::write(&model, b"APR2data").unwrap();
+        write_valid_apr(&model);
         assert!(run(model.to_str().unwrap(), true, true, false, Some("binary")).is_ok());
     }
 
@@ -98,7 +112,7 @@ mod tests {
     fn test_compile_with_strip() {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("test.apr");
-        std::fs::write(&model, b"APR2data").unwrap();
+        write_valid_apr(&model);
         assert!(run(model.to_str().unwrap(), true, true, true, Some("binary")).is_ok());
     }
 
@@ -117,7 +131,7 @@ mod tests {
     fn test_check_valid() {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("test.apr");
-        std::fs::write(&model, b"APR2test-model-data").unwrap();
+        write_valid_apr(&model);
         assert!(check(model.to_str().unwrap()).is_ok());
     }
 
@@ -125,10 +139,10 @@ mod tests {
     fn test_check_invalid_header() {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("bad.bin");
-        std::fs::write(&model, b"NOT_APR").unwrap();
+        std::fs::write(&model, b"NOT_APR_INVALID_DATA_THAT_IS_LONG_ENOUGH_FOR_64_BYTES_PADDING_EXTRA").unwrap();
         let result = check(model.to_str().unwrap());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("header"));
+        assert!(result.unwrap_err().to_string().contains("validation failed"));
     }
 
     #[test]
@@ -138,7 +152,6 @@ mod tests {
         std::fs::write(&model, b"AP").unwrap();
         let result = check(model.to_str().unwrap());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("too small"));
     }
 
     #[test]
@@ -151,25 +164,23 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("edge.bin");
         std::fs::write(&model, b"APR").unwrap();
-        // 3 bytes < 4 → too small
-        let result = check(model.to_str().unwrap());
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("too small"));
+        assert!(check(model.to_str().unwrap()).is_err());
     }
 
     #[test]
-    fn test_check_exactly_4_bytes_valid() {
+    fn test_check_corrupt_4_bytes() {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("minimal.apr");
         std::fs::write(&model, b"APR2").unwrap();
-        assert!(check(model.to_str().unwrap()).is_ok());
+        // 4 bytes is too small for a valid APR v2 (needs 64-byte header)
+        assert!(check(model.to_str().unwrap()).is_err());
     }
 
     #[test]
     fn test_compile_strip_only() {
         let tmp = tempfile::TempDir::new().unwrap();
         let model = tmp.path().join("test.apr");
-        std::fs::write(&model, b"APR2data").unwrap();
+        write_valid_apr(&model);
         assert!(run(model.to_str().unwrap(), false, false, true, None).is_ok());
     }
 

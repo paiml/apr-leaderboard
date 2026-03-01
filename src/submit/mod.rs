@@ -300,26 +300,29 @@ pub(crate) fn pre_submit_check(
 }
 
 fn check_apr_format(model_path: &str) -> CheckResult {
-    match std::fs::read(model_path) {
-        Ok(data) if data.len() >= 4 && &data[0..3] == b"APR" => CheckResult {
+    let data = match std::fs::read(model_path) {
+        Ok(d) => d,
+        Err(e) => return CheckResult {
+            name: "apr-format".into(),
+            passed: false,
+            detail: format!("Cannot read model: {e}"),
+        },
+    };
+    let mut cursor = std::io::Cursor::new(&data);
+    match aprender::format::v2::AprV2Reader::from_reader(&mut cursor) {
+        Ok(reader) => CheckResult {
             name: "apr-format".into(),
             passed: true,
-            detail: format!("Valid APR header ({} bytes)", data.len()),
-        },
-        Ok(data) if data.len() < 4 => CheckResult {
-            name: "apr-format".into(),
-            passed: false,
-            detail: format!("File too small ({} bytes)", data.len()),
-        },
-        Ok(_) => CheckResult {
-            name: "apr-format".into(),
-            passed: false,
-            detail: "Invalid APR header (missing magic bytes)".into(),
+            detail: format!(
+                "Valid APR v2 ({} bytes, {} tensors)",
+                data.len(),
+                reader.tensor_names().len(),
+            ),
         },
         Err(e) => CheckResult {
             name: "apr-format".into(),
             passed: false,
-            detail: format!("Cannot read model: {e}"),
+            detail: format!("APR v2 validation failed: {e}"),
         },
     }
 }

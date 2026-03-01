@@ -1,5 +1,10 @@
 use super::*;
 
+fn write_valid_apr(path: &std::path::Path) {
+    let bytes = crate::apr_bridge::create_minimal_apr_bytes().unwrap();
+    std::fs::write(path, &bytes).unwrap();
+}
+
 fn make_test_submission() -> Submission {
     Submission {
         model_id: "org/model".into(),
@@ -179,7 +184,7 @@ fn test_generate_model_card_missing_file() {
 fn test_export_model_basic() {
     let tmp = tempfile::TempDir::new().unwrap();
     let model_path = tmp.path().join("test.apr");
-    std::fs::write(&model_path, b"APR2test").unwrap();
+    write_valid_apr(&model_path);
     let out = tmp.path().join("export");
     assert!(export_model(model_path.to_str().unwrap(), "safetensors", out.to_str().unwrap(), None).is_ok());
     assert!(out.join("metadata.json").exists());
@@ -189,7 +194,7 @@ fn test_export_model_basic() {
 fn test_export_model_with_results() {
     let tmp = tempfile::TempDir::new().unwrap();
     let model_path = tmp.path().join("test.apr");
-    std::fs::write(&model_path, b"APR2test").unwrap();
+    write_valid_apr(&model_path);
     let results_path = tmp.path().join("results.json");
     std::fs::write(&results_path, r#"{"pass@1": 0.85}"#).unwrap();
     let out = tmp.path().join("export");
@@ -206,7 +211,7 @@ fn test_export_model_with_results() {
 fn test_export_model_invalid_format() {
     let tmp = tempfile::TempDir::new().unwrap();
     let model_path = tmp.path().join("test.apr");
-    std::fs::write(&model_path, b"APR2test").unwrap();
+    write_valid_apr(&model_path);
     let result = export_model(model_path.to_str().unwrap(), "invalid", "out/", None);
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("Unknown export format"));
@@ -236,7 +241,7 @@ fn test_export_metadata_serialization() {
 fn test_pre_submit_check_all_pass() {
     let tmp = tempfile::TempDir::new().unwrap();
     let model_path = tmp.path().join("test.apr");
-    std::fs::write(&model_path, b"APR2test-data").unwrap();
+    write_valid_apr(&model_path);
     let results_path = tmp.path().join("results.json");
     std::fs::write(&results_path, r#"{"benchmark": "humaneval", "benchmarks": ["humaneval", "mbpp"]}"#).unwrap();
     // Create model card
@@ -267,7 +272,7 @@ fn test_pre_submit_check_invalid_model() {
     assert!(!report.all_passed);
     let apr_check = report.checks.iter().find(|c| c.name == "apr-format").unwrap();
     assert!(!apr_check.passed);
-    assert!(apr_check.detail.contains("magic bytes"));
+    assert!(apr_check.detail.contains("validation failed"));
 }
 
 #[test]
@@ -287,7 +292,7 @@ fn test_pre_submit_check_missing_model() {
 fn test_pre_submit_check_invalid_results() {
     let tmp = tempfile::TempDir::new().unwrap();
     let model_path = tmp.path().join("test.apr");
-    std::fs::write(&model_path, b"APR2data").unwrap();
+    write_valid_apr(&model_path);
     let results_path = tmp.path().join("bad.json");
     std::fs::write(&results_path, "not json").unwrap();
     let report = pre_submit_check(
@@ -303,7 +308,7 @@ fn test_pre_submit_check_invalid_results() {
 fn test_pre_submit_check_missing_benchmarks() {
     let tmp = tempfile::TempDir::new().unwrap();
     let model_path = tmp.path().join("test.apr");
-    std::fs::write(&model_path, b"APR2data").unwrap();
+    write_valid_apr(&model_path);
     let results_path = tmp.path().join("results.json");
     std::fs::write(&results_path, r#"{"score": 0.9}"#).unwrap();
     let report = pre_submit_check(
@@ -320,7 +325,7 @@ fn test_pre_submit_check_missing_benchmarks() {
 fn test_pre_submit_check_bad_model_id() {
     let tmp = tempfile::TempDir::new().unwrap();
     let model_path = tmp.path().join("test.apr");
-    std::fs::write(&model_path, b"APR2data").unwrap();
+    write_valid_apr(&model_path);
     let results_path = tmp.path().join("results.json");
     std::fs::write(&results_path, r#"{"benchmarks": ["humaneval", "mbpp"]}"#).unwrap();
     let report = pre_submit_check(
@@ -355,7 +360,7 @@ fn test_check_apr_format_too_small() {
     std::fs::write(&model_path, b"AP").unwrap();
     let result = check_apr_format(model_path.to_str().unwrap());
     assert!(!result.passed);
-    assert!(result.detail.contains("too small"));
+    assert!(result.detail.contains("validation failed"));
 }
 
 #[test]
