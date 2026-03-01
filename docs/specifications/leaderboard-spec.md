@@ -106,7 +106,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 | **compile/** (check) | **Wired** | `aprender::format::v2::AprV2Reader` full validation (header, checksum, tensors) |
 | **compile/** | **Wired** | `aprender::format::v2::AprV2Reader` pre-compilation validation + format/tensor reporting |
 | **acceptance/** | **Wired** | `provable_contracts::schema::{parse_contract, validate_contract}`, 27 ACs |
-| **apr_bridge/** | **Wired** | `load_apr_as_merge_model`, `save_merge_model_as_apr`, `create_minimal_apr_bytes` |
+| **apr_bridge/** | **Wired** | `load_apr_as_merge_model`, `save_merge_model_as_apr`, `parse_slerp_weight` |
 | **harness/** | Complete | All 10 benchmark definitions with metadata |
 | **align/** | **Wired** | `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss, LossFn}` + DPO/ORPO preference loss + APR v2 I/O |
 | **validate/** | **Wired** | N-gram fingerprinting via `HashSet` + `harness::get_benchmark` integration + contamination report |
@@ -2222,7 +2222,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `convert` | `src/convert/mod.rs` | ✅ Wired | 18 | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 + 4 quant formats + AprV2Reader readback |
 | `eval` | `src/eval/mod.rs` | ✅ Wired | 45 | pass@k via `entrenar::eval::pass_at_k`, prompt strategies, n-samples, temperature/top-p, rerank |
 | `finetune` | `src/finetune/mod.rs` | ✅ Wired | 18 | `entrenar::lora::{LoRALayer, QLoRALayer, merge_and_collect}` + `entrenar::optim::{AdamW, WarmupCosineDecayLR}` + APR v2 I/O |
-| `distill` | `src/optimize/mod.rs` | ✅ Wired | 10 | `entrenar::distill::{DistillationLoss, ProgressiveDistiller}` + validation |
+| `distill` | `src/optimize/mod.rs` | ✅ Wired | 10 | `entrenar::distill::{DistillationLoss, ProgressiveDistiller}` + teacher/student blending + APR v2 I/O via apr_bridge |
 | `merge` | `src/optimize/mod.rs` | ✅ Wired | 18 | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via apr_bridge |
 | `prune` | `src/optimize/mod.rs` | ✅ Wired | 9 | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` + APR v2 I/O |
 | `quantize` | `src/optimize/mod.rs` | ✅ Wired | 7 | `entrenar::quant::{Calibrator, quantize_tensor, dequantize_tensor, quantization_mse}` + APR v2 I/O |

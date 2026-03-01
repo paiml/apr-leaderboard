@@ -9,23 +9,23 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `convert` | `src/convert/mod.rs` | ✅ Wired | 18 | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 compression + 4 quant formats + AprV2Reader readback validation |
 | `eval` | `src/eval/mod.rs` | ✅ Wired | 45 | pass@k via `entrenar::eval::pass_at_k`, prompt strategies, n-samples, temperature/top-p, rerank |
 | `finetune` | `src/finetune/mod.rs` | ✅ Wired | 18 | LoRA/QLoRA via `entrenar::lora::{LoRALayer, QLoRALayer, merge_and_collect}` + `entrenar::optim::{AdamW, WarmupCosineDecayLR}` + APR v2 I/O via apr_bridge |
-| `distill` | `src/optimize/mod.rs` | ✅ Wired | 10 | `entrenar::distill::{DistillationLoss, ProgressiveDistiller}` + validation |
+| `distill` | `src/optimize/mod.rs` | ✅ Wired | 10 | `entrenar::distill::{DistillationLoss, ProgressiveDistiller}` + teacher/student blending + APR v2 I/O via apr_bridge |
 | `merge` | `src/optimize/mod.rs` | ✅ Wired | 18 | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via apr_bridge |
 | `prune` | `src/optimize/mod.rs` | ✅ Wired | 9 | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` + APR v2 I/O via apr_bridge |
 | `quantize` | `src/optimize/mod.rs` | ✅ Wired | 7 | `entrenar::quant::{Calibrator, quantize_tensor, dequantize_tensor, quantization_mse}` + APR v2 I/O via apr_bridge |
-| `compare` | `src/optimize/mod.rs` | ✅ Scaffolded | 2 | HF parity check + --json flag |
-| `submit` | `src/submit/mod.rs` | ✅ Scaffolded | 32 | HF leaderboard submission + pre-submit validation (§14.4) + --generate-card (§14.3) + export metadata |
+| `compare` | `src/optimize/mod.rs` | ✅ Wired | 2 | `apr_bridge::load_apr_as_merge_model` + per-tensor weight statistics (mean, std, param count) |
+| `submit` | `src/submit/mod.rs` | ✅ Wired | 32 | `aprender::format::v2::AprV2Reader` pre-submit validation (§14.4) + --generate-card (§14.3) + export metadata |
 | `benchmarks` | `src/harness/mod.rs` | ✅ Complete | 21 | 10 benchmark definitions |
 | `history` | `src/eval/mod.rs` | ✅ Complete | 3 | Result history viewer |
-| `pipeline` | `src/pipeline/mod.rs` | ✅ Scaffolded | 49 | Config-driven TOML pipeline (12 stages) + [eval] config + recipe B/D + integration tests + ordering validation (§10) + config hash (§11) + --dry-run |
+| `pipeline` | `src/pipeline/mod.rs` | ✅ Wired | 49 | Config-driven TOML pipeline (12 stages) — all stages call wired backends + ordering validation (§10) + config hash (§11) + --dry-run |
 | `align` | `src/align/mod.rs` | ✅ Wired | 12 | `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss, LossFn}` + APR v2 I/O via apr_bridge + DPO/ORPO preference loss |
 | `validate` | `src/validate/mod.rs` | ✅ Wired | 13 | N-gram fingerprinting via `HashSet` + `harness::get_benchmark` integration + contamination report (§12.1) |
-| `tune` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | HPO: TPE/grid/random strategies (§7.7) + budget validation |
+| `tune` | `src/optimize/mod.rs` | ✅ Wired | 6 | `entrenar::train::{CrossEntropyLoss, LossFn}` HPO trials + APR v2 I/O via apr_bridge |
 | `run` | `src/inference/mod.rs` | ✅ Wired | 9 | `entrenar::train::{CrossEntropyLoss, LossFn}` + APR v2 I/O via apr_bridge + speculative decoding + JSON output |
 | `chat` | `src/inference/mod.rs` | ✅ Wired | 6 | `entrenar::train::{CrossEntropyLoss, LossFn}` + temperature scaling + APR v2 I/O via apr_bridge |
 | `check` | `src/compile/mod.rs` | ✅ Wired | 6 | `aprender::format::v2::AprV2Reader` validation (header, checksum, tensors) |
 | `compile` | `src/compile/mod.rs` | ✅ Wired | 7 | `aprender::format::v2::AprV2Reader` pre-compilation validation + format/tensor reporting |
-| `export` | `src/submit/mod.rs` | ✅ Scaffolded | 5 | SafeTensors/GGUF metadata export (§14.2) + results bundling |
+| `export` | `src/submit/mod.rs` | ✅ Wired | 5 | `aprender::format::v2::AprV2Reader` tensor index export + metadata (§14.2) |
 | `acceptance` | `src/acceptance/mod.rs` | ✅ Wired | 19 | 27 ACs (§18) + provable-contracts YAML validation + 3 contract tests |
 
 ## 19.1.1 CLI Flag Coverage Matrix
@@ -123,4 +123,4 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | Inference / token log-probs | `entrenar::train::{CrossEntropyLoss, LossFn}` + APR v2 I/O | ✅ Wired |
 | HF → APR conversion | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 | ✅ Wired |
 
-**Scaffolded** = CLI parsing, enums, validation, serialization, and tests are implemented. Scaffold operations now write valid APR v2 files (via `apr_bridge::write_scaffold_apr`) so downstream pipeline steps can parse them.
+**All 21 CLI subcommands are now wired to real sovereign stack APIs.** No scaffold-only operations remain. Every operation loads/saves valid APR v2 files via `apr_bridge` or validates via `aprender::format::v2::AprV2Reader`.

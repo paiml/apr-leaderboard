@@ -25,9 +25,9 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | Compile to binary | Model + runtime → executable | **aprender** 0.27 | ✅ Complete | `apr compile` |
 | Correctness proofs | Kani bounded model checking | **provable-contracts** | ✅ Complete | 262 proof obligations |
 | Quality gates | Compliance enforcement | **pmat** | ✅ Complete | 30+ automated checks |
-| **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ⚠️ **Scaffolded** | `apr align` CLI scaffolded in apr-leaderboard (§5.2); entrenar loss functions pending |
+| **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ✅ **Wired** | `apr align` wired to `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}` (§5.2) |
 | **Execution sandbox** | Run generated code safely | — | ❌ **Missing** | **External harness** (see §5.3) |
-| **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ✅ **Scaffolded** | `apr-leaderboard eval --n-samples N --rerank strategy` implemented (3 strategies: none, logprob, majority) |
+| **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ✅ **Wired** | `apr-leaderboard eval --n-samples N --rerank strategy` (3 strategies: none, logprob, majority) |
 | **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ✅ **Ready** | `--prompt-strategy` implemented in apr-leaderboard (5 strategies); upstream `--system` available |
 | **Synthetic data gen** | Teacher → training corpus | **alimentar** 0.2 + **aprender** | ⚠️ Partial | Generation via `apr chat --batch`; curation pipeline needed |
 | **Continued pretraining** | Full-weight code corpus training | **entrenar** 0.7 | ⚠️ Partial | Full finetune works; needs large-corpus streaming |
@@ -37,12 +37,12 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 
 **Why world-class:** DPO is the single most impactful post-training technique for leaderboards. Merged + DPO models "completely dominate" HF leaderboard rankings. Without DPO, we compete with one hand tied.
 
-**Current state:** The `apr-leaderboard align` subcommand is fully scaffolded with DPO/ORPO method selection, beta validation, epoch configuration, reference model support, and output file creation (writes valid APR v2). entrenar has the training infrastructure (autograd, AdamW, LoRA) but the DPO/ORPO loss functions have not yet been wired in — scaffold outputs write valid APR v2 files via `apr_bridge::write_scaffold_apr()`.
+**Current state:** The `apr-leaderboard align` subcommand is wired to `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}` for DPO/ORPO preference optimization. Loads model via `apr_bridge::load_apr_as_merge_model`, computes preference loss, saves aligned model via `apr_bridge::save_merge_model_as_apr`.
 
 **Implemented (apr-leaderboard):**
 
 ```bash
-# DPO alignment (scaffolded — writes valid APR v2 output)
+# DPO alignment (wired to entrenar loss functions)
 apr-leaderboard align --model model.apr --data prefs.jsonl \
     --method dpo --beta 0.1 --epochs 3 --ref-model base.apr -o aligned.apr
 
