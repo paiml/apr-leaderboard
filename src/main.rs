@@ -213,6 +213,9 @@ enum Commands {
         /// Leaderboard to target
         #[arg(long, default_value = "open-llm-leaderboard")]
         leaderboard: String,
+        /// Run model validation check before submitting
+        #[arg(long)]
+        pre_submit_check: Option<String>,
     },
     /// List available benchmarks
     Benchmarks,
@@ -408,40 +411,16 @@ fn main() -> anyhow::Result<()> {
             output,
         } => finetune::run(&model, &dataset, &method, rank, lr, epochs, output.as_deref()),
         Commands::Distill {
-            teacher,
-            student,
-            strategy,
-            temperature,
-            alpha,
-            epochs,
-            data,
-            output,
+            teacher, student, strategy, temperature, alpha, epochs, data, output,
         } => optimize::distill(&optimize::DistillOpts {
-            teacher: &teacher,
-            student: &student,
-            strategy: &strategy,
-            temperature,
-            alpha,
-            epochs,
-            data: data.as_deref(),
-            output: &output,
+            teacher: &teacher, student: &student, strategy: &strategy,
+            temperature, alpha, epochs, data: data.as_deref(), output: &output,
         }),
         Commands::Merge {
-            models,
-            strategy,
-            weights,
-            base_model,
-            density,
-            drop_rate,
-            output,
+            models, strategy, weights, base_model, density, drop_rate, output,
         } => optimize::merge(&optimize::MergeOpts {
-            models: &models,
-            strategy: &strategy,
-            weights: weights.as_deref(),
-            base_model: base_model.as_deref(),
-            density,
-            drop_rate,
-            output: &output,
+            models: &models, strategy: &strategy, weights: weights.as_deref(),
+            base_model: base_model.as_deref(), density, drop_rate, output: &output,
         }),
         Commands::Prune {
             model,
@@ -465,7 +444,13 @@ fn main() -> anyhow::Result<()> {
             results,
             model_id,
             leaderboard,
-        } => submit::run(&results, &model_id, &leaderboard),
+            pre_submit_check,
+        } => {
+            if let Some(model_path) = &pre_submit_check {
+                compile::check(model_path)?;
+            }
+            submit::run(&results, &model_id, &leaderboard)
+        }
         Commands::Benchmarks => { harness::list_benchmarks(); Ok(()) }
         Commands::History { model } => eval::show_history(model.as_deref()),
         Commands::Pipeline { config } => {

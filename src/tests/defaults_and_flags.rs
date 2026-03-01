@@ -194,3 +194,33 @@ fn test_cli_compile_strip_and_target() {
         _ => panic!("Expected Compile"),
     }
 }
+
+#[test]
+fn test_cli_submit_pre_submit_check() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "submit", "--results", "r.json",
+        "--model-id", "org/model", "--pre-submit-check", "model.apr",
+    ]).unwrap();
+    match cli.command {
+        Commands::Submit { results, model_id, pre_submit_check, .. } => {
+            assert_eq!(results, "r.json");
+            assert_eq!(model_id, "org/model");
+            assert_eq!(pre_submit_check, Some("model.apr".into()));
+        }
+        _ => panic!("Expected Submit"),
+    }
+}
+
+#[test]
+fn test_cli_submit_no_pre_submit_check() {
+    let cli = Cli::try_parse_from([
+        "apr-leaderboard", "submit", "--results", "r.json",
+        "--model-id", "org/model",
+    ]).unwrap();
+    match cli.command {
+        Commands::Submit { pre_submit_check, .. } => {
+            assert!(pre_submit_check.is_none());
+        }
+        _ => panic!("Expected Submit"),
+    }
+}

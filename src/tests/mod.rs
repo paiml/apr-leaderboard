@@ -193,7 +193,7 @@ fn test_cli_parse_submit() {
         "apr-leaderboard", "submit", "--results", "r.json", "--model-id", "org/model",
     ]).unwrap();
     match cli.command {
-        Commands::Submit { results, model_id, leaderboard } => {
+        Commands::Submit { results, model_id, leaderboard, .. } => {
             assert_eq!(results, "r.json");
             assert_eq!(model_id, "org/model");
             assert_eq!(leaderboard, "open-llm-leaderboard");
