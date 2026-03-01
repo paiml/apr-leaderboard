@@ -413,3 +413,5 @@ fn test_prompt_strategy_case_insensitive() {
     assert!(matches!(PromptStrategy::from_str("FEW-SHOT").unwrap(), PromptStrategy::FewShot));
     assert!(matches!(PromptStrategy::from_str("Reflexion").unwrap(), PromptStrategy::Reflexion));
 }
+
+mod pass_at_k;

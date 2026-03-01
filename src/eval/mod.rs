@@ -223,26 +223,35 @@ fn run_benchmark(
 ) -> Result<EvalResult> {
     // Scaffold: in production this runs actual inference through each problem,
     // executes generated code in a sandbox, and computes pass@k metrics.
+    // For now, we use the pass_at_k estimator with placeholder (n=0, c=0) per problem.
 
     let now = chrono::Utc::now();
+
+    // Scaffold results: each problem produces (n_completions, correct_count)
+    // In production, this comes from actual code execution
+    let per_problem: Vec<(usize, usize)> = vec![(config.n_samples, 0); n_samples];
+    let p1 = average_pass_at_k(&per_problem, 1);
+    let p10 = if spec.compute_pass_at_10 && config.n_samples >= 10 {
+        Some(average_pass_at_k(&per_problem, 10))
+    } else if spec.compute_pass_at_10 {
+        Some(0.0)
+    } else {
+        None
+    };
 
     Ok(EvalResult {
         model: model_path.to_string(),
         benchmark: spec.name.clone(),
         metric: spec.primary_metric.clone(),
-        score: 0.0, // Placeholder — real eval fills this
+        score: p1,
         samples_evaluated: n_samples,
         samples_total: spec.total_problems,
         timestamp: now.to_rfc3339(),
         prompt_strategy: config.prompt_strategy.to_string(),
         n_samples: config.n_samples,
         details: EvalDetails {
-            pass_at_1: 0.0,
-            pass_at_10: if spec.compute_pass_at_10 {
-                Some(0.0)
-            } else {
-                None
-            },
+            pass_at_1: p1,
+            pass_at_10: p10,
             pass_at_100: None,
             avg_tokens_generated: 0.0,
             avg_latency_ms: 0.0,
@@ -293,6 +302,51 @@ fn validate_config(config: &EvalConfig) -> Result<()> {
         bail!("top_p must be between 0.0 and 1.0, got {}", config.top_p);
     }
     Ok(())
+}
+
+/// Compute the unbiased pass@k estimator (Chen et al., 2021).
+///
+/// Formula: pass@k = 1 - C(n-c, k) / C(n, k)
+///
+/// Where:
+/// - `n` = total completions generated per problem
+/// - `c` = number of completions that pass all tests
+/// - `k` = number of samples selected
+///
+/// Uses log-space computation to avoid integer overflow for large n.
+pub(crate) fn pass_at_k(n: usize, c: usize, k: usize) -> f64 {
+    if c == 0 {
+        return 0.0;
+    }
+    if c >= n || k > n {
+        return 1.0;
+    }
+    if k == 0 {
+        return 0.0;
+    }
+    // C(n-c, k) / C(n, k) = product_{i=0..k} (n-c-i) / (n-i)
+    // In log space to avoid overflow:
+    // log(C(n-c,k)/C(n,k)) = sum_{i=0..k-1} ln(n-c-i) - ln(n-i)
+    if n - c < k {
+        // Not enough failing samples to fill k slots → pass@k = 1.0
+        return 1.0;
+    }
+    let mut log_ratio = 0.0_f64;
+    for i in 0..k {
+        log_ratio += ((n - c - i) as f64).ln() - ((n - i) as f64).ln();
+    }
+    1.0 - log_ratio.exp()
+}
+
+/// Compute pass@k averaged across multiple problems.
+///
+/// Each entry in `results` is (n, c) for one problem.
+pub(crate) fn average_pass_at_k(results: &[(usize, usize)], k: usize) -> f64 {
+    if results.is_empty() {
+        return 0.0;
+    }
+    let sum: f64 = results.iter().map(|&(n, c)| pass_at_k(n, c, k)).sum();
+    sum / results.len() as f64
 }
 
 /// Show evaluation history.
