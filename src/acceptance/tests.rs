@@ -117,3 +117,32 @@ fn test_criteria_have_measurements() {
         assert!(!ac.gate.is_empty(), "{} has empty gate", ac.id);
     }
 }
+
+#[test]
+fn test_validate_contracts() {
+    // The contracts/ directory should exist with valid YAML contracts
+    let count = validate_contracts().unwrap();
+    assert!(count >= 1, "Expected at least 1 contract, got {count}");
+}
+
+#[test]
+fn test_validate_contracts_parses_pass_at_k() {
+    let contract = provable_contracts::schema::parse_contract(
+        std::path::Path::new("contracts/pass-at-k.yaml"),
+    ).unwrap();
+    assert!(contract.equations.contains_key("pass_at_k"));
+    assert!(!contract.proof_obligations.is_empty());
+    assert!(!contract.falsification_tests.is_empty());
+}
+
+#[test]
+fn test_validate_contracts_schema() {
+    let contract = provable_contracts::schema::parse_contract(
+        std::path::Path::new("contracts/pass-at-k.yaml"),
+    ).unwrap();
+    let violations = provable_contracts::schema::validate_contract(&contract);
+    let errors: Vec<_> = violations.iter()
+        .filter(|v| v.severity == provable_contracts::error::Severity::Error)
+        .collect();
+    assert!(errors.is_empty(), "Contract has validation errors: {:?}", errors);
+}

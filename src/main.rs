@@ -488,10 +488,11 @@ fn main() -> anyhow::Result<()> {
         Commands::Export { model, format, output, results } => {
             submit::export_model(&model, &format, &output, results.as_deref())
         }
-        Commands::Acceptance { category, verify } => {
-            if verify { acceptance::verify_scaffold().map(|_| ()) }
-            else { acceptance::list(category.as_deref()) }
-        }
+        Commands::Acceptance { category, verify } => if verify {
+            acceptance::verify_scaffold()?;
+            println!("\nContract validation:");
+            acceptance::validate_contracts().map(|_| ())
+        } else { acceptance::list(category.as_deref()) },
     }
 }
 

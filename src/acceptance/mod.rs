@@ -228,5 +228,53 @@ pub(crate) struct AcReport {
     pub results: Vec<AcResult>,
 }
 
+/// Validate all provable-contracts YAML files in the contracts/ directory.
+pub(crate) fn validate_contracts() -> anyhow::Result<usize> {
+    let contracts_dir = std::path::Path::new("contracts");
+    if !contracts_dir.exists() {
+        println!("  No contracts/ directory found");
+        return Ok(0);
+    }
+
+    let mut count = 0;
+    let mut errors = 0;
+    for entry in std::fs::read_dir(contracts_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().is_some_and(|e| e == "yaml" || e == "yml") {
+            count += 1;
+            match provable_contracts::schema::parse_contract(&path) {
+                Ok(contract) => {
+                    let violations = provable_contracts::schema::validate_contract(&contract);
+                    let errs: Vec<_> = violations.iter()
+                        .filter(|v| v.severity == provable_contracts::error::Severity::Error)
+                        .collect();
+                    if errs.is_empty() {
+                        let eq_count = contract.equations.len();
+                        let ob_count = contract.proof_obligations.len();
+                        println!("  {} — {} equations, {} obligations",
+                            path.display(), eq_count, ob_count);
+                    } else {
+                        errors += errs.len();
+                        println!("  {} — {} validation errors", path.display(), errs.len());
+                        for v in &errs {
+                            println!("    ERROR: {}", v.message);
+                        }
+                    }
+                }
+                Err(e) => {
+                    errors += 1;
+                    println!("  {} — parse error: {e}", path.display());
+                }
+            }
+        }
+    }
+
+    if errors > 0 {
+        anyhow::bail!("{errors} contract validation error(s)");
+    }
+    Ok(count)
+}
+
 #[cfg(test)]
 mod tests;

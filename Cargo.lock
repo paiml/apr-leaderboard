@@ -120,6 +120,7 @@ dependencies = [
  "indicatif",
  "ndarray",
  "proptest",
+ "provable-contracts",
  "rand 0.8.5",
  "reqwest",
  "serde",
@@ -1980,6 +1981,16 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
+]
+
+[[package]]
+name = "provable-contracts"
+version = "0.1.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

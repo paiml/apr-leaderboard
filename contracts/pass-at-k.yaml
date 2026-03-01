@@ -1,0 +1,50 @@
+metadata:
+  version: "1.0.0"
+  description: "Unbiased pass@k estimator (Chen et al., 2021)"
+  author: "Chen et al."
+  references:
+    - "Evaluating Large Language Models Trained on Code, arXiv:2107.03374"
+
+equations:
+  pass_at_k:
+    formula: "1 - C(n-c, k) / C(n, k)"
+    domain: "n >= k >= 1, 0 <= c <= n"
+    codomain: "[0, 1]"
+    invariants:
+      - "pass_at_k(n, 0, k) == 0 for all valid n, k"
+      - "pass_at_k(n, n, k) == 1 for all valid n, k"
+      - "pass_at_k(n, c, 1) == c / n"
+
+proof_obligations:
+  - type: bound
+    property: "Output is bounded in [0, 1]"
+    formal: "0.0 <= pass_at_k(n, c, k) <= 1.0"
+    tolerance: 1e-10
+
+  - type: monotonicity
+    property: "More correct solutions means higher pass rate"
+    formal: "c1 < c2 implies pass_at_k(n, c1, k) <= pass_at_k(n, c2, k)"
+
+  - type: equivalence
+    property: "pass@1 equals c/n"
+    formal: "pass_at_k(n, c, 1) == c as f64 / n as f64"
+    tolerance: 1e-10
+
+falsification_tests:
+  - id: FT-001
+    rule: "Zero correct gives zero pass rate"
+    prediction: "pass_at_k(10, 0, 1) == 0.0"
+    test: "assert_eq!(pass_at_k(10, 0, 1), 0.0)"
+    if_fails: "Estimator fails boundary condition"
+
+  - id: FT-002
+    rule: "All correct gives unit pass rate"
+    prediction: "pass_at_k(10, 10, 1) == 1.0"
+    test: "assert_eq!(pass_at_k(10, 10, 1), 1.0)"
+    if_fails: "Estimator fails saturation condition"
+
+  - id: FT-003
+    rule: "pass@1 equals ratio"
+    prediction: "pass_at_k(10, 5, 1) == 0.5"
+    test: "assert!((pass_at_k(10, 5, 1) - 0.5).abs() < 1e-10)"
+    if_fails: "pass@1 estimator is biased"

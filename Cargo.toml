@@ -49,6 +49,7 @@ aprender = { version = "0.27", features = ["format-compression"] }
 trueno = "0.16"
 entrenar = "0.7"
 ndarray = "0.16"
+provable-contracts = { path = "../provable-contracts/crates/provable-contracts" }
 
 # CLI
 clap = { version = "4", features = ["derive"] }
