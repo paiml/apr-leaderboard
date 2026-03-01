@@ -78,10 +78,7 @@ pub(crate) fn run(
         println!("  Epoch {epoch}/{epochs}: loss=0.000");
     }
 
-    if let Some(parent) = std::path::Path::new(&output_path).parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(&output_path, b"APR2scaffold-align")?;
+    crate::apr_bridge::write_scaffold_apr(&output_path)?;
     println!("  Saved aligned model: {output_path}");
     Ok(())
 }

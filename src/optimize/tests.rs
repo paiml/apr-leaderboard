@@ -1,4 +1,14 @@
+#![allow(unused_variables)] // TempDir bindings held for RAII cleanup
 use super::*;
+
+/// Write a valid APR v2 file at the given path for testing.
+fn write_test_apr(path: &str) {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    let bytes = apr_bridge::create_minimal_apr_bytes().unwrap();
+    std::fs::write(path, &bytes).unwrap();
+}
 
 // --- DistillStrategy ---
 #[test]
@@ -117,40 +127,55 @@ fn test_quant_scheme_roundtrip() {
 }
 
 // --- distill ---
-fn distill_opts<'a>(teacher: &'a str, student: &'a str, strategy: &'a str) -> DistillOpts<'a> {
+fn distill_opts_simple<'a>(teacher: &'a str, student: &'a str, strategy: &'a str) -> DistillOpts<'a> {
     DistillOpts { teacher, student, strategy, temperature: 3.0, alpha: 0.7, epochs: 5, data: None, output: "o.apr" }
+}
+
+/// Helper: create distill opts with APR v2 fixtures. Returns (tmp, teacher, student, output).
+fn distill_fixture() -> (tempfile::TempDir, String, String, String) {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let t = tmp.path().join("teacher.apr");
+    let s = tmp.path().join("student.apr");
+    let o = tmp.path().join("out.apr");
+    write_test_apr(t.to_str().unwrap());
+    write_test_apr(s.to_str().unwrap());
+    (tmp, t.to_str().unwrap().into(), s.to_str().unwrap().into(), o.to_str().unwrap().into())
 }
 
 #[test]
 fn test_distill_runs() {
-    assert!(distill(&distill_opts("teacher.apr", "student.apr", "standard")).is_ok());
+    let (tmp, t, s, o) = distill_fixture();
+    let opts = DistillOpts { teacher: &t, student: &s, strategy: "standard", temperature: 3.0, alpha: 0.7, epochs: 5, data: None, output: &o };
+    assert!(distill(&opts).is_ok());
 }
 
 #[test]
 fn test_distill_empty_teacher() {
-    assert!(distill(&distill_opts("", "student.apr", "standard")).is_err());
+    assert!(distill(&distill_opts_simple("", "student.apr", "standard")).is_err());
 }
 
 #[test]
 fn test_distill_empty_student() {
-    assert!(distill(&distill_opts("teacher.apr", "", "standard")).is_err());
+    assert!(distill(&distill_opts_simple("teacher.apr", "", "standard")).is_err());
 }
 
 #[test]
 fn test_distill_invalid_strategy() {
-    assert!(distill(&distill_opts("t.apr", "s.apr", "invalid")).is_err());
+    assert!(distill(&distill_opts_simple("t.apr", "s.apr", "invalid")).is_err());
 }
 
 #[test]
 fn test_distill_all_strategies() {
-    for s in &["standard", "progressive", "ensemble"] {
-        assert!(distill(&distill_opts("t.apr", "s.apr", s)).is_ok());
+    for strat in &["standard", "progressive", "ensemble"] {
+        let (tmp, t, s, o) = distill_fixture();
+        let opts = DistillOpts { teacher: &t, student: &s, strategy: strat, temperature: 3.0, alpha: 0.7, epochs: 5, data: None, output: &o };
+        assert!(distill(&opts).is_ok(), "Failed for {strat}");
     }
 }
 
 #[test]
 fn test_distill_invalid_temperature() {
-    let mut opts = distill_opts("t.apr", "s.apr", "standard");
+    let mut opts = distill_opts_simple("t.apr", "s.apr", "standard");
     opts.temperature = 0.0;
     assert!(distill(&opts).is_err());
     opts.temperature = -1.0;
@@ -159,7 +184,7 @@ fn test_distill_invalid_temperature() {
 
 #[test]
 fn test_distill_invalid_alpha() {
-    let mut opts = distill_opts("t.apr", "s.apr", "standard");
+    let mut opts = distill_opts_simple("t.apr", "s.apr", "standard");
     opts.alpha = -0.1;
     assert!(distill(&opts).is_err());
     opts.alpha = 1.1;
@@ -168,8 +193,8 @@ fn test_distill_invalid_alpha() {
 
 #[test]
 fn test_distill_alpha_boundary() {
-    let mut opts = distill_opts("t.apr", "s.apr", "standard");
-    opts.alpha = 0.0;
+    let (tmp, t, s, o) = distill_fixture();
+    let mut opts = DistillOpts { teacher: &t, student: &s, strategy: "standard", temperature: 3.0, alpha: 0.0, epochs: 5, data: None, output: &o };
     assert!(distill(&opts).is_ok());
     opts.alpha = 1.0;
     assert!(distill(&opts).is_ok());
@@ -177,87 +202,105 @@ fn test_distill_alpha_boundary() {
 
 #[test]
 fn test_distill_with_data() {
-    let mut opts = distill_opts("t.apr", "s.apr", "progressive");
-    opts.epochs = 10;
-    opts.data = Some("corpus.jsonl");
+    let (tmp, t, s, o) = distill_fixture();
+    let opts = DistillOpts { teacher: &t, student: &s, strategy: "progressive", temperature: 3.0, alpha: 0.7, epochs: 10, data: Some("corpus.jsonl"), output: &o };
     assert!(distill(&opts).is_ok());
 }
 
 // --- merge ---
-fn merge_opts<'a>(models: &'a [String], strategy: &'a str) -> MergeOpts<'a> {
+/// Create N valid APR v2 fixtures and an output path. Returns (tmp, model_paths, output).
+fn merge_fixture(n: usize) -> (tempfile::TempDir, Vec<String>, String) {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let models: Vec<String> = (0..n).map(|i| {
+        let p = tmp.path().join(format!("model_{i}.apr"));
+        write_test_apr(p.to_str().unwrap());
+        p.to_str().unwrap().to_string()
+    }).collect();
+    let output = tmp.path().join("merged.apr").to_str().unwrap().to_string();
+    (tmp, models, output)
+}
+
+fn merge_opts_simple<'a>(models: &'a [String], strategy: &'a str) -> MergeOpts<'a> {
     MergeOpts { models, strategy, weights: None, base_model: None, density: None, drop_rate: None, output: "o.apr" }
 }
 
 #[test]
 fn test_merge_runs() {
-    let models = vec!["a.apr".into(), "b.apr".into()];
-    assert!(merge(&merge_opts(&models, "slerp")).is_ok());
+    let (tmp, models, out) = merge_fixture(2);
+    let opts = MergeOpts { models: &models, strategy: "slerp", weights: None, base_model: None, density: None, drop_rate: None, output: &out };
+    assert!(merge(&opts).is_ok());
 }
 
 #[test]
 fn test_merge_too_few_models() {
     let models = vec!["a.apr".into()];
-    assert!(merge(&merge_opts(&models, "slerp")).is_err());
+    assert!(merge(&merge_opts_simple(&models, "slerp")).is_err());
 }
 
 #[test]
 fn test_merge_empty_model_path() {
     let models = vec!["a.apr".into(), String::new()];
-    assert!(merge(&merge_opts(&models, "slerp")).is_err());
+    assert!(merge(&merge_opts_simple(&models, "slerp")).is_err());
 }
 
 #[test]
 fn test_merge_three_models() {
-    let models = vec!["a.apr".into(), "b.apr".into(), "c.apr".into()];
-    let mut opts = merge_opts(&models, "ties");
-    opts.base_model = Some("base.apr");
+    let (tmp, models, out) = merge_fixture(3);
+    let base = tmp.path().join("base.apr");
+    write_test_apr(base.to_str().unwrap());
+    let base_s = base.to_str().unwrap().to_string();
+    let opts = MergeOpts { models: &models, strategy: "ties", weights: None, base_model: Some(&base_s), density: None, drop_rate: None, output: &out };
     assert!(merge(&opts).is_ok());
 }
 
 #[test]
 fn test_merge_all_strategies() {
-    let models = vec!["a.apr".into(), "b.apr".into()];
     for s in &["slerp", "linear"] {
-        assert!(merge(&merge_opts(&models, s)).is_ok(), "Failed for {s}");
+        let (tmp, models, out) = merge_fixture(2);
+        let opts = MergeOpts { models: &models, strategy: s, weights: None, base_model: None, density: None, drop_rate: None, output: &out };
+        assert!(merge(&opts).is_ok(), "Failed for {s}");
     }
-    // TIES and DARE require base_model
     for s in &["ties", "dare"] {
-        let mut opts = merge_opts(&models, s);
-        opts.base_model = Some("base.apr");
+        let (tmp, models, out) = merge_fixture(2);
+        let base = tmp.path().join("base.apr");
+        write_test_apr(base.to_str().unwrap());
+        let base_s = base.to_str().unwrap().to_string();
+        let opts = MergeOpts { models: &models, strategy: s, weights: None, base_model: Some(&base_s), density: None, drop_rate: None, output: &out };
         assert!(merge(&opts).is_ok(), "Failed for {s}");
     }
 }
 
 #[test]
 fn test_merge_with_weights() {
-    let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "slerp");
-    opts.weights = Some("0.7,0.3");
+    let (tmp, models, out) = merge_fixture(2);
+    let opts = MergeOpts { models: &models, strategy: "slerp", weights: Some("0.7,0.3"), base_model: None, density: None, drop_rate: None, output: &out };
     assert!(merge(&opts).is_ok());
 }
 
 #[test]
 fn test_merge_with_base_model_and_density() {
-    let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "ties");
-    opts.base_model = Some("base.apr");
-    opts.density = Some(0.2);
+    let (tmp, models, out) = merge_fixture(2);
+    let base = tmp.path().join("base.apr");
+    write_test_apr(base.to_str().unwrap());
+    let base_s = base.to_str().unwrap().to_string();
+    let opts = MergeOpts { models: &models, strategy: "ties", weights: None, base_model: Some(&base_s), density: Some(0.2), drop_rate: None, output: &out };
     assert!(merge(&opts).is_ok());
 }
 
 #[test]
 fn test_merge_dare_with_drop_rate() {
-    let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "dare");
-    opts.base_model = Some("base.apr");
-    opts.drop_rate = Some(0.3);
+    let (tmp, models, out) = merge_fixture(2);
+    let base = tmp.path().join("base.apr");
+    write_test_apr(base.to_str().unwrap());
+    let base_s = base.to_str().unwrap().to_string();
+    let opts = MergeOpts { models: &models, strategy: "dare", weights: None, base_model: Some(&base_s), density: None, drop_rate: Some(0.3), output: &out };
     assert!(merge(&opts).is_ok());
 }
 
 #[test]
 fn test_merge_ties_requires_base_model() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    let result = merge(&merge_opts(&models, "ties"));
+    let result = merge(&merge_opts_simple(&models, "ties"));
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("base-model"));
 }
@@ -265,30 +308,28 @@ fn test_merge_ties_requires_base_model() {
 #[test]
 fn test_merge_dare_requires_base_model() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    let result = merge(&merge_opts(&models, "dare"));
-    assert!(result.is_err());
+    assert!(merge(&merge_opts_simple(&models, "dare")).is_err());
 }
 
 #[test]
 fn test_merge_weights_must_sum_to_one() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "slerp");
+    let mut opts = merge_opts_simple(&models, "slerp");
     opts.weights = Some("0.5,0.3");
     assert!(merge(&opts).is_err());
 }
 
 #[test]
 fn test_merge_weights_valid() {
-    let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "slerp");
-    opts.weights = Some("0.6,0.4");
+    let (tmp, models, out) = merge_fixture(2);
+    let opts = MergeOpts { models: &models, strategy: "slerp", weights: Some("0.6,0.4"), base_model: None, density: None, drop_rate: None, output: &out };
     assert!(merge(&opts).is_ok());
 }
 
 #[test]
 fn test_merge_weights_count_mismatch() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "slerp");
+    let mut opts = merge_opts_simple(&models, "slerp");
     opts.weights = Some("0.3,0.3,0.4");
     assert!(merge(&opts).is_err());
 }
@@ -296,7 +337,7 @@ fn test_merge_weights_count_mismatch() {
 #[test]
 fn test_merge_weights_invalid_parse() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "slerp");
+    let mut opts = merge_opts_simple(&models, "slerp");
     opts.weights = Some("abc,def");
     assert!(merge(&opts).is_err());
 }
@@ -304,7 +345,7 @@ fn test_merge_weights_invalid_parse() {
 #[test]
 fn test_merge_density_out_of_range() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "slerp");
+    let mut opts = merge_opts_simple(&models, "slerp");
     opts.density = Some(1.5);
     assert!(merge(&opts).is_err());
     opts.density = Some(-0.1);
@@ -314,7 +355,7 @@ fn test_merge_density_out_of_range() {
 #[test]
 fn test_merge_drop_rate_out_of_range() {
     let models = vec!["a.apr".into(), "b.apr".into()];
-    let mut opts = merge_opts(&models, "slerp");
+    let mut opts = merge_opts_simple(&models, "slerp");
     opts.drop_rate = Some(1.1);
     assert!(merge(&opts).is_err());
 }

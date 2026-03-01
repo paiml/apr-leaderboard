@@ -127,6 +127,11 @@ fn test_run_pipeline_validate_then_finetune_then_align() {
 fn test_run_pipeline_full_11_steps() {
     let tmp = tempfile::TempDir::new().unwrap();
     let out = tmp.path().to_str().unwrap();
+    // Create "other.apr" fixture for merge step (needs valid APR v2)
+    let other_apr = tmp.path().join("other.apr");
+    let apr_bytes = crate::apr_bridge::create_minimal_apr_bytes().unwrap();
+    std::fs::write(&other_apr, &apr_bytes).unwrap();
+    let other_path = other_apr.to_str().unwrap().to_string();
     let mut config = base_config(out);
     config.validate = Some(ValidateConfig {
         data: "d.jsonl".into(),
@@ -158,7 +163,7 @@ fn test_run_pipeline_full_11_steps() {
         ref_model: None,
     });
     config.merge = Some(MergeConfig {
-        models: vec!["other.apr".into()],
+        models: vec![other_path],
         strategy: "slerp".into(),
         weights: None,
         base_model: None,

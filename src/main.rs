@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod acceptance;
 mod align;
+mod apr_bridge;
 mod compile;
 mod convert;
 mod eval;

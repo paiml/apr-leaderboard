@@ -306,36 +306,10 @@ fn validate_config(config: &EvalConfig) -> Result<()> {
 
 /// Compute the unbiased pass@k estimator (Chen et al., 2021).
 ///
-/// Formula: pass@k = 1 - C(n-c, k) / C(n, k)
-///
-/// Where:
-/// - `n` = total completions generated per problem
-/// - `c` = number of completions that pass all tests
-/// - `k` = number of samples selected
-///
-/// Uses log-space computation to avoid integer overflow for large n.
+/// Delegates to `entrenar::eval::pass_at_k` — the sovereign stack implementation
+/// of the same formula: pass@k = 1 - C(n-c, k) / C(n, k).
 pub(crate) fn pass_at_k(n: usize, c: usize, k: usize) -> f64 {
-    if c == 0 {
-        return 0.0;
-    }
-    if c >= n || k > n {
-        return 1.0;
-    }
-    if k == 0 {
-        return 0.0;
-    }
-    // C(n-c, k) / C(n, k) = product_{i=0..k} (n-c-i) / (n-i)
-    // In log space to avoid overflow:
-    // log(C(n-c,k)/C(n,k)) = sum_{i=0..k-1} ln(n-c-i) - ln(n-i)
-    if n - c < k {
-        // Not enough failing samples to fill k slots → pass@k = 1.0
-        return 1.0;
-    }
-    let mut log_ratio = 0.0_f64;
-    for i in 0..k {
-        log_ratio += ((n - c - i) as f64).ln() - ((n - i) as f64).ln();
-    }
-    1.0 - log_ratio.exp()
+    entrenar::eval::pass_at_k(n, c, k)
 }
 
 /// Compute pass@k averaged across multiple problems.
