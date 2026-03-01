@@ -473,7 +473,7 @@ fn main() -> anyhow::Result<()> {
         } => align::run(&model, &data, &method, beta, epochs, ref_model.as_deref(), output.as_deref()),
         Commands::Validate {
             data, benchmarks, threshold, decontaminate, output,
-        } => validate::run(&data, &benchmarks, threshold, decontaminate, output.as_deref()),
+        } => validate::run(&data, &benchmarks, threshold, decontaminate, output.as_deref()).map(|_| ()),
         Commands::Tune {
             model, data, strategy, budget, max_epochs,
         } => optimize::tune(&model, &data, &strategy, budget, max_epochs),
