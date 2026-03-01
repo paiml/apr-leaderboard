@@ -5,8 +5,8 @@
 # Training/calibration data
 /data/
 
-# Evaluation results (regenerable)
-results/*.json
+# Evaluation results (tracked — these are the leaderboard scores)
+# results/*.json
 
 # Build artifacts (if any rust remains)
 /target/
