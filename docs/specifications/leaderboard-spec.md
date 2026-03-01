@@ -2292,7 +2292,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | Test count | 368 | — | `cargo test` |
 | CLI subcommands | 21 | — | All spec §6.2 subcommands + export + acceptance |
 | Wired to real APIs | 21 | — | All subcommands wired to sovereign stack APIs |
-| Line coverage | 96.2% | ≥ 95% | `cargo llvm-cov` |
+| Line coverage | 96.1% | ≥ 95% | `cargo llvm-cov` (project source only — see §19.7.1) |
 | Clippy warnings | 0 | 0 | `cargo clippy -- -D warnings` |
 | Max file size | 500 lines | ≤ 500 | `wc -l src/**/*.rs` |
 | pmat pre-commit | ✅ Pass | ✅ Pass | git hook |

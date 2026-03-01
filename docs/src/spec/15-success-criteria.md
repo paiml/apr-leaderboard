@@ -24,7 +24,7 @@
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| Test coverage | ≥ 95% | `cargo llvm-cov` |
+| Test coverage | ≥ 95% | `cargo llvm-cov` (project source only — exclude path deps, see §19.7.1) |
 | Clippy warnings | 0 | `cargo clippy -- -D warnings` |
 | Source file size | < 500 lines each | `wc -l src/**/*.rs` |
 | pmat comply | Pass | `pmat comply check --strict` |
