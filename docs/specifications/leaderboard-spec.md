@@ -98,13 +98,13 @@ The repo has progressed from scaffold to partial wiring. Core pipeline operation
 | **finetune/** | **Wired** | `entrenar::lora::{LoRALayer, QLoRALayer}`, `merge_and_collect`, `AdamW`, `WarmupCosineDecayLR` | Real training data loading |
 | **optimize/** (distill) | **Wired** | `entrenar::distill::{DistillationLoss, ProgressiveDistiller, EnsembleDistiller}` | Real forward pass through data |
 | **optimize/** (merge) | **Wired** | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via `apr_bridge` | — (fully operational) |
+| **optimize/** (prune) | **Wired** | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` + APR v2 I/O | Wanda/SparseGPT calibration data |
+| **optimize/** (quantize) | **Wired** | `entrenar::quant::{Calibrator, quantize_tensor, dequantize_tensor, quantization_mse}` + APR v2 I/O | Calibration from real data |
+| **convert/** | **Wired** | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 compression + 4 quant formats + AprV2Reader readback | Real SafeTensors download |
 | **compile/** (check) | **Wired** | `aprender::format::v2::AprV2Reader` full validation (header, checksum, tensors) | — (fully operational) |
 | **acceptance/** | **Wired** | `provable_contracts::schema::{parse_contract, validate_contract}`, 27 ACs | — (fully operational) |
 | **apr_bridge/** | **Wired** | `load_apr_as_merge_model`, `save_merge_model_as_apr`, `write_scaffold_apr` | — (utility module) |
 | **harness/** | Complete | All 10 benchmark definitions with metadata | Dataset loading, problem parsing |
-| **convert/** | Scaffolded | APR v2 file creation | Real SafeTensors download and tensor conversion |
-| **optimize/** (prune) | Scaffolded | 6 methods, validation, writes valid APR v2 | Real pruning operations |
-| **optimize/** (quantize) | Scaffolded | 5 schemes, validation, writes valid APR v2 | Real quantization operations |
 | **align/** | Scaffolded | DPO/ORPO method selection, beta validation, writes valid APR v2 | entrenar DPO loss functions |
 | **validate/** | Scaffolded | Decontamination threshold checking, contamination report | Real n-gram overlap analysis |
 | **inference/** | Scaffolded | Speculative decoding config, batch chat dispatch | Real model inference |
@@ -112,9 +112,9 @@ The repo has progressed from scaffold to partial wiring. Core pipeline operation
 | **submit/** | Scaffolded | Submission JSON, model_id validation, pre-submit checks (via AprV2Reader), model card gen | HF Hub API push |
 | **pipeline/** | Scaffolded | 12-stage orchestration, config hash, ordering validation, --dry-run | Each step calls scaffolded/wired backends |
 
-**Quality:** 349 tests, 0 clippy warnings, 91%+ line coverage, all files <500 lines, 13 source modules, 21 CLI subcommands.
+**Quality:** 366 tests, 0 clippy warnings, 96%+ line coverage, all files ≤500 lines, 13 source modules, 21 CLI subcommands, 11 wired to real APIs.
 
-**To reach production:** Wire remaining scaffolded operations to sovereign stack APIs. Scaffold operations now write valid APR v2 files (via `apr_bridge::write_scaffold_apr`) so the pipeline runs end-to-end.
+**To reach production:** Wire remaining scaffolded operations (align, validate, inference, compile, submit) to sovereign stack APIs. All wired operations produce valid APR v2 files that pass `check` validation. Pipeline runs end-to-end in --dry-run mode.
 
 ### 1.5 How People Use It
 
@@ -1131,6 +1131,8 @@ apr prune model.apr \
 apr eval pruned-30.apr --dataset wikitext-2 --threshold 22.0
 ```
 
+**Implementation status:** Wired to `aprender::pruning::MagnitudeImportance` (L1/L2 norm importance scoring) and `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` (pipeline orchestration). All 6 methods map to `entrenar::prune::PruneMethod` variants. Pruned output is saved as valid APR v2 via `apr_bridge::save_merge_model_as_apr`.
+
 **Why Wanda over magnitude:** Magnitude pruning treats all weights equally. Wanda scores weights by `|weight| * ||activation||`, preserving weights on high-activation paths. For code models, the attention heads responsible for bracket-matching and indentation have high activations — Wanda preserves them.
 
 **Pruning budget by model size (Wanda):**
@@ -1240,6 +1242,8 @@ apr quantize model.apr --batch int8,int4,fp16,q4k
 # Quantize with format conversion for submission
 apr quantize model.apr --scheme int4 --format gguf -o model.gguf
 ```
+
+**Implementation status:** Wired to `entrenar::quant::{Calibrator, quantize_tensor, dequantize_tensor, quantization_mse}`. Calibration uses `Calibrator::min_max()` with symmetric mode. Int4/Int8 use `PerTensor` granularity; Q4K/Q5K/Q6K use `PerGroup(64)` for GGUF-compatible blocked quantization. MSE is measured per-tensor via `quantization_mse`. Output is dequantized back to f32 for APR v2 storage.
 
 ### 7.7 Hyperparameter Optimization (HPO)
 
