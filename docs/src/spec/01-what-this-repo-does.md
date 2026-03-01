@@ -73,7 +73,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 
 ## 1.4 Current Implementation Status
 
-The repo has progressed from scaffold to **near-complete wiring**. 16 of 21 CLI subcommands call real sovereign stack APIs. Core pipeline operations (convert → finetune → align → prune → quantize → eval → compile) produce valid APR v2 files that pass `check` validation end-to-end.
+**All 21 CLI subcommands are wired to real sovereign stack APIs.** Every operation produces valid APR v2 files that pass `check` validation end-to-end.
 
 | Module | Status | What's wired |
 |---|---|---|
@@ -90,12 +90,14 @@ The repo has progressed from scaffold to **near-complete wiring**. 16 of 21 CLI 
 | **compile/** | **Wired** | `aprender::format::v2::AprV2Reader` pre-compilation validation |
 | **check/** | **Wired** | `aprender::format::v2::AprV2Reader` full validation |
 | **acceptance/** | **Wired** | `provable_contracts::schema::{parse_contract, validate_contract}`, 27 ACs |
+| **compare/** | **Wired** | `apr_bridge::load_apr_as_merge_model` + per-tensor weight statistics |
+| **tune/** | **Wired** | `entrenar::train::CrossEntropyLoss` HPO trials + APR v2 I/O via `apr_bridge` |
+| **submit/** | **Wired** | `aprender::format::v2::AprV2Reader` pre-submit validation + model card gen |
+| **pipeline/** | **Wired** | 12-stage orchestration — all stages call wired backends |
+| **export/** | **Wired** | `aprender::format::v2::AprV2Reader` tensor index export + metadata |
 | **harness/** | Complete | All 10 benchmark definitions with metadata |
-| **submit, pipeline** | Scaffolded | CLI parsing, validation, writes valid APR v2 |
 
 **Quality:** 368 tests, 0 clippy warnings, 96.1% line coverage, all files ≤500 lines, 13 source modules.
-
-**To reach production:** Wire remaining scaffolded modules (submit, pipeline) to sovereign stack APIs. All wired operations produce valid APR v2 files that pass `check` validation.
 
 ## 1.5 How People Use It
 

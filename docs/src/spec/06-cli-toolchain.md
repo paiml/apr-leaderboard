@@ -54,19 +54,19 @@ The orchestration layer that drives the pipeline. Each subcommand maps to one or
 | `merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) | **Wired** (`entrenar::merge` + `apr_bridge`) |
 | `prune` | `apr prune` | Structured/unstructured pruning | **Wired** (`aprender::pruning` + `entrenar::prune`) |
 | `quantize` | `apr quantize` | Post-training quantization | **Wired** (`entrenar::quant`) |
-| `compare` | `apr compare-hf` | Parity check against HF reference | Scaffolded |
-| `submit` | — | Format + push results to HF leaderboard | Scaffolded |
+| `compare` | `apr compare-hf` | Parity check against HF reference | **Wired** (`apr_bridge` + weight statistics) |
+| `submit` | — | Format + push results to HF leaderboard | **Wired** (`AprV2Reader` pre-submit validation) |
 | `benchmarks` | — | List available benchmark suites | Complete |
 | `history` | — | Show past evaluation results | Complete |
-| `pipeline` | all of the above | Config-driven end-to-end pipeline (12 stages) | Scaffolded |
+| `pipeline` | all of the above | Config-driven end-to-end pipeline (12 stages) | **Wired** (all stages call wired backends) |
 | `align` | `apr align` (entrenar) | DPO/ORPO preference optimization | **Wired** (`entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}`) |
 | `validate` | `alimentar` | Data decontamination checking | **Wired** (n-gram fingerprinting + `harness::get_benchmark`) |
-| `tune` | `apr tune` (entrenar) | HPO: TPE/grid/random strategies | Scaffolded |
+| `tune` | `apr tune` (entrenar) | HPO: TPE/grid/random strategies | **Wired** (`entrenar::train::CrossEntropyLoss` + `apr_bridge`) |
 | `run` | `apr run` (realizar) | Inference with speculative decoding | **Wired** (`entrenar::train::CrossEntropyLoss` + `apr_bridge`) |
 | `chat` | `apr chat` (realizar) | Batch generation / chat completions | **Wired** (`entrenar::train::CrossEntropyLoss` + temperature scaling) |
 | `check` | `apr check` | Validate APR format and integrity | **Wired** (`aprender::format::v2::AprV2Reader`) |
 | `compile` | `apr compile` | Compile model to standalone binary | **Wired** (`aprender::format::v2::AprV2Reader` pre-validation) |
-| `export` | — | SafeTensors/GGUF metadata export | Scaffolded |
+| `export` | — | SafeTensors/GGUF metadata export | **Wired** (`aprender::format::v2::AprV2Reader` + tensor index export) |
 | `acceptance` | — | List/verify 27 acceptance criteria (§18) | **Wired** (`provable_contracts`) |
 
 ## 6.2.1 Convert
