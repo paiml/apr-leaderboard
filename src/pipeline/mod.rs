@@ -8,7 +8,7 @@ use serde::Deserialize;
 use crate::{align, compile, convert, eval, finetune, optimize, submit, validate};
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct PipelineConfig {
     pub model_id: String,
     pub output_dir: String,
@@ -29,7 +29,7 @@ pub(crate) struct PipelineConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct FinetuneConfig {
     pub dataset: String,
     pub method: Option<String>,
@@ -40,7 +40,7 @@ pub(crate) struct FinetuneConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct DistillConfig {
     pub teacher: String,
     pub strategy: String,
@@ -51,7 +51,7 @@ pub(crate) struct DistillConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct MergeConfig {
     pub models: Vec<String>,
     pub strategy: String,
@@ -62,7 +62,7 @@ pub(crate) struct MergeConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct PruneConfig {
     pub method: String,
     pub target_ratio: f64,
@@ -70,14 +70,14 @@ pub(crate) struct PruneConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct QuantizeConfig {
     pub scheme: String,
     pub calibration: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct AlignConfig {
     pub data: String,
     pub method: Option<String>,
@@ -87,7 +87,7 @@ pub(crate) struct AlignConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct ValidateConfig {
     pub data: String,
     pub benchmarks: Vec<String>,
@@ -96,7 +96,7 @@ pub(crate) struct ValidateConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct TuneConfig {
     pub data: String,
     pub strategy: Option<String>,
@@ -105,7 +105,7 @@ pub(crate) struct TuneConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct CompileConfig {
     pub release: Option<bool>,
     pub lto: Option<bool>,
@@ -114,7 +114,7 @@ pub(crate) struct CompileConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(serde::Serialize)]
 pub(crate) struct EvalConfigToml {
     pub samples: Option<usize>,
     pub prompt_strategy: Option<String>,
@@ -183,8 +183,22 @@ pub(crate) fn validate_pipeline_order(config: &PipelineConfig) -> Vec<String> {
     warnings
 }
 
+/// Compute a deterministic BLAKE3 hash of the pipeline config for reproducibility (§11).
+///
+/// Serializes the config to canonical TOML and returns the hex-encoded hash.
+/// Two identical configs always produce the same fingerprint.
+pub(crate) fn config_hash(config: &PipelineConfig) -> Result<String> {
+    let toml_str = toml::to_string(config)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize config for hashing: {e}"))?;
+    Ok(blake3::hash(toml_str.as_bytes()).to_hex().to_string())
+}
+
 pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
     println!("=== APR Leaderboard Pipeline ===\n");
+
+    // Print deterministic config fingerprint for reproducibility (§11)
+    let hash = config_hash(config)?;
+    println!("  Config fingerprint: {hash}");
 
     // Check pipeline ordering for anti-patterns (§10)
     let warnings = validate_pipeline_order(config);
