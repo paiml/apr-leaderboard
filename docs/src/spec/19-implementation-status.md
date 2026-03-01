@@ -122,6 +122,10 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | N-gram decontamination | `std::collections::HashSet` + `harness::get_benchmark` | ✅ Wired |
 | Inference / token log-probs | `entrenar::train::{CrossEntropyLoss, LossFn}` + APR v2 I/O | ✅ Wired |
 | HF → APR conversion | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 | ✅ Wired |
+| Checkpoint atomic write | `aprender::serialization::apr::AprWriter::write()` (tmp+fsync+rename, F-CKPT-009) | ✅ Available |
+| Checkpoint filtered load | `aprender::serialization::apr::AprReader::open_filtered()` (F-CKPT-016) | ✅ Available |
+| Checkpoint NaN validation | `aprender::serialization::apr::AprReader::read_tensor_f32_checked()` (F-CKPT-013) | ✅ Available |
+| Checkpoint shape validation | `aprender::serialization::apr::AprReader::validate_tensor_shape()` (F-CKPT-014) | ✅ Available |
 
 **All 21 CLI subcommands are now wired to real sovereign stack APIs.** No scaffold-only operations remain. Every operation loads/saves valid APR v2 files via `apr_bridge` or validates via `aprender::format::v2::AprV2Reader`.
 
@@ -195,3 +199,16 @@ The §10 golden ordering enforcement works. The pipeline allows violation but wa
 `entrenar::distill::DistillationLoss::forward` takes `ndarray::Array2<f32>` (2D logits), while `entrenar::train::LossFn::forward` takes `entrenar::Tensor` (1D autograd wrapper). The distill and train modules use different tensor representations. The bridge code must reshape between them.
 
 This affects any future integration where distillation loss is composed with training losses (e.g., combined DPO + distillation objective).
+
+### 19.7.9 Checkpoint API Upgrade Path (aprender 0.27.2)
+
+aprender 0.27.2 completed its APR Checkpoint Specification v1.4.0 with 18/18 contracts. The `apr_bridge` module currently uses `AprV2Writer::write()` (raw bytes) and `AprV2Reader` (unchecked). Four new APIs are available for adoption:
+
+| Current apr_bridge | Upgrade to | Contract | Benefit |
+|---|---|---|---|
+| `std::fs::write(output, &bytes)` | `AprWriter::write(path)` | F-CKPT-009 | Atomic writes (tmp+fsync+rename) — crash safety |
+| `AprV2Reader` + iterate all | `AprReader::open_filtered()` | F-CKPT-016 | Skip `__training__.*` tensors at load time |
+| `reader.get_tensor_as_f32()` | `AprReader::read_tensor_f32_checked()` | F-CKPT-013 | NaN/Inf validation on load |
+| (none) | `AprReader::validate_tensor_shape()` | F-CKPT-014 | Shape mismatch detection before merge/distill |
+
+**Impact:** The `save_merge_model_as_apr()` function writes non-atomically. A crash during write could corrupt the output. Upgrading to `AprWriter::write()` eliminates this risk. The checkpoint taxonomy (`.apr` / `.adapter.apr` / `.ckpt.apr`) also enables richer pipeline semantics — e.g., `finetune` could output `.adapter.apr` files with proper LoRA metadata, and `distill` could embed provenance (teacher hash, data hash) in checkpoint metadata.

@@ -10,6 +10,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | Inference (decode) | Transformer forward pass | **realizar** 0.8 | ✅ Complete | `apr run` — 8-21% faster than llama.cpp |
 | Inference (serve) | HTTP API, batching, streaming | **realizar** 0.8 | ✅ Complete | `apr serve` — OpenAI-compatible, PagedAttention |
 | LoRA/QLoRA training | Low-rank adaptation, autograd | **entrenar** 0.7 | ✅ Complete | `apr finetune` — AdamW, cosine LR, checkpointing |
+| Checkpoint management | Atomic save, resume, NaN scan, filtered load | **aprender** 0.27 | ✅ Complete | `AprWriter::write()` atomic (F-CKPT-009), `AprReader::open_filtered()` (F-CKPT-016), `read_tensor_f32_checked()` (F-CKPT-013), `validate_tensor_shape()` (F-CKPT-014) — 18/18 contracts |
 | Knowledge distillation | KL-divergence, progressive | **entrenar** 0.7 | ✅ Complete | `apr distill` — standard, progressive, ensemble |
 | Model merging | SLERP, TIES, DARE | **aprender** 0.27 | ✅ Complete | `apr merge` — 5 strategies |
 | Pruning | Wanda, SparseGPT, structured | **aprender** 0.27 | ✅ Complete | `apr prune` — 6 methods |
@@ -199,7 +200,7 @@ All gap closures must use published crates from crates.io. No git dependencies.
 
 | Crate | Current | Required For Gaps | Minimum Version |
 |-------|---------|-------------------|-----------------|
-| aprender | 0.27.2 | `apr align`, `--n-samples --rerank` | **0.28** |
+| aprender | 0.27.2 | `apr align`, `--n-samples --rerank`, checkpoint contracts (18/18 done in 0.27.2) | **0.28** |
 | entrenar | 0.7.5 | DPO loss, preference pair loader, ORPO | **0.8** |
 | trueno | 0.16.1 | Flash attention (Phase 12) | **0.17** |
 | realizar | 0.8.0 | Batch N-sampling, prompt template composition | **0.9** |
@@ -237,7 +238,7 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 | Gradient accumulation | PyTorch native | **entrenar** gradient accumulation | ✅ Parity |
 | Mixed precision (fp16/bf16) | PyTorch AMP | **entrenar** GradScaler, bf16/fp16 | ✅ Parity |
 | Early stopping | callback-based | **entrenar** EarlyStopping callback | ✅ Parity |
-| Checkpointing | periodic save | **entrenar** CheckpointCallback | ✅ Parity |
+| Checkpointing | periodic save, atomic write, resume | **aprender** `AprWriter::write()` (atomic) + **entrenar** `CheckpointCallback` | ✅ **Exceeds** (18 contracts: atomic writes, NaN scan, filtered load, round-trip determinism, provenance) |
 | Learning rate warmup + cosine decay | scheduler | **entrenar** WarmupCosineDecayLR | ✅ Parity |
 
 **Optimizers:**
@@ -367,9 +368,9 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 
 ### 5.9.2 Summary: Where We Exceed, Where We Must Close Gaps
 
-**We exceed Ludwig in 15+ areas:** speculative decoding, PagedAttention, continuous batching, streaming API, OpenAI-compatible serving, compile-to-binary, multi-format export (ONNX/CoreML/OpenVINO), data quality scoring, drift detection, imbalance detection, Prometheus metrics, TUI monitoring, provable contracts, deterministic builds, format forensics.
+**We have parity in 24+ areas:** LoRA, QLoRA, full fine-tuning, AdamW/Adam/SGD, gradient accumulation, mixed precision, early stopping, LR scheduling, all sampling strategies, beam search, REST serving, HF upload, data loading, preprocessing, train/val/test splits, HPO (grid/random/TPE/ASHA), feature importance.
 
-**We have parity in 25+ areas:** LoRA, QLoRA, full fine-tuning, AdamW/Adam/SGD, gradient accumulation, mixed precision, early stopping, checkpointing, LR scheduling, all sampling strategies, beam search, REST serving, HF upload, data loading, preprocessing, train/val/test splits, HPO (grid/random/TPE/ASHA), feature importance.
+**We exceed Ludwig in 16+ areas** (updated): speculative decoding, PagedAttention, continuous batching, streaming API, OpenAI-compatible serving, compile-to-binary, multi-format export (ONNX/CoreML/OpenVINO), data quality scoring, drift detection, imbalance detection, Prometheus metrics, TUI monitoring, provable contracts, deterministic builds, format forensics, **checkpointing** (18 verified contracts: atomic writes, NaN scan, filtered loading, round-trip determinism, provenance chain — vs Ludwig's basic callback).
 
 **Gaps to close (11 items):**
 
