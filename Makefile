@@ -22,8 +22,8 @@ APR   := apr
 
 # ── Defaults ──
 MODEL         ?=
-NAME          ?= $(shell basename "$(MODEL)" | tr '/' '_' | tr '[:upper:]' '[:lower:]')
-CHECKPOINT    ?= checkpoints/$(NAME).apr
+CHECKPOINT    ?= checkpoints/$(shell echo "$(MODEL)" | tr '/' '_' | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz').apr
+NAME          ?= $(shell basename "$(CHECKPOINT)" .apr)
 OUTPUT_DIR    ?= checkpoints
 RESULTS_DIR   ?= results
 QUANTIZE      ?= fp16
