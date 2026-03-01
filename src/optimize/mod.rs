@@ -46,6 +46,12 @@ pub(crate) fn distill(opts: &DistillOpts<'_>) -> Result<()> {
     // Scaffold: in production, calls `apr distill`
     println!("  [scaffold] Would run: apr distill {} --student {} \\", opts.teacher, opts.student);
     println!("    --strategy {strategy} --temperature {} --alpha {} -o {}", opts.temperature, opts.alpha, opts.output);
+
+    // Write scaffold output so downstream pipeline steps can find it
+    if let Some(parent) = std::path::Path::new(opts.output).parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(opts.output, b"APR2scaffold-distill")?;
     println!("  Output: {}", opts.output);
     Ok(())
 }
@@ -127,6 +133,11 @@ pub(crate) fn merge(opts: &MergeOpts<'_>) -> Result<()> {
         "  [scaffold] Would run: apr merge {} --strategy {strategy} -o {}",
         model_args.join(" "), opts.output
     );
+
+    if let Some(parent) = std::path::Path::new(opts.output).parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(opts.output, b"APR2scaffold-merge")?;
     println!("  Output: {}", opts.output);
     Ok(())
 }
@@ -158,6 +169,11 @@ pub(crate) fn prune(
 
     // Scaffold: in production, calls `apr prune`
     println!("  [scaffold] Would run: apr prune {model} --method {method} --target-ratio {target_ratio} -o {output}");
+
+    if let Some(parent) = std::path::Path::new(output).parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(output, b"APR2scaffold-prune")?;
     println!("  Output: {output}");
     Ok(())
 }
@@ -183,6 +199,11 @@ pub(crate) fn quantize(
 
     // Scaffold: in production, calls `apr quantize`
     println!("  [scaffold] Would run: apr quantize {model} --scheme {scheme} -o {output}");
+
+    if let Some(parent) = std::path::Path::new(output).parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(output, b"APR2scaffold-quantize")?;
     println!("  Output: {output}");
     Ok(())
 }
