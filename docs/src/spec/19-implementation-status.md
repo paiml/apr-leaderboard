@@ -21,10 +21,10 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | `align` | `src/align/mod.rs` | ✅ Wired | 12 | `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss, LossFn}` + APR v2 I/O via apr_bridge + DPO/ORPO preference loss |
 | `validate` | `src/validate/mod.rs` | ✅ Wired | 13 | N-gram fingerprinting via `HashSet` + `harness::get_benchmark` integration + contamination report (§12.1) |
 | `tune` | `src/optimize/mod.rs` | ✅ Scaffolded | 6 | HPO: TPE/grid/random strategies (§7.7) + budget validation |
-| `run` | `src/inference/mod.rs` | ✅ Scaffolded | 9 | Speculative decoding (§8.4) + draft model validation + JSON output |
-| `chat` | `src/inference/mod.rs` | ✅ Scaffolded | 6 | Batch generation (§8.6) + temperature validation + system prompt |
+| `run` | `src/inference/mod.rs` | ✅ Wired | 9 | `entrenar::train::{CrossEntropyLoss, LossFn}` + APR v2 I/O via apr_bridge + speculative decoding + JSON output |
+| `chat` | `src/inference/mod.rs` | ✅ Wired | 6 | `entrenar::train::{CrossEntropyLoss, LossFn}` + temperature scaling + APR v2 I/O via apr_bridge |
 | `check` | `src/compile/mod.rs` | ✅ Wired | 6 | `aprender::format::v2::AprV2Reader` validation (header, checksum, tensors) |
-| `compile` | `src/compile/mod.rs` | ✅ Scaffolded | 7 | Binary compilation with --release --lto --strip (§4.3.1, §9.4) |
+| `compile` | `src/compile/mod.rs` | ✅ Wired | 7 | `aprender::format::v2::AprV2Reader` pre-compilation validation + format/tensor reporting |
 | `export` | `src/submit/mod.rs` | ✅ Scaffolded | 5 | SafeTensors/GGUF metadata export (§14.2) + results bundling |
 | `acceptance` | `src/acceptance/mod.rs` | ✅ Wired | 19 | 27 ACs (§18) + provable-contracts YAML validation + 3 contract tests |
 
@@ -120,7 +120,7 @@ Tracking table mapping spec sections to `apr-leaderboard` code implementation. U
 | DPO preference loss | `entrenar::train::{BCEWithLogitsLoss, LossFn}` | ✅ Wired |
 | ORPO SFT loss | `entrenar::train::{CrossEntropyLoss, LossFn}` | ✅ Wired |
 | N-gram decontamination | `std::collections::HashSet` + `harness::get_benchmark` | ✅ Wired |
-| Inference / speculative decoding | Scaffold | Scaffold |
+| Inference / token log-probs | `entrenar::train::{CrossEntropyLoss, LossFn}` + APR v2 I/O | ✅ Wired |
 | HF → APR conversion | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 | ✅ Wired |
 
 **Scaffolded** = CLI parsing, enums, validation, serialization, and tests are implemented. Scaffold operations now write valid APR v2 files (via `apr_bridge::write_scaffold_apr`) so downstream pipeline steps can parse them.

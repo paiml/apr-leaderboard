@@ -62,10 +62,10 @@ The orchestration layer that drives the pipeline. Each subcommand maps to one or
 | `align` | `apr align` (entrenar) | DPO/ORPO preference optimization | **Wired** (`entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}`) |
 | `validate` | `alimentar` | Data decontamination checking | **Wired** (n-gram fingerprinting + `harness::get_benchmark`) |
 | `tune` | `apr tune` (entrenar) | HPO: TPE/grid/random strategies | Scaffolded |
-| `run` | `apr run` (realizar) | Inference with speculative decoding | Scaffolded |
-| `chat` | `apr chat` (realizar) | Batch generation / chat completions | Scaffolded |
+| `run` | `apr run` (realizar) | Inference with speculative decoding | **Wired** (`entrenar::train::CrossEntropyLoss` + `apr_bridge`) |
+| `chat` | `apr chat` (realizar) | Batch generation / chat completions | **Wired** (`entrenar::train::CrossEntropyLoss` + temperature scaling) |
 | `check` | `apr check` | Validate APR format and integrity | **Wired** (`aprender::format::v2::AprV2Reader`) |
-| `compile` | `apr compile` | Compile model to standalone binary | Scaffolded |
+| `compile` | `apr compile` | Compile model to standalone binary | **Wired** (`aprender::format::v2::AprV2Reader` pre-validation) |
 | `export` | — | SafeTensors/GGUF metadata export | Scaffolded |
 | `acceptance` | — | List/verify 27 acceptance criteria (§18) | **Wired** (`provable_contracts`) |
 

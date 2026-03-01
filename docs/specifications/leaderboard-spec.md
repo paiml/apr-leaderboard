@@ -107,14 +107,14 @@ The repo has progressed from scaffold to partial wiring. Core pipeline operation
 | **harness/** | Complete | All 10 benchmark definitions with metadata | Dataset loading, problem parsing |
 | **align/** | **Wired** | `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss, LossFn}` + DPO/ORPO preference loss + APR v2 I/O | — (fully operational) |
 | **validate/** | **Wired** | N-gram fingerprinting via `HashSet` + `harness::get_benchmark` integration + contamination report | — (fully operational) |
-| **inference/** | Scaffolded | Speculative decoding config, batch chat dispatch | Real model inference |
-| **compile/** | Scaffolded | Binary compilation config (--release --lto --strip) | Real model-to-binary compilation |
+| **inference/** | **Wired** | `entrenar::train::{CrossEntropyLoss, LossFn}` + token log-probs + temperature scaling + APR v2 I/O | — (fully operational) |
+| **compile/** | **Wired** | `aprender::format::v2::AprV2Reader` pre-compilation validation + format/tensor reporting | — (fully operational) |
 | **submit/** | Scaffolded | Submission JSON, model_id validation, pre-submit checks (via AprV2Reader), model card gen | HF Hub API push |
 | **pipeline/** | Scaffolded | 12-stage orchestration, config hash, ordering validation, --dry-run | Each step calls scaffolded/wired backends |
 
-**Quality:** 368 tests, 0 clippy warnings, 96%+ line coverage, all files ≤500 lines, 13 source modules, 21 CLI subcommands, 13 wired to real APIs.
+**Quality:** 368 tests, 0 clippy warnings, 96%+ line coverage, all files ≤500 lines, 13 source modules, 21 CLI subcommands, 16 wired to real APIs.
 
-**To reach production:** Wire remaining scaffolded operations (inference, compile, submit) to sovereign stack APIs. All wired operations produce valid APR v2 files that pass `check` validation. Pipeline runs end-to-end in --dry-run mode.
+**To reach production:** Wire remaining scaffolded operations (submit, pipeline) to sovereign stack APIs. All wired operations produce valid APR v2 files that pass `check` validation. Pipeline runs end-to-end in --dry-run mode.
 
 ### 1.5 How People Use It
 

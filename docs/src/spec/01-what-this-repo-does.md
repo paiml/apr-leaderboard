@@ -73,7 +73,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 
 ## 1.4 Current Implementation Status
 
-The repo has progressed from scaffold to **partial wiring**. 13 of 21 CLI subcommands call real sovereign stack APIs. Core pipeline operations (convert → finetune → align → prune → quantize → eval) produce valid APR v2 files that pass `check` validation end-to-end.
+The repo has progressed from scaffold to **near-complete wiring**. 16 of 21 CLI subcommands call real sovereign stack APIs. Core pipeline operations (convert → finetune → align → prune → quantize → eval → compile) produce valid APR v2 files that pass `check` validation end-to-end.
 
 | Module | Status | What's wired |
 |---|---|---|
@@ -86,14 +86,16 @@ The repo has progressed from scaffold to **partial wiring**. 13 of 21 CLI subcom
 | **quantize/** | **Wired** | `entrenar::quant::{Calibrator, quantize_tensor, quantization_mse}` |
 | **align/** | **Wired** | `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss, LossFn}` + DPO/ORPO preference loss |
 | **validate/** | **Wired** | N-gram fingerprinting via `HashSet` + `harness::get_benchmark` integration |
+| **inference/** | **Wired** | `entrenar::train::{CrossEntropyLoss, LossFn}` + token log-probs + temperature scaling |
+| **compile/** | **Wired** | `aprender::format::v2::AprV2Reader` pre-compilation validation |
 | **check/** | **Wired** | `aprender::format::v2::AprV2Reader` full validation |
 | **acceptance/** | **Wired** | `provable_contracts::schema::{parse_contract, validate_contract}`, 27 ACs |
 | **harness/** | Complete | All 10 benchmark definitions with metadata |
-| **inference, compile, submit, pipeline** | Scaffolded | CLI parsing, validation, writes valid APR v2 |
+| **submit, pipeline** | Scaffolded | CLI parsing, validation, writes valid APR v2 |
 
-**Quality:** 368 tests, 0 clippy warnings, 96.2% line coverage, all files ≤500 lines, 13 source modules.
+**Quality:** 368 tests, 0 clippy warnings, 96.1% line coverage, all files ≤500 lines, 13 source modules.
 
-**To reach production:** Wire remaining scaffolded modules (inference, compile, submit) to sovereign stack APIs. All wired operations produce valid APR v2 files that pass `check` validation.
+**To reach production:** Wire remaining scaffolded modules (submit, pipeline) to sovereign stack APIs. All wired operations produce valid APR v2 files that pass `check` validation.
 
 ## 1.5 How People Use It
 
