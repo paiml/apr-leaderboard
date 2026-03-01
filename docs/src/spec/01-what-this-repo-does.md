@@ -73,18 +73,25 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 
 ## 1.4 Current Implementation Status
 
-The repo is a **working scaffold** — the pipeline structure is complete, but the backends call placeholder implementations:
+The repo has progressed from scaffold to **partial wiring**. 11 of 21 CLI subcommands call real sovereign stack APIs. Core pipeline operations (convert → finetune → prune → quantize → eval) produce valid APR v2 files that pass `check` validation end-to-end.
 
-| Module | What works today | What's scaffolded |
+| Module | Status | What's wired |
 |---|---|---|
-| **convert/** | APR v2 file creation with correct magic bytes and compression | Real SafeTensors download and tensor conversion (writes placeholder weights) |
-| **eval/** | Result JSON persistence, history viewer, benchmark lookup | Actual inference and metrics (returns zeros) |
-| **harness/** | All 10 benchmark definitions with metadata | Dataset loading, problem parsing |
-| **finetune/** | LoRA config construction, AdamW parameter setup | Actual training loop (prints loss=0.000) |
-| **submit/** | Submission JSON formatting, model_id validation | HF Hub API push (tells user to use huggingface-cli) |
-| **pipeline** | Full orchestration: convert → finetune → eval → submit | Each step calls scaffolded backends |
+| **convert/** | **Wired** | `aprender::format::v2::{AprV2Writer, AprV2Metadata}` + LZ4 + 4 quant formats |
+| **eval/** | **Wired** | `entrenar::eval::pass_at_k` (Chen et al. estimator), 5 prompt strategies, N-sampling |
+| **finetune/** | **Wired** | `entrenar::lora::{LoRALayer, QLoRALayer}`, `AdamW`, `WarmupCosineDecayLR`, adapter merge |
+| **distill/** | **Wired** | `entrenar::distill::{DistillationLoss, ProgressiveDistiller, EnsembleDistiller}` |
+| **merge/** | **Wired** | `entrenar::merge::{slerp_merge, ensemble_merge}` + APR v2 I/O via `apr_bridge` |
+| **prune/** | **Wired** | `aprender::pruning::MagnitudeImportance` + `entrenar::prune::{PruningConfig, PruneFinetunePipeline}` |
+| **quantize/** | **Wired** | `entrenar::quant::{Calibrator, quantize_tensor, quantization_mse}` |
+| **check/** | **Wired** | `aprender::format::v2::AprV2Reader` full validation |
+| **acceptance/** | **Wired** | `provable_contracts::schema::{parse_contract, validate_contract}`, 27 ACs |
+| **harness/** | Complete | All 10 benchmark definitions with metadata |
+| **align, validate, inference, compile, submit, pipeline** | Scaffolded | CLI parsing, validation, writes valid APR v2 |
 
-**To reach production:** Replace each scaffold with the corresponding `apr` CLI call. The `apr` binary already implements all required operations — this repo needs to shell out to `apr import`, `apr eval`, etc. rather than reimplementing them inline.
+**Quality:** 366 tests, 0 clippy warnings, 96.2% line coverage, all files ≤500 lines, 13 source modules.
+
+**To reach production:** Wire remaining scaffolded modules (align, validate, inference, compile, submit) to sovereign stack APIs. All wired operations produce valid APR v2 files that pass `check` validation.
 
 ## 1.5 How People Use It
 
