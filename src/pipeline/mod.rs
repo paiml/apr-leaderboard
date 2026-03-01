@@ -193,6 +193,44 @@ pub(crate) fn config_hash(config: &PipelineConfig) -> Result<String> {
     Ok(blake3::hash(toml_str.as_bytes()).to_hex().to_string())
 }
 
+/// Dry-run: show planned pipeline steps without executing.
+pub(crate) fn dry_run(config: &PipelineConfig) -> Result<()> {
+    println!("=== APR Leaderboard Pipeline (DRY RUN) ===\n");
+
+    let hash = config_hash(config)?;
+    println!("  Config fingerprint: {hash}");
+
+    let warnings = validate_pipeline_order(config);
+    for warning in &warnings {
+        println!("  WARNING: {warning}");
+    }
+    if !warnings.is_empty() {
+        println!();
+    }
+
+    let total = count_steps(config);
+    let mut step = 0;
+
+    if config.validate.is_some() { step += 1; println!("[{step}/{total}] validate"); }
+    step += 1; println!("[{step}/{total}] convert {}", config.model_id);
+    if config.distill.is_some() { step += 1; println!("[{step}/{total}] distill"); }
+    if config.finetune.is_some() { step += 1; println!("[{step}/{total}] finetune"); }
+    if config.align.is_some() { step += 1; println!("[{step}/{total}] align"); }
+    if config.merge.is_some() { step += 1; println!("[{step}/{total}] merge"); }
+    if config.tune.is_some() { step += 1; println!("[{step}/{total}] tune"); }
+    if config.prune.is_some() { step += 1; println!("[{step}/{total}] prune"); }
+    if config.quantize.is_some() { step += 1; println!("[{step}/{total}] quantize"); }
+    if !config.benchmarks.is_empty() {
+        step += 1;
+        println!("[{step}/{total}] eval ({})", config.benchmarks.join(", "));
+    }
+    if config.compile.is_some() { step += 1; println!("[{step}/{total}] compile"); }
+    if config.submit { step += 1; println!("[{step}/{total}] submit → {}", config.leaderboard); }
+
+    println!("\n=== Dry run complete ({step} steps) ===");
+    Ok(())
+}
+
 pub(crate) fn run_pipeline(config: &PipelineConfig) -> Result<()> {
     println!("=== APR Leaderboard Pipeline ===\n");
 

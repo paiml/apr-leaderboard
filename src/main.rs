@@ -233,6 +233,9 @@ enum Commands {
         /// Path to pipeline config TOML
         #[arg(long)]
         config: String,
+        /// Show planned steps without executing
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Align a model via DPO/ORPO preference optimization
     Align {
@@ -456,10 +459,14 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Benchmarks => { harness::list_benchmarks(); Ok(()) }
         Commands::History { model } => eval::show_history(model.as_deref()),
-        Commands::Pipeline { config } => {
+        Commands::Pipeline { config, dry_run } => {
             let config_content = std::fs::read_to_string(&config)?;
             let pipe: pipeline::PipelineConfig = toml::from_str(&config_content)?;
-            pipeline::run_pipeline(&pipe)
+            if dry_run {
+                pipeline::dry_run(&pipe)
+            } else {
+                pipeline::run_pipeline(&pipe)
+            }
         }
         Commands::Align {
             model, data, method, beta, epochs, ref_model, output,

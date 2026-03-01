@@ -215,7 +215,7 @@ fn test_cli_parse_history() {
 fn test_cli_parse_pipeline() {
     let cli = Cli::try_parse_from(["apr-leaderboard", "pipeline", "--config", "c.toml"]).unwrap();
     match cli.command {
-        Commands::Pipeline { config } => assert_eq!(config, "c.toml"),
+        Commands::Pipeline { config, .. } => assert_eq!(config, "c.toml"),
         _ => panic!("Expected Pipeline"),
     }
 }

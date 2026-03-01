@@ -136,3 +136,53 @@ fn test_config_hash_sensitive_to_optional_sections() {
     let hash2 = config_hash(&config2).unwrap();
     assert_ne!(hash1, hash2);
 }
+
+// --- dry run ---
+
+#[test]
+fn test_dry_run_minimal() {
+    let config = base_config("out");
+    assert!(dry_run(&config).is_ok());
+}
+
+#[test]
+fn test_dry_run_with_all_stages() {
+    let mut config = base_config("out");
+    config.validate = Some(ValidateConfig {
+        data: "train.jsonl".into(),
+        benchmarks: vec!["humaneval".into()],
+        threshold: None, decontaminate: None,
+    });
+    config.distill = Some(DistillConfig {
+        teacher: "t.apr".into(), strategy: "standard".into(),
+        temperature: 3.0, alpha: 0.7, epochs: None, data: None,
+    });
+    config.finetune = Some(FinetuneConfig {
+        dataset: "d.jsonl".into(), method: None,
+        rank: 16, lr: 1e-4, epochs: 3, output: None,
+    });
+    config.align = Some(AlignConfig {
+        data: "pairs.jsonl".into(), method: None,
+        beta: None, epochs: None, ref_model: None,
+    });
+    config.merge = Some(MergeConfig {
+        models: vec!["v.apr".into()], strategy: "slerp".into(),
+        weights: None, base_model: None, density: None, drop_rate: None,
+    });
+    config.tune = Some(TuneConfig {
+        data: "val.jsonl".into(), strategy: None,
+        budget: None, max_epochs: None,
+    });
+    config.prune = Some(PruneConfig {
+        method: "wanda".into(), target_ratio: 0.2, calibration: None,
+    });
+    config.quantize = Some(QuantizeConfig {
+        scheme: "int4".into(), calibration: None,
+    });
+    config.benchmarks = vec!["humaneval".into()];
+    config.compile = Some(CompileConfig {
+        release: None, lto: None, strip: None, output: None,
+    });
+    config.submit = true;
+    assert!(dry_run(&config).is_ok());
+}
