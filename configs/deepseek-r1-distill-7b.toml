@@ -1,0 +1,35 @@
+# Pipeline config for DeepSeek-R1-Distill-Qwen-7B — reasoning-enhanced (§4 Tier 2).
+#
+# Strategy: DPO alignment → light prune → INT4 quantize → eval.
+# Focus: LiveCodeBench and reasoning-heavy benchmarks.
+#
+# Usage:
+#   apr-leaderboard pipeline --config configs/deepseek-r1-distill-7b.toml
+
+model_id = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+output_dir = "models"
+quantization = "fp16"
+submit = false
+leaderboard = "evalplus"
+
+benchmarks = [
+    "humaneval",
+    "humaneval-plus",
+    "mbpp",
+    "mbpp-plus",
+    "livecodebench",
+    "crux-eval",
+]
+
+[align]
+data = "data/reasoning-preferences.jsonl"
+method = "dpo"
+beta = 0.1
+epochs = 3
+
+[prune]
+method = "wanda"
+target_ratio = 0.15
+
+[quantize]
+scheme = "int4"

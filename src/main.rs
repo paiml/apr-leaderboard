@@ -439,7 +439,10 @@ fn main() -> anyhow::Result<()> {
             results, model_id, leaderboard, pre_submit_check, generate_card,
         } => {
             if let Some(model_path) = &pre_submit_check {
-                compile::check(model_path)?;
+                let report = submit::pre_submit_check(model_path, &results, &model_id)?;
+                if !report.all_passed {
+                    anyhow::bail!("Pre-submit checks failed. Fix issues before submitting.");
+                }
             }
             if generate_card {
                 submit::generate_model_card(&model_id, &results)?;

@@ -242,5 +242,193 @@ fn validate_submission(submission: &Submission) -> Result<()> {
     Ok(())
 }
 
+/// A single pre-submit validation check result.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct CheckResult {
+    pub name: String,
+    pub passed: bool,
+    pub detail: String,
+}
+
+/// Pre-submission validation report per §14.4.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct PreSubmitReport {
+    pub model_path: String,
+    pub results_path: String,
+    pub checks: Vec<CheckResult>,
+    pub all_passed: bool,
+}
+
+/// Required benchmarks for leaderboard submission.
+const REQUIRED_BENCHMARKS: &[&str] = &["humaneval", "mbpp"];
+
+/// Run pre-submit validation checks (§14.4).
+///
+/// Validates: APR format, results JSON structure, required benchmarks,
+/// model ID format, and model card existence.
+pub(crate) fn pre_submit_check(
+    model_path: &str,
+    results_path: &str,
+    model_id: &str,
+) -> Result<PreSubmitReport> {
+    let checks = vec![
+        check_apr_format(model_path),
+        check_results_json(results_path),
+        check_required_benchmarks(results_path),
+        check_model_id(model_id),
+        check_model_card(model_id),
+    ];
+
+    let all_passed = checks.iter().all(|c| c.passed);
+
+    let report = PreSubmitReport {
+        model_path: model_path.to_string(),
+        results_path: results_path.to_string(),
+        checks,
+        all_passed,
+    };
+
+    println!("Pre-submit validation report:");
+    for check in &report.checks {
+        let status = if check.passed { "PASS" } else { "FAIL" };
+        println!("  [{status}] {}: {}", check.name, check.detail);
+    }
+    let overall = if report.all_passed { "ALL CHECKS PASSED" } else { "SOME CHECKS FAILED" };
+    println!("  Result: {overall}");
+
+    Ok(report)
+}
+
+fn check_apr_format(model_path: &str) -> CheckResult {
+    match std::fs::read(model_path) {
+        Ok(data) if data.len() >= 4 && &data[0..3] == b"APR" => CheckResult {
+            name: "apr-format".into(),
+            passed: true,
+            detail: format!("Valid APR header ({} bytes)", data.len()),
+        },
+        Ok(data) if data.len() < 4 => CheckResult {
+            name: "apr-format".into(),
+            passed: false,
+            detail: format!("File too small ({} bytes)", data.len()),
+        },
+        Ok(_) => CheckResult {
+            name: "apr-format".into(),
+            passed: false,
+            detail: "Invalid APR header (missing magic bytes)".into(),
+        },
+        Err(e) => CheckResult {
+            name: "apr-format".into(),
+            passed: false,
+            detail: format!("Cannot read model: {e}"),
+        },
+    }
+}
+
+fn check_results_json(results_path: &str) -> CheckResult {
+    match std::fs::read_to_string(results_path) {
+        Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(_) => CheckResult {
+                name: "results-json".into(),
+                passed: true,
+                detail: "Valid JSON".into(),
+            },
+            Err(e) => CheckResult {
+                name: "results-json".into(),
+                passed: false,
+                detail: format!("Invalid JSON: {e}"),
+            },
+        },
+        Err(e) => CheckResult {
+            name: "results-json".into(),
+            passed: false,
+            detail: format!("Cannot read results: {e}"),
+        },
+    }
+}
+
+fn check_required_benchmarks(results_path: &str) -> CheckResult {
+    let Ok(content) = std::fs::read_to_string(results_path) else {
+        return CheckResult {
+            name: "required-benchmarks".into(),
+            passed: false,
+            detail: "Cannot read results file".into(),
+        };
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return CheckResult {
+            name: "required-benchmarks".into(),
+            passed: false,
+            detail: "Cannot parse results JSON".into(),
+        };
+    };
+
+    // Check for benchmark field or benchmarks array
+    let benchmarks_found: Vec<String> = if let Some(b) = value.get("benchmark").and_then(serde_json::Value::as_str) {
+        vec![b.to_string()]
+    } else if let Some(arr) = value.get("benchmarks").and_then(serde_json::Value::as_array) {
+        arr.iter().filter_map(|v| v.as_str().map(String::from)).collect()
+    } else {
+        vec![]
+    };
+
+    let missing: Vec<&&str> = REQUIRED_BENCHMARKS.iter()
+        .filter(|b| !benchmarks_found.iter().any(|f| f == **b))
+        .collect();
+
+    if missing.is_empty() {
+        CheckResult {
+            name: "required-benchmarks".into(),
+            passed: true,
+            detail: format!("All required benchmarks present: {}", REQUIRED_BENCHMARKS.join(", ")),
+        }
+    } else {
+        let missing_str: Vec<&str> = missing.iter().map(|s| **s).collect();
+        CheckResult {
+            name: "required-benchmarks".into(),
+            passed: false,
+            detail: format!("Missing benchmarks: {}", missing_str.join(", ")),
+        }
+    }
+}
+
+fn check_model_id(model_id: &str) -> CheckResult {
+    if model_id.is_empty() {
+        CheckResult {
+            name: "model-id".into(),
+            passed: false,
+            detail: "Model ID is empty".into(),
+        }
+    } else if !model_id.contains('/') {
+        CheckResult {
+            name: "model-id".into(),
+            passed: false,
+            detail: "Model ID must be in org/name format".into(),
+        }
+    } else {
+        CheckResult {
+            name: "model-id".into(),
+            passed: true,
+            detail: format!("Valid format: {model_id}"),
+        }
+    }
+}
+
+fn check_model_card(model_id: &str) -> CheckResult {
+    let card_path = format!("results/{}_README.md", model_id.replace('/', "_"));
+    if std::path::Path::new(&card_path).exists() {
+        CheckResult {
+            name: "model-card".into(),
+            passed: true,
+            detail: format!("Found: {card_path}"),
+        }
+    } else {
+        CheckResult {
+            name: "model-card".into(),
+            passed: false,
+            detail: format!("Not found: {card_path} (use --generate-card to create)"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;

@@ -229,3 +229,149 @@ fn test_export_metadata_serialization() {
     let parsed: ExportMetadata = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.format, "safetensors");
 }
+
+// --- pre-submit check tests ---
+
+#[test]
+fn test_pre_submit_check_all_pass() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("test.apr");
+    std::fs::write(&model_path, b"APR2test-data").unwrap();
+    let results_path = tmp.path().join("results.json");
+    std::fs::write(&results_path, r#"{"benchmark": "humaneval", "benchmarks": ["humaneval", "mbpp"]}"#).unwrap();
+    // Create model card
+    std::fs::create_dir_all("results").ok();
+    std::fs::write("results/org_model_README.md", "card").ok();
+    let report = pre_submit_check(
+        model_path.to_str().unwrap(),
+        results_path.to_str().unwrap(),
+        "org/model",
+    ).unwrap();
+    assert!(report.checks.iter().any(|c| c.name == "apr-format" && c.passed));
+    assert!(report.checks.iter().any(|c| c.name == "results-json" && c.passed));
+    assert!(report.checks.iter().any(|c| c.name == "model-id" && c.passed));
+}
+
+#[test]
+fn test_pre_submit_check_invalid_model() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("bad.bin");
+    std::fs::write(&model_path, b"NOT_APR").unwrap();
+    let results_path = tmp.path().join("results.json");
+    std::fs::write(&results_path, r#"{"benchmarks": ["humaneval", "mbpp"]}"#).unwrap();
+    let report = pre_submit_check(
+        model_path.to_str().unwrap(),
+        results_path.to_str().unwrap(),
+        "org/model",
+    ).unwrap();
+    assert!(!report.all_passed);
+    let apr_check = report.checks.iter().find(|c| c.name == "apr-format").unwrap();
+    assert!(!apr_check.passed);
+    assert!(apr_check.detail.contains("magic bytes"));
+}
+
+#[test]
+fn test_pre_submit_check_missing_model() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let results_path = tmp.path().join("results.json");
+    std::fs::write(&results_path, r#"{"benchmarks": ["humaneval", "mbpp"]}"#).unwrap();
+    let report = pre_submit_check(
+        "/nonexistent.apr",
+        results_path.to_str().unwrap(),
+        "org/model",
+    ).unwrap();
+    assert!(!report.all_passed);
+}
+
+#[test]
+fn test_pre_submit_check_invalid_results() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("test.apr");
+    std::fs::write(&model_path, b"APR2data").unwrap();
+    let results_path = tmp.path().join("bad.json");
+    std::fs::write(&results_path, "not json").unwrap();
+    let report = pre_submit_check(
+        model_path.to_str().unwrap(),
+        results_path.to_str().unwrap(),
+        "org/model",
+    ).unwrap();
+    let json_check = report.checks.iter().find(|c| c.name == "results-json").unwrap();
+    assert!(!json_check.passed);
+}
+
+#[test]
+fn test_pre_submit_check_missing_benchmarks() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("test.apr");
+    std::fs::write(&model_path, b"APR2data").unwrap();
+    let results_path = tmp.path().join("results.json");
+    std::fs::write(&results_path, r#"{"score": 0.9}"#).unwrap();
+    let report = pre_submit_check(
+        model_path.to_str().unwrap(),
+        results_path.to_str().unwrap(),
+        "org/model",
+    ).unwrap();
+    let bench_check = report.checks.iter().find(|c| c.name == "required-benchmarks").unwrap();
+    assert!(!bench_check.passed);
+    assert!(bench_check.detail.contains("humaneval"));
+}
+
+#[test]
+fn test_pre_submit_check_bad_model_id() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("test.apr");
+    std::fs::write(&model_path, b"APR2data").unwrap();
+    let results_path = tmp.path().join("results.json");
+    std::fs::write(&results_path, r#"{"benchmarks": ["humaneval", "mbpp"]}"#).unwrap();
+    let report = pre_submit_check(
+        model_path.to_str().unwrap(),
+        results_path.to_str().unwrap(),
+        "no-org",
+    ).unwrap();
+    let id_check = report.checks.iter().find(|c| c.name == "model-id").unwrap();
+    assert!(!id_check.passed);
+}
+
+#[test]
+fn test_pre_submit_report_serialization() {
+    let report = PreSubmitReport {
+        model_path: "test.apr".into(),
+        results_path: "results.json".into(),
+        checks: vec![
+            CheckResult { name: "test".into(), passed: true, detail: "ok".into() },
+        ],
+        all_passed: true,
+    };
+    let json = serde_json::to_string(&report).unwrap();
+    let parsed: PreSubmitReport = serde_json::from_str(&json).unwrap();
+    assert!(parsed.all_passed);
+    assert_eq!(parsed.checks.len(), 1);
+}
+
+#[test]
+fn test_check_apr_format_too_small() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let model_path = tmp.path().join("tiny.bin");
+    std::fs::write(&model_path, b"AP").unwrap();
+    let result = check_apr_format(model_path.to_str().unwrap());
+    assert!(!result.passed);
+    assert!(result.detail.contains("too small"));
+}
+
+#[test]
+fn test_check_model_id_empty() {
+    let result = check_model_id("");
+    assert!(!result.passed);
+    assert!(result.detail.contains("empty"));
+}
+
+#[test]
+fn test_check_required_benchmarks_single() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let results_path = tmp.path().join("results.json");
+    std::fs::write(&results_path, r#"{"benchmark": "humaneval"}"#).unwrap();
+    let result = check_required_benchmarks(results_path.to_str().unwrap());
+    // Only humaneval found, mbpp missing
+    assert!(!result.passed);
+    assert!(result.detail.contains("mbpp"));
+}
