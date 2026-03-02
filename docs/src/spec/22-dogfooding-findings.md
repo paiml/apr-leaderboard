@@ -11,8 +11,9 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 
 **Notes:**
 - 7B model shows +9.75pp improvement over 1.5B
-- 7B avg_tokens_generated capped at 128 (possible internal limit in `apr run` or realizar), likely truncating longer solutions
-- 7B official score is ~88% — the gap is attributed to: (1) 128-token cap, (2) Q4K quantization degradation, (3) CPU inference (no KV cache optimization)
+- 7B 68.90% result was with 128-token cap (GH-372) and broken EOS termination (GH-373)
+- Both issues fixed; re-evaluation with max-tokens=512 + EOS in progress (2026-03-02)
+- 7B official score is ~88% — gap attributed to: (1) ~~128-token cap~~ fixed, (2) ~~EOS broken~~ fixed, (3) Q4K quantization loss, (4) greedy decoding
 - GPU inference unavailable due to shape mismatch panic in realizar
 
 ## 22.1 Model Import: GGUF vs SafeTensors
@@ -193,12 +194,35 @@ vllm-gtc:    6 files →     81 pairs (vLLM inference)
 Total: 15,494 pairs (17 MB JSONL)
 ```
 
-## 22.9 Upstream Issues Identified
+## 22.9 Token Generation Cap (GH-372)
+
+**Problem:** All completions generated exactly 128 tokens regardless of `--max-tokens 512`.
+
+**Root cause:** 10 instances of `.min(128)` in realizar silently capped generation across GGUF, APR, and GPU inference paths.
+
+**Fix:** Removed all `.min(128)` caps. `InferenceConfig.max_tokens` now passes through uncapped. Commit: realizar `c0a28ef`.
+
+## 22.10 EOS Termination (GH-373)
+
+**Problem:** After removing the 128-token cap, models generated all max_tokens of garbage after producing valid output. The APR CPU generation loop never terminated early on EOS.
+
+**Root cause:** The APR transformer loader hardcoded `eos_token_id: None`. The EOS check `validated.config.eos_token_id == Some(next_token)` never matched.
+
+**Fix:** Added `resolve_apr_stop_tokens()` in realizar which merges EOS from three sources:
+1. Model config (`eos_token_id` from metadata)
+2. Caller-provided stop tokens (`InferenceConfig.stop_tokens`)
+3. Sibling tokenizer.json (ChatML markers: `<|im_end|>` = 151645, `<|endoftext|>` = 151643)
+
+Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `Stop tokens: [151643, 151645]` and terminates at EOS.
+
+## 22.11 Upstream Issues Identified
 
 | Issue | Component | Severity | Status |
 |---|---|---|---|
 | F16/BF16 passthrough ignores --quantize | aprender | High | **Fixed** (GH-205) |
 | Flat Q4K quantization wrong block alignment | aprender | High | **Fixed** (GH-370) |
 | No generative finetune path | entrenar/aprender | High | **Fixed** (GH-371) |
+| Hardcoded .min(128) token cap | realizar | High | **Fixed** (GH-372) |
+| APR EOS termination broken | realizar | Critical | **Fixed** (GH-373) |
 | GPU shape mismatch panic | realizar CUDA | High | `--no-gpu` flag |
 | `apr serve` doesn't bind HTTP for .apr | aprender | Medium | Use `apr run` for batch inference |
