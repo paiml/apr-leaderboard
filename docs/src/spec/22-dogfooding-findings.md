@@ -226,3 +226,31 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | APR EOS termination broken | realizar | Critical | **Fixed** (GH-373) |
 | GPU shape mismatch panic | realizar CUDA | High | `--no-gpu` flag |
 | `apr serve` doesn't bind HTTP for .apr | aprender | Medium | Use `apr run` for batch inference |
+| O(n^2) BPE merge bottleneck | aprender | High | **Fixed** (GH-378) |
+
+## 22.12 BPE Tokenizer Performance (GH-378)
+
+**Problem:** QLoRA training (recipe-f) stuck 25+ minutes pre-tokenizing 15,494 instruction samples. The tokenizer was the bottleneck — not the model or GPU.
+
+**Root cause:** The `bpe()` merge function used an O(n^2) greedy-rescan algorithm: for each merge iteration, it scanned the entire word to find the lowest-rank pair, then cloned a `String` and used `Vec::splice` to apply the merge. For large vocabularies (Qwen3: 151,665 tokens), this meant thousands of full rescans per word.
+
+**Fix:** Replaced with a priority-queue (BinaryHeap) + doubly-linked symbol list algorithm, ported from HuggingFace `tokenizers` `word.rs`:
+- Initial symbols linked by prev/next indices (no array shifting)
+- All valid initial merges pushed into a min-heap keyed by merge rank
+- Main loop pops lowest-rank merge, applies in O(1) via pointer updates
+- New pairs created by the merge are re-enqueued
+- Stale entries (already-consumed symbols) skipped via length-zero sentinel
+- Merge map uses integer-pair keys `(left_id, right_id) → (rank, merged_id)` for O(1) lookup (no string hashing in the hot loop)
+- Complexity: O(n + m log m) where n = initial symbols, m = merges applied
+
+**Before/After:**
+
+| Metric | Before (greedy) | After (priority-queue) | HF tokenizers v0.22 |
+|--------|----------------|----------------------|---------------------|
+| Encode latency (636-char payload) | 145 us | **70 us** | 104 us |
+| Speedup vs before | — | **2.06x** | — |
+| Speedup vs HF | 0.72x (slower) | **1.49x** (faster) | 1.0x (baseline) |
+| Throughput (tokens/sec) | ~1.8M | **~3.76M** | ~2.5M |
+| Allocations in merge loop | O(m) String clones | **Zero** | Zero |
+
+**Impact:** Pre-tokenization of 15,494 samples for QLoRA training drops from O(minutes) to O(seconds). All 117 BPE tests pass with identical encode/decode behavior.
