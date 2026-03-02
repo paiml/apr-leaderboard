@@ -135,7 +135,18 @@ if $PLAN_MODE; then
                 RANK="$(read_toml finetune.rank 16)"
                 LR="$(read_toml finetune.lr 0.0002)"
                 EPOCHS="$(read_toml finetune.epochs 3)"
-                echo "[finetune] apr finetune ${CURRENT} --method ${METHOD} --rank ${RANK} --learning-rate ${LR} --epochs ${EPOCHS} --data ${DATASET} --output ${OUTPUT_DIR}/${MODEL_NAME}-finetuned.apr"
+                QUANTIZE_NF4="$(read_toml finetune.quantize_nf4 false)"
+                MAX_SEQ_LEN="$(read_toml finetune.max_seq_len)"
+                VRAM="$(read_toml finetune.vram)"
+                TASK="$(read_toml finetune.task)"
+                MODEL_SIZE="$(read_toml finetune.model_size)"
+                EXTRA_FLAGS=""
+                [[ "$QUANTIZE_NF4" == "true" ]] || [[ "$QUANTIZE_NF4" == "True" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --quantize-nf4"
+                [[ -n "$MAX_SEQ_LEN" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --max-seq-len ${MAX_SEQ_LEN}"
+                [[ -n "$VRAM" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --vram ${VRAM}"
+                [[ -n "$TASK" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --task ${TASK}"
+                [[ -n "$MODEL_SIZE" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --model-size ${MODEL_SIZE}"
+                echo "[finetune] apr finetune ${CURRENT} --method ${METHOD} --rank ${RANK} --learning-rate ${LR} --epochs ${EPOCHS} --data ${DATASET} --output ${OUTPUT_DIR}/${MODEL_NAME}-finetuned.apr${EXTRA_FLAGS}"
                 ;;
             align)
                 DATA="$(read_toml align.data)"
@@ -210,7 +221,19 @@ for stage in "${STAGES[@]}"; do
             RANK="$(read_toml finetune.rank 16)"
             LR="$(read_toml finetune.lr 0.0002)"
             EPOCHS="$(read_toml finetune.epochs 3)"
+            QUANTIZE_NF4="$(read_toml finetune.quantize_nf4 false)"
+            MAX_SEQ_LEN="$(read_toml finetune.max_seq_len)"
+            VRAM="$(read_toml finetune.vram)"
+            TASK="$(read_toml finetune.task)"
+            MODEL_SIZE="$(read_toml finetune.model_size)"
+            EXTRA_FLAGS=""
+            [[ "$QUANTIZE_NF4" == "true" ]] || [[ "$QUANTIZE_NF4" == "True" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --quantize-nf4"
+            [[ -n "$MAX_SEQ_LEN" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --max-seq-len ${MAX_SEQ_LEN}"
+            [[ -n "$VRAM" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --vram ${VRAM}"
+            [[ -n "$TASK" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --task ${TASK}"
+            [[ -n "$MODEL_SIZE" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --model-size ${MODEL_SIZE}"
             NEXT="${OUTPUT_DIR}/${MODEL_NAME}-finetuned.apr"
+            # shellcheck disable=SC2086
             apr finetune "$CURRENT" \
                 --method "$METHOD" \
                 --rank "$RANK" \
@@ -218,6 +241,7 @@ for stage in "${STAGES[@]}"; do
                 --epochs "$EPOCHS" \
                 --data "$DATASET" \
                 --output "$NEXT" \
+                $EXTRA_FLAGS \
                 --verbose
             CURRENT="$NEXT"
             ;;
