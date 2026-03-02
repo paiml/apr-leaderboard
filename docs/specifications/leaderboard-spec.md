@@ -228,6 +228,8 @@ We select models based on three criteria: (1) competitive baseline scores, (2) p
 | Qwen2.5-Coder-32B-Instruct | 32B | Best open code model overall. Matches GPT-4o. | 92.7% | **94%+** | DPO + merge + speculative |
 | Qwen2.5-Coder-7B (base) | 7B | Distillation target. Prove 32B→7B transfer works. | ~65% | **85%+** | Full pipeline (Recipe C) |
 
+| Qwen3-8B (base) | 8B | Newest Qwen generation. Apache-2.0. QLoRA on base + instruct data. | ~72% | **82%+** | QLoRA + instruct corpus (Recipe F) |
+
 **Secondary targets (Tier 2 — prove stack generality):**
 
 | Model | Size | Why This Model | Strategy |
@@ -267,6 +269,11 @@ Five specific improvement hypotheses, each falsifiable:
 **H5: The full pipeline (distill→finetune→merge→prune→quantize) compounds gains.**
 - Each technique contributes independently. Stacked in the golden ordering (§10), they should compound.
 - *Falsified if:* Full pipeline scores lower than the best single-technique result.
+
+**H6: QLoRA on base Qwen3-8B + instruct corpus outperforms the base model by 10%+ on HumanEval.**
+- QLoRA freezes NF4-quantized base weights (~4 GB) and trains rank-16 LoRA adapters in FP16. Combined with the 15.5K instruct corpus, this should teach the base model instruction-following without the noise of double-instruction-tuning an instruct model.
+- Memory budget: ~4.5 GB total (fits 3x within 24 GB GPU), enabling concurrent training of multiple experiments.
+- *Falsified if:* QLoRA fine-tuned Qwen3-8B scores less than 10pp above its base HumanEval baseline.
 
 ### 4.3 HOW We Will Improve Each Model
 
@@ -334,6 +341,36 @@ Phase 5: Ship as downloadable executable
 ```
 
 **Success gate:** ≥60% HumanEval in a standalone binary with zero dependencies. The demo: `./qwen-coder "def fibonacci(n):"` just works.
+
+#### 4.3.4 Qwen3-8B: "The QLoRA Proof" (VRAM-Efficient Training)
+
+Proves QLoRA works end-to-end in the sovereign stack. Qwen3 is the latest generation — training on base (not Instruct) avoids double-instruction-tuning noise.
+
+```
+Phase 1: Baseline
+  apr import hf://Qwen/Qwen3-8B → qwen3-8b.apr (FP16)
+  eval baseline HumanEval + BigCodeBench → establish pre-training score
+
+Phase 2: QLoRA Fine-tune (H6)
+  apr finetune qwen3-8b.apr --method qlora --quantize-nf4 \
+      --rank 16 --data data/instruct-corpus.jsonl --max-seq-len 512 \
+      --vram 8.0 --task instruct --model-size 8B
+  → NF4 base (~4 GB) + FP16 adapters (~0.04 GB) + optimizer (~0.15 GB)
+  → Total: ~4.5 GB VRAM — fits 3x in 24 GB GPU budget
+  → Expected: +10-15% HumanEval from instruction-following capability
+
+Phase 3: Evaluate
+  eval HumanEval + BigCodeBench → compare pre/post
+  → Success gate: ≥82% HumanEval, measurable BigCodeBench improvement
+```
+
+**Key design decisions:**
+- FP16 import (not Q4K): QLoRA needs dequantizable base weights; NF4 applied during training via `--quantize-nf4`
+- Base model (not Instruct): QLoRA on base + instruct data = cleaner signal than double-instruction-tuning
+- Rank 16: Proven default across recipes A/D/E; leaves VRAM headroom for concurrent experiments
+- Learning rate 2e-4: Matches recipe-e (same instruct corpus, same objective)
+
+**Recipe:** `recipe-f-qwen3-qlora` (§9.5)
 
 ### 4.4 What Happens When Improvement Fails
 
@@ -1743,6 +1780,81 @@ apr compile tiny.apr \
 **Size estimates:** 1.5B INT4 ≈ 800MB, 7B INT4 ≈ 4GB, 32B INT4 ≈ 17GB. Still dramatically smaller than Docker + Python + CUDA runtime images (typically 10-20GB for a 7B setup).
 
 **This is the marketing win:** While competitors need `pip install transformers torch accelerate bitsandbytes`, we ship `./qwen-coder`.
+
+### 9.5 Recipe E: "Instruct LoRA" (Ground Truth Corpus)
+
+**Target:** Fine-tune existing 7B instruct model on curated ground truth code. Uses 15.5K instruction/response pairs from depyler, hf-gtc, jax-gtc, and vllm-gtc.
+
+```bash
+# 1. Import (Q4K for inference efficiency)
+apr import hf://Qwen/Qwen2.5-Coder-7B-Instruct --quantize q4k -o instruct-q4k.apr
+
+# 2. Prepare instruct corpus
+make prep-data  # → data/instruct-corpus.jsonl (15,494 pairs, 17 MB)
+
+# 3. LoRA fine-tune on instruct corpus
+apr finetune instruct-q4k.apr \
+    --method lora --rank 16 \
+    --data data/instruct-corpus.jsonl \
+    --task instruct --model-size 7B \
+    --learning-rate 2e-4 --epochs 3 \
+    -o instruct-finetuned.apr
+
+# 4. Eval
+apr eval instruct-finetuned.apr --task classify --data humaneval.jsonl --json
+```
+
+**Expected:** +3-5% pass@1 improvement from domain-specific instruction tuning with high-quality ground truth pairs.
+
+### 9.6 Recipe F: "Qwen3 QLoRA" (VRAM-Efficient Training)
+
+**Target:** Prove QLoRA works end-to-end in the sovereign stack. Train Qwen3-8B (base) with 4-bit frozen weights + FP16 LoRA adapters within an 8 GB VRAM budget.
+
+```bash
+# 1. Import base model as FP16 (NF4 applied during QLoRA, not import)
+apr import hf://Qwen/Qwen3-8B -o qwen3-8b.apr
+
+# 2. Establish baseline (REQUIRED before fine-tuning)
+./scripts/eval-pass-at-k.sh humaneval qwen3-8b.apr results/ 512 0.0 1
+
+# 3. QLoRA fine-tune: NF4 base + rank-16 FP16 adapters
+apr finetune qwen3-8b.apr \
+    --method qlora \
+    --quantize-nf4 \
+    --rank 16 \
+    --data data/instruct-corpus.jsonl \
+    --task instruct \
+    --model-size 8B \
+    --max-seq-len 512 \
+    --vram 8.0 \
+    --learning-rate 2e-4 \
+    --epochs 3 \
+    -o qwen3-8b-finetuned.apr
+
+# 4. Eval post-training
+./scripts/eval-pass-at-k.sh humaneval qwen3-8b-finetuned.apr results/ 512 0.0 1
+```
+
+**Memory budget (Qwen3-8B, rank=16):**
+
+| Component | Size |
+|-----------|------|
+| NF4 base weights | ~4.0 GB |
+| LoRA adapters (FP16) | ~0.04 GB |
+| Adam optimizer states | ~0.15 GB |
+| Activations (batch=1, seq=512) | ~0.3 GB |
+| **Total** | **~4.5 GB** |
+
+Fits 3x within a 24 GB GPU — enables concurrent training of multiple experiments.
+
+**Key design decisions:**
+- Base model (not Instruct) — QLoRA on base + instruct data gives cleaner signal than double-instruction-tuning
+- FP16 import — QLoRA needs dequantizable base weights; NF4 applied at training time
+- Rank 16 — proven default; ~5 GB total leaves headroom for concurrent jobs
+
+**Expected:** +10-15% pass@1 over base model's HumanEval baseline. Target: ≥82% HumanEval. Validates H6.
+
+**TOML config:** `configs/recipes/recipe-f-qwen3-qlora.toml`
 
 ## 10. Technique Interaction Matrix
 

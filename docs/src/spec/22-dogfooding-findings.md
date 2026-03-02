@@ -133,9 +133,9 @@ inspect      OK
 
 ### 22.5.2 `make dogfood` Output
 
-All 9 TOML configs validated:
-- 5 model configs in `configs/models/`
-- 4 recipe configs in `configs/recipes/`
+All 12 TOML configs validated:
+- 6 model configs in `configs/models/` (added `qwen3-8b.toml`)
+- 6 recipe configs in `configs/recipes/` (added `recipe-f-qwen3-qlora.toml`)
 
 ### 22.5.3 `make pipeline-plan` Output
 
