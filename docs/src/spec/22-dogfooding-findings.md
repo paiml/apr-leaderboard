@@ -1,6 +1,19 @@
 # Dogfooding Findings
 
-Real end-to-end dogfooding with Qwen2.5-Coder-1.5B model import, validation, and inference. These findings inform spec updates and upstream `apr` CLI improvements.
+Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, validation, inference, and evaluation. These findings inform spec updates and upstream `apr` CLI improvements.
+
+## 22.0 HumanEval Baseline Results
+
+| Model | Quantization | pass@1 | Passed | Avg Tokens | Avg Latency | Backend |
+|-------|-------------|--------|--------|------------|-------------|---------|
+| Qwen2.5-Coder-1.5B Q4K | Q4_K_M (GGUF) | 59.15% | 97/164 | 59.5 | 3,642ms | CPU |
+| Qwen2.5-Coder-7B-Instruct Q4K | Q4K (SafeTensors) | **68.90%** | 113/164 | 128.0 | 102,715ms | CPU |
+
+**Notes:**
+- 7B model shows +9.75pp improvement over 1.5B
+- 7B avg_tokens_generated capped at 128 (possible internal limit in `apr run` or realizar), likely truncating longer solutions
+- 7B official score is ~88% — the gap is attributed to: (1) 128-token cap, (2) Q4K quantization degradation, (3) CPU inference (no KV cache optimization)
+- GPU inference unavailable due to shape mismatch panic in realizar
 
 ## 22.1 Model Import: GGUF vs SafeTensors
 

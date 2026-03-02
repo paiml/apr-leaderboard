@@ -1,0 +1,19 @@
+{
+  "benchmark": "humaneval",
+  "model": "checkpoints/qwen2.5-coder-7b-instruct-q4k.apr",
+  "timestamp": "2026-03-02T05:31:25+01:00",
+  "config": {
+    "max_tokens": 512,
+    "temperature": 0.0,
+    "num_samples": 1
+  },
+  "results": {
+    "total": 164,
+    "completed": 164,
+    "passed": 113,
+    "errors": 0,
+    "pass_at_1": 68.9,
+    "avg_tokens_generated": 128.0,
+    "avg_latency_ms": 102714.5
+  }
+}
