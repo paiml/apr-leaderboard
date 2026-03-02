@@ -199,3 +199,142 @@ apr compile tiny.apr \
 **Size estimates:** 1.5B INT4 ≈ 800MB, 7B INT4 ≈ 4GB, 32B INT4 ≈ 17GB. Still dramatically smaller than Docker + Python + CUDA runtime images (typically 10-20GB for a 7B setup).
 
 **This is the marketing win:** While competitors need `pip install transformers torch accelerate bitsandbytes`, we ship `./qwen-coder`.
+
+## 9.5 Recipe E: "Instruct LoRA" (Proven Training Loop)
+
+**Target:** Validate the full LoRA instruction-tuning loop on the existing 7B Q4K checkpoint using ground truth corpora. This is the foundation recipe — it proves the training pipeline works end-to-end before attempting more expensive QLoRA or distillation.
+
+**Model:** Qwen2.5-Coder-7B-Instruct (Q4K, already imported)
+**Data:** 15,494 instruction/response pairs from `make prep-data`
+**VRAM:** ~28 GB (full-precision LoRA on Q4K base)
+
+```bash
+# 0. Prerequisites: checkpoint + data must exist
+ls checkpoints/qwen2.5-coder-7b-instruct-q4k.apr  # 7.48 GiB
+ls data/instruct-corpus.jsonl                       # 15,494 pairs
+
+# 1. Baseline eval (pre-training score)
+make eval-humaneval CHECKPOINT=checkpoints/qwen2.5-coder-7b-instruct-q4k.apr
+
+# 2. LoRA instruction fine-tune
+apr finetune checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
+    --task instruct \
+    --data data/instruct-corpus.jsonl \
+    --model-size 7B \
+    --rank 16 \
+    --learning-rate 2e-4 \
+    --epochs 3 \
+    --output checkpoints/qwen2.5-coder-7b-instruct-lora.apr \
+    --verbose
+
+# 3. Post-training eval
+make eval-humaneval CHECKPOINT=checkpoints/qwen2.5-coder-7b-instruct-lora.apr
+
+# 4. Compare pre/post
+diff results/humaneval-pre.json results/humaneval-post.json
+```
+
+**Config:** `configs/recipes/recipe-e-instruct-finetune.toml`
+
+**Gate criteria:**
+- Training loss must decrease monotonically (proves optimizer is working)
+- Post-training pass@1 ≥ pre-training pass@1 (no regression)
+- If post < pre, investigate overfitting (reduce epochs) or data quality
+
+**Expected:** +3-8% pass@1 from instruction tuning on domain-specific corpora. The 15.5K corpus covers algorithms (depyler), HuggingFace patterns (hf-gtc), JAX numerics (jax-gtc), and vLLM inference (vllm-gtc).
+
+**Status:** Training loop validated on tiny model (§22.7). Awaiting 7B run.
+
+## 9.6 Recipe F: "Qwen3 QLoRA" (Consumer GPU Path)
+
+**Target:** QLoRA fine-tune Qwen3-8B on consumer GPUs (8-16 GB VRAM). This is the primary leaderboard submission path — it produces a competitive model using hardware most developers already own.
+
+**Model:** Qwen3-8B (FP16, 16 GB)
+**Data:** Same 15,494 instruction/response pairs
+**VRAM:** ~4.5 GB (NF4-quantized base + FP16 LoRA adapters)
+
+**Why Qwen3-8B over Qwen2.5-7B:** Qwen3 is a newer architecture with improved training data and reasoning capabilities. QLoRA on FP16 base (not pre-quantized Q4K) produces better adapters because the NF4 quantization is applied optimally during training, not inherited from a pre-quantized checkpoint.
+
+**Why QLoRA over LoRA:** At 8B parameters, full-precision LoRA requires ~32 GB VRAM. QLoRA reduces this to ~4.5 GB by quantizing base weights to NF4 (4-bit NormalFloat) while keeping LoRA adapters in FP16. The 0.85x quality factor (vs full-precision LoRA) is offset by the ability to use higher rank (32 vs 16) within the same VRAM budget.
+
+```bash
+# 0. Import Qwen3-8B at FP16 (already done: 16 GB checkpoint)
+make import MODEL=Qwen/Qwen3-8B QUANTIZE=fp16
+ls checkpoints/qwen_qwen3-8b.apr  # 16 GB FP16
+
+# 1. Prepare instruction data
+make prep-data
+wc -l data/instruct-corpus.jsonl  # 15,494 pairs
+
+# 2. Baseline eval (pre-QLoRA)
+make eval-humaneval CHECKPOINT=checkpoints/qwen_qwen3-8b.apr
+
+# 3. QLoRA fine-tune (NF4 base + FP16 adapters)
+apr finetune checkpoints/qwen_qwen3-8b.apr \
+    --method qlora \
+    --task instruct \
+    --data data/instruct-corpus.jsonl \
+    --model-size 8B \
+    --rank 16 \
+    --learning-rate 2e-4 \
+    --epochs 3 \
+    --max-seq-len 512 \
+    --vram 8 \
+    --output checkpoints/qwen3-8b-qlora.apr \
+    --verbose
+
+# 4. Post-QLoRA eval
+make eval-humaneval CHECKPOINT=checkpoints/qwen3-8b-qlora.apr
+make eval-bigcodebench CHECKPOINT=checkpoints/qwen3-8b-qlora.apr
+
+# 5. Optional: quantize merged model for faster inference
+apr quantize checkpoints/qwen3-8b-qlora.apr \
+    --scheme q4k \
+    -o checkpoints/qwen3-8b-qlora-q4k.apr
+```
+
+**Config:** `configs/recipes/recipe-f-qwen3-qlora.toml`
+
+**VRAM budget breakdown (rank-16, batch-1, seq-512):**
+
+| Component | Bytes | Notes |
+|-----------|-------|-------|
+| NF4 base weights | ~4.0 GB | 8B params × 4 bits |
+| LoRA A matrices (28 layers × Q,V) | ~6.1 MB | 56 × rank × hidden_dim × 2 bytes |
+| LoRA B matrices (28 layers × Q,V) | ~6.1 MB | 56 × hidden_dim × rank × 2 bytes |
+| Optimizer states (AdamW) | ~24.4 MB | 2 × LoRA params × 4 bytes (m, v) |
+| Activations + gradients | ~400 MB | Depends on seq_len and batch_size |
+| **Total** | **~4.5 GB** | Fits 3x within 24 GB GPU |
+
+**Training brick benchmarks (measured on Qwen2 7B, same architecture class):**
+
+| Brick | Dimensions | Budget | Notes |
+|-------|-----------|--------|-------|
+| `lora_forward` | d_in=3584, rank=16 | 54µs actual (CPU) | Real matmul, not analytical |
+| `optimizer` | 6.4M LoRA params | 50µs analytical | SIMD AdamW over LoRA params |
+| `loss` | vocab=152064, seq=128 | 20µs analytical | Cross-entropy |
+| `train_step` | 28 layers, rank-16 | 5000µs analytical | Composite fwd+bwd+optim |
+
+**Gate criteria:**
+- VRAM peak < 8 GB (AC-005: QLoRA uses <50% VRAM vs LoRA)
+- Training loss decreases over 3 epochs
+- Post-QLoRA pass@1 > pre-QLoRA pass@1 on HumanEval
+- No NaN loss (Jidoka: training bricks check for NaN)
+
+**Expected:** +5-12% pass@1 over apr-native baseline. QLoRA on Qwen3-8B with curated instruction data should approach the instruct model's HF-reference score.
+
+**Status (2026-03-02): UNBLOCKED.** QLoRA instruct pipeline implemented and verified (entrenar@9e4d442, aprender@ea586a31). See §22.13.4 for verification results. Ready for full training run on 15K-sample instruct corpus.
+
+### 9.6.1 Recipe E vs Recipe F Decision Matrix
+
+| Factor | Recipe E (Instruct LoRA) | Recipe F (Qwen3 QLoRA) |
+|--------|-------------------------|------------------------|
+| Model | Qwen2.5-Coder-7B Q4K | Qwen3-8B FP16 |
+| Method | LoRA (full precision) | QLoRA (NF4 base) |
+| VRAM required | ~28 GB | ~4.5 GB |
+| GPU required | A100/H100 or 2×4090 | Any 8+ GB GPU |
+| Training quality | Highest (no quantization noise) | ~0.85x (NF4 noise in backward pass) |
+| Use case | Maximum quality, server GPU | Consumer GPU, rapid iteration |
+| **Recommended for** | Final submission | Development + ablation |
+
+**Strategy:** Use Recipe F for rapid iteration and hyperparameter search (fast, cheap). Once optimal hyperparameters are found, run Recipe E on a server GPU for the final submission model.
