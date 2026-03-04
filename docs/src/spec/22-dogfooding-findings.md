@@ -365,3 +365,26 @@ Commits:
 - No CUDA_ERROR_ILLEGAL_ADDRESS (GH-378 GEMM k/n swap fix confirmed)
 
 **Next step:** Run `make pipeline RECIPE=recipe-f-qwen3-qlora` on full 15K-sample instruct corpus and record pre/post HumanEval pass@1. Note: full training requires ~6-9 hours on 1.5B Q4K (or ~18-25 hours on 7B Q4K) due to per-sample forward+backward.
+
+### GH-206: GPU-SHARE Multi-Adapter Training (Phase 2)
+
+**Problem:** Training N LoRA adapters on the same base model required N separate processes, each loading the full 7B model to GPU (~7.3 GB each). 3 adapters = 21.9 GB VRAM.
+
+**Solution:** MultiAdapterPipeline trains N independent LoRA adapter sets on a single frozen NF4 base model. The base model is loaded once to GPU; each adapter maintains independent LoRA A/B matrices, optimizer state, and training data.
+
+**VRAM savings:** 3 adapters on 7B: MPS = 21.9 GB vs multi-adapter = 7.36 GB (**3x savings**).
+
+**Implementation (2026-03-04):**
+- entrenar PR #208: `MultiAdapterPipeline` struct with RoundRobin/Synchronized/PriorityValLoss scheduling
+- entrenar PR #209: Per-adapter checkpointing (metadata.json + model.safetensors per adapter slot)
+- aprender PR #399: `--adapters DATA:CHECKPOINT` CLI flag with multi-adapter dispatch
+
+**CLI usage:**
+```bash
+apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
+  --adapters data/corpus-a.jsonl:checkpoints/adapter-a \
+  --adapters data/corpus-b.jsonl:checkpoints/adapter-b \
+  --rank 16 --epochs 3
+```
+
+**Status:** Phase 1 (VRAM guard + ledger) and Phase 2 (multi-adapter) functionally complete. BatchLoRA fused forward (GH-204) deferred as KAIZEN optimization.
