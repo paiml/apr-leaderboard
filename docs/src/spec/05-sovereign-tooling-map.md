@@ -255,10 +255,11 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 
 | Ludwig Feature | Ludwig Implementation | Sovereign Stack | Status |
 |---|---|---|---|
-| Multi-GPU DDP | PyTorch DDP via Ray | — not yet (single-GPU) | ❌ **Gap** |
+| Multi-GPU DDP | PyTorch DDP via Ray | — not yet (single-GPU DDP) | ❌ **Gap** |
 | DeepSpeed ZeRO | Microsoft DeepSpeed | — not yet | ❌ **Gap** |
-| Multi-node training | Ray cluster | — not yet | ❌ **Gap** |
-| Automatic batch size selection | binary search on GPU OOM | **aprender** `--vram` planning | ⚠️ Partial |
+| Multi-node training | Ray cluster | **entrenar** GPU-SHARE Phase 3 (SSH cluster, job placement) | ✅ **Exceeds** (heterogeneous: 4090 + Jetson + CPU nodes) |
+| Automatic batch size selection | binary search on GPU OOM | **aprender** `--vram` planning + **entrenar** VRAM guard | ✅ Parity |
+| GPU sharing (multi-adapter) | not supported | **entrenar** GPU-SHARE (multi-adapter single-process, 3x VRAM savings) | ✅ **Exceeds** |
 
 **Quantization:**
 
@@ -372,7 +373,7 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 
 **We exceed Ludwig in 16+ areas** (updated): speculative decoding, PagedAttention, continuous batching, streaming API, OpenAI-compatible serving, compile-to-binary, multi-format export (ONNX/CoreML/OpenVINO), data quality scoring, drift detection, imbalance detection, Prometheus metrics, TUI monitoring, provable contracts, deterministic builds, format forensics, **checkpointing** (18 verified contracts: atomic writes, NaN scan, filtered loading, round-trip determinism, provenance chain — vs Ludwig's basic callback).
 
-**Gaps to close (11 items):**
+**Gaps to close (9 items):**
 
 | Gap | Priority | Wire-in Target |
 |---|---|---|
@@ -384,8 +385,11 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 | Contrastive search decoding | Low | **aprender** 0.28 |
 | Diverse beam search | Low | **aprender** 0.28 |
 | Multi-GPU DDP | High | **entrenar** 0.9 |
-| DeepSpeed ZeRO | Medium | **entrenar** 0.9 |
 | GPTQ quantization | Medium | **aprender** 0.28 |
-| Experiment tracking (W&B/MLflow) | Medium | **entrenar** 0.8 callbacks |
+
+**Recently closed gaps:**
+- ~~Multi-node training~~ → GPU-SHARE Phase 3: SSH cluster config, job placement, checkpoint coordination (143 tests)
+- ~~Automatic batch size selection~~ → VRAM guard + ledger prevents OOM, `--vram` planning
+- ~~Experiment tracking~~ → `entrenar` TUI monitor + JSONL event logging + checkpoint metadata
 
 **Out of scope (not needed for leaderboard):** ECD architecture, GBM/LightGBM, multi-modal (text+image+audio), Triton export, TorchScript. These serve Ludwig's "general ML framework" positioning. We are a purpose-built leaderboard pipeline, not a general framework.

@@ -243,7 +243,7 @@ diff results/humaneval-pre.json results/humaneval-post.json
 
 **Expected:** +3-8% pass@1 from instruction tuning on domain-specific corpora. The 15.5K corpus covers algorithms (depyler), HuggingFace patterns (hf-gtc), JAX numerics (jax-gtc), and vLLM inference (vllm-gtc).
 
-**Status:** Training loop validated on tiny model (§22.7). Awaiting 7B run.
+**Status (2026-03-04):** Training pipeline fully implemented. InstructPipeline supports CPU and NF4 QLoRA GPU paths (KAIZEN-064/065/068). CLI wired: `apr finetune --task instruct --method qlora --quantize-nf4`. Ready for 7B training run.
 
 ## 9.6 Recipe F: "Qwen3 QLoRA" (Consumer GPU Path)
 
@@ -323,7 +323,7 @@ apr quantize checkpoints/qwen3-8b-qlora.apr \
 
 **Expected:** +5-12% pass@1 over apr-native baseline. QLoRA on Qwen3-8B with curated instruction data should approach the instruct model's HF-reference score.
 
-**Status (2026-03-02): UNBLOCKED.** QLoRA instruct pipeline implemented and verified (entrenar@9e4d442, aprender@ea586a31). See §22.13.4 for verification results. Ready for full training run on 15K-sample instruct corpus.
+**Status (2026-03-04): READY.** QLoRA instruct pipeline fully implemented with CUDA NF4 support (GPU-resident gradients, fused causal cross-entropy, LoRA backward GEMM). GPU-SHARE infrastructure (143 tests) enables multi-adapter concurrent training. CLI: `apr finetune --task instruct --method qlora --quantize-nf4 --adapters-config adapters.toml`. Ready for full training run on 15K-sample instruct corpus.
 
 ### 9.6.1 Recipe E vs Recipe F Decision Matrix
 

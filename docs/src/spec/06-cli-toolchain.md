@@ -33,11 +33,18 @@ apr eval qwen-7b.apr --task classify --data humaneval.jsonl --json
 
 ```bash
 # Instruction fine-tuning with LoRA on Q/V projections
-apr finetune --task instruct --data instruct.jsonl --epochs 3 --rank 16
+apr finetune model.apr --task instruct --data instruct.jsonl --epochs 3 --rank 16
 
-# With pretrained model and custom model size
-apr finetune --task instruct --data instruct.jsonl \
-    --model-size 7B --rank 32 --learning-rate 0.0002 --epochs 5
+# QLoRA on consumer GPU (NF4 base + FP16 adapters, ~4.5 GB VRAM)
+apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
+    --data instruct.jsonl --rank 16 --vram 8 --max-seq-len 512
+
+# Multi-adapter concurrent training (GPU-SHARE)
+apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
+    --adapters-config adapters.toml
+
+# With experimental MPS (multi-process GPU sharing)
+apr finetune model.apr --task instruct --experimental-mps --gpu-share 50
 
 # Plan-only mode (shows config without training)
 apr finetune --task instruct --model-size 7B --plan
@@ -49,11 +56,22 @@ apr finetune --task instruct --model-size 7B --plan
 {"instruction": "...", "response": "...", "system": "You are...", "metadata": {"source": "depyler"}}
 ```
 
+**Adapters config format (TOML):**
+```toml
+[[adapter]]
+data = "data/corpus-a.jsonl"
+checkpoint = "checkpoints/adapter-a"
+label = "code-review"
+rank = 16
+learning_rate = 0.0002
+```
+
 **Contracts:**
 - F-INST-001: Non-empty instruction and response
 - F-INST-002: Cross-entropy loss computed only on response tokens
 - F-INST-003: Perplexity reported per epoch
 - F-INST-004: Qwen chat template (`<|im_start|>` / `<|im_end|>`)
+- GPU-SHARE-002: VRAM reservation via ledger before allocation
 
 ## 6.1.4 Full Optimization Pipeline (preview)
 

@@ -4,7 +4,7 @@
 
 **apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without an external CUDA toolkit.
 
-It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile, four shell scripts, and nine TOML configs — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
+It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile, four shell scripts, and twelve TOML configs — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
 
 ```
 apr import → apr distill → apr finetune → apr merge → apr prune → apr quantize → apr eval → apr submit
@@ -34,7 +34,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 │                    apr-leaderboard                        │
 │                                                          │
 │  Makefile           TOML configs        Shell scripts    │
-│  (orchestration)    (9 configs)         (4 scripts)      │
+│  (orchestration)    (12 configs)        (4 scripts)      │
 │                                                          │
 │  ┌──────────────── calls ─────────────────────────────┐  │
 │  │                                                     │  │
@@ -82,11 +82,13 @@ All orchestration is implemented via Makefile + shell scripts. Every `make` targ
 | **scripts/pipeline.sh** | **Working** | Parses recipe TOML, runs up to 12 stages sequentially, supports `--plan` dry-run |
 | **scripts/submit.sh** | **Working** | Exports to SafeTensors, generates model card, publishes to HF Hub with dry-run confirmation |
 | **scripts/import.sh** | **Working** | Wraps `apr import` with HF Hub reachability check and `apr check` validation |
-| **configs/models/** | **Complete** | 5 model configs (Qwen-7B, Qwen-32B, Qwen-1.5B, DeepSeek-R1-7B, Phi-4) |
-| **configs/recipes/** | **Complete** | 4 recipe configs (quick-lora, merge-alchemist, full-pipeline, sovereign-binary) |
-| **docs/** | **Updating** | Strategy spec (mdbook), being updated to reflect orchestrator architecture |
+| **configs/models/** | **Complete** | 6 model configs (Qwen-7B, Qwen-32B, Qwen-1.5B, Qwen3-8B, DeepSeek-R1-7B, Phi-4) |
+| **configs/recipes/** | **Complete** | 6 recipe configs (quick-lora, merge-alchemist, full-pipeline, sovereign-binary, instruct-finetune, qwen3-qlora) |
+| **docs/** | **Complete** | Strategy spec (mdbook), 22 sections covering full pipeline |
 
-**Quality:** All 9 TOML configs valid, all 4 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B.
+**Quality:** All 12 TOML configs valid, all 4 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B.
+
+**GPU sharing infrastructure:** 143 tests across 9 entrenar modules (VRAM guard, ledger, wait queue, profiler, MPS, cluster config, placement, coordinator, multi-adapter pipeline). See §22 for details.
 
 ## 1.5 How People Use It
 

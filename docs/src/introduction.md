@@ -1,7 +1,7 @@
 # APR Leaderboard Specification
 
-**Status:** DRAFT
-**Date:** 2026-03-01
+**Status:** ACTIVE
+**Date:** 2026-03-04
 **Authors:** APR Team
 **Oracle:** `batuta oracle` — entrenar (90% confidence for LoRA), realizar (85% for serving), trueno (80% for compute)
 
@@ -15,7 +15,9 @@
 | Line coverage | 96.2% |
 | Clippy warnings | 0 |
 | Source modules | 13 |
-| Pipeline configs | 9 (5 models + 4 recipes) |
+| Pipeline configs | 12 (6 models + 6 recipes) |
 | Provable contracts | 1 (pass-at-k, 3 proof obligations) |
+| GPU sharing tests | 143 (entrenar, 9 modules) |
+| HumanEval pass@1 | 68.90% (7B Q4K, pre-EOS-fix) |
 
 See [Implementation Status](./spec/19-implementation-status.md) for detailed tracking.
