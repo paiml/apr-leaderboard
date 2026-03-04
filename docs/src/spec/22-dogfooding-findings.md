@@ -395,10 +395,11 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 - `gpu_ledger` example registered in Cargo.toml
 - 6 unit tests for MultiAdapterPipeline (scheduling, checkpointing, shuffle determinism)
 
-**Phase 3 issues filed:**
-- GH-210: Cluster config schema + validation
-- GH-211: Job placement algorithm
-- GH-212: Checkpoint coordination + remote launch
-- GH-213: `apr train submit` + `apr cluster status` CLI
+**Phase 3 implementation (2026-03-04):**
+- GH-210: `gpu::cluster` module — ClusterConfig, NodeConfig, GpuConfig YAML schema + validation (15 tests). PR entrenar#215.
+- GH-211: `gpu::placement` module — greedy job placement with FLOPS scoring: `score = (free_vram / budget) × flops × (1/load)` (11 tests). PR entrenar#215.
+- GH-212: `gpu::coordinator` module — checkpoint polling, leaderboard ranking, SSH launch command generation (8 tests). PR entrenar#215.
+- GH-213: `apr train submit --cluster ... --adapter ...` + `apr train cluster-status` CLI commands. PR aprender#401.
+- `cluster_training` example: `cargo run --example cluster_training` demonstrates end-to-end placement + coordination.
 
-**Phase 3 depends on:** forjar SSH transport readiness. Not started.
+**Phase 3 status:** Core infrastructure implemented. SSH transport for remote nodes depends on forjar (stubs in place, returns descriptive error).
