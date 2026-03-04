@@ -40,3 +40,4 @@ model_size = "8B"
 quantize_nf4 = true
 max_seq_len = 512
 vram = 8.0
+wait_gpu = 3600  # Wait up to 1h for VRAM availability (GPU-SHARE-003)

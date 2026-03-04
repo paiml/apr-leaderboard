@@ -140,12 +140,14 @@ if $PLAN_MODE; then
                 VRAM="$(read_toml finetune.vram)"
                 TASK="$(read_toml finetune.task)"
                 MODEL_SIZE="$(read_toml finetune.model_size)"
+                WAIT_GPU="$(read_toml finetune.wait_gpu 0)"
                 EXTRA_FLAGS=""
                 [[ "$QUANTIZE_NF4" == "true" ]] || [[ "$QUANTIZE_NF4" == "True" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --quantize-nf4"
                 [[ -n "$MAX_SEQ_LEN" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --max-seq-len ${MAX_SEQ_LEN}"
                 [[ -n "$VRAM" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --vram ${VRAM}"
                 [[ -n "$TASK" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --task ${TASK}"
                 [[ -n "$MODEL_SIZE" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --model-size ${MODEL_SIZE}"
+                [[ "$WAIT_GPU" != "0" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --wait-gpu ${WAIT_GPU}"
                 echo "[finetune] apr finetune ${CURRENT} --method ${METHOD} --rank ${RANK} --learning-rate ${LR} --epochs ${EPOCHS} --data ${DATASET} --output ${OUTPUT_DIR}/${MODEL_NAME}-finetuned.apr${EXTRA_FLAGS}"
                 ;;
             align)
@@ -226,12 +228,14 @@ for stage in "${STAGES[@]}"; do
             VRAM="$(read_toml finetune.vram)"
             TASK="$(read_toml finetune.task)"
             MODEL_SIZE="$(read_toml finetune.model_size)"
+            WAIT_GPU="$(read_toml finetune.wait_gpu 0)"
             EXTRA_FLAGS=""
             [[ "$QUANTIZE_NF4" == "true" ]] || [[ "$QUANTIZE_NF4" == "True" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --quantize-nf4"
             [[ -n "$MAX_SEQ_LEN" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --max-seq-len ${MAX_SEQ_LEN}"
             [[ -n "$VRAM" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --vram ${VRAM}"
             [[ -n "$TASK" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --task ${TASK}"
             [[ -n "$MODEL_SIZE" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --model-size ${MODEL_SIZE}"
+            [[ "$WAIT_GPU" != "0" ]] && EXTRA_FLAGS="${EXTRA_FLAGS} --wait-gpu ${WAIT_GPU}"
             NEXT="${OUTPUT_DIR}/${MODEL_NAME}-finetuned.apr"
             # shellcheck disable=SC2086
             apr finetune "$CURRENT" \
