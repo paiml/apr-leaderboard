@@ -414,4 +414,12 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 - forjar#30 filed for library API integration (future optimization with ControlMaster multiplexing).
 - Zero SATD remaining in GPU modules.
 
-**Phase 3 status:** Fully implemented. 138 GPU tests pass across all modules (ledger, guard, wait, profiler, cluster, placement, coordinator, mps).
+**Spec gap fixes (2026-03-04):**
+- GH-221: `AdaptersConfigFile` TOML parsing for `--adapters-config adapters.toml` (§2.4). 4 tests. PR entrenar#224, aprender#404.
+- GH-222: `pull_best_checkpoint()` copies best adapter via local copy or SCP from SSH (§3.4). 3 tests. PR entrenar#224.
+- GH-223: `check_cluster_health()` verifies node reachability and `apr` CLI availability (§3.6). 2 tests. PR entrenar#224.
+
+**Spec status:** Complete. 143 GPU tests pass. Zero SATD. All spec sections implemented:
+- Phase 1: VRAM guard, ledger, wait queue, profiler, MPS (§1.1-1.7)
+- Phase 2: Multi-adapter pipeline, scheduling, adapters-config TOML (§2.1-2.5)
+- Phase 3: Cluster config, placement, coordinator, SSH transport, health check, checkpoint pull (§3.1-3.6)
