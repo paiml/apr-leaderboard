@@ -402,4 +402,9 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 - GH-213: `apr train submit --cluster ... --adapter ...` + `apr train cluster-status` CLI commands. PR aprender#401.
 - `cluster_training` example: `cargo run --example cluster_training` demonstrates end-to-end placement + coordination.
 
+**§1.5 MPS implementation (2026-03-04):**
+- GH-216: `gpu::mps` module — `MpsConfig`, `setup_mps_env()`, `validate_mps_config()`, `is_mps_daemon_running()` (11 tests). PR entrenar#217.
+- GH-216: `--experimental-mps` + `--gpu-share <PCT>` CLI flags wired into `apr finetune`. PR aprender#402.
+- `cluster_training` example updated with GpuCostModel (PW-01) and MPS validation demos.
+
 **Phase 3 status:** Core infrastructure implemented. SSH transport for remote nodes depends on forjar (stubs in place, returns descriptive error).
