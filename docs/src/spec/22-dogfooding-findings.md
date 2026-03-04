@@ -407,4 +407,11 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 - GH-216: `--experimental-mps` + `--gpu-share <PCT>` CLI flags wired into `apr finetune`. PR aprender#402.
 - `cluster_training` example updated with GpuCostModel (PW-01) and MPS validation demos.
 
-**Phase 3 status:** Core infrastructure implemented. SSH transport for remote nodes depends on forjar (stubs in place, returns descriptive error).
+**SSH transport implementation (2026-03-04):**
+- GH-218: Replaced SSH stub with real `std::process::Command` execution. PR entrenar#220.
+- `exec_ssh_command()`: stdin-piped scripts, `BatchMode=yes`, `ConnectTimeout=5`, `StrictHostKeyChecking=accept-new`.
+- `exec_launch()`: Spawns training jobs on local (bash -c) or remote (ssh host bash < script) nodes.
+- forjar#30 filed for library API integration (future optimization with ControlMaster multiplexing).
+- Zero SATD remaining in GPU modules.
+
+**Phase 3 status:** Fully implemented. 138 GPU tests pass across all modules (ledger, guard, wait, profiler, cluster, placement, coordinator, mps).
