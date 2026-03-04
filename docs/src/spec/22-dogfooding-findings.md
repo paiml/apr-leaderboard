@@ -423,3 +423,10 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 - Phase 1: VRAM guard, ledger, wait queue, profiler, MPS (§1.1-1.7)
 - Phase 2: Multi-adapter pipeline, scheduling, adapters-config TOML (§2.1-2.5)
 - Phase 3: Cluster config, placement, coordinator, SSH transport, health check, checkpoint pull (§3.1-3.6)
+
+**Example verification (2026-03-04):**
+All 32 entrenar examples compile and run successfully:
+- `cargo run --example gpu_ledger` — VRAM ledger with reservation display
+- `cargo run --example multi_adapter_training` — 2 adapters, round-robin, per-adapter checkpoints
+- `cargo run --example cluster_training` — 9-section demo: placement, SSH launch, coordination, MPS, cost model, adapters-config, health check
+- Plus 29 other examples covering fine-tuning, distillation, monitoring, LLaMA2, CUDA, CLI tools

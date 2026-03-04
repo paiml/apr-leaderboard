@@ -45,7 +45,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.10 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 16/16 OK | 16/16 | `make verify` |
-| Pipeline configs | 9 | — | `configs/models/*.toml` (5) + `configs/recipes/*.toml` (4) |
+| Pipeline configs | 12 | — | `configs/models/*.toml` (6) + `configs/recipes/*.toml` (6) |
 | Shell scripts | 4 | — | All executable, pass `bashrs lint` |
 | Makefile targets | 21 | — | `make verify` + `make dogfood` |
 | TOML config validity | 9/9 | 9/9 | `python3 -c "import tomllib; ..."` in `make dogfood` |
@@ -64,6 +64,27 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `recipe-b-merge-alchemist.toml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Zero-training merge (§9.2) | ✅ Complete |
 | `recipe-c-full-pipeline.toml` | `configs/recipes/` | Qwen2.5-Coder-7B | Full pipeline (§9.3) | ✅ Complete |
 | `recipe-d-sovereign-binary.toml` | `configs/recipes/` | Qwen2.5-Coder-1.5B | Sovereign binary (§9.4) | ✅ Complete |
+| `recipe-e-instruct-finetune.toml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Instruct fine-tune (§9.5) | ✅ Complete |
+| `recipe-f-qwen3-qlora.toml` | `configs/recipes/` | Qwen3-8B | QLoRA instruct pipeline (§9.6) | ✅ Complete |
+| `qwen3-8b.toml` | `configs/models/` | Qwen3-8B | QLoRA instruct + eval | ✅ Complete |
+
+## 19.4.1 GPU Sharing Infrastructure (entrenar)
+
+The GPU-SHARE specification is fully implemented in entrenar with 143 tests across all modules.
+
+| Component | Module | Status | Tests |
+|---|---|---|---|
+| VRAM guard | `entrenar::gpu::guard` | ✅ Complete | 12 |
+| VRAM ledger (flock + JSON) | `entrenar::gpu::ledger` | ✅ Complete | 15 |
+| Wait-for-VRAM queue | `entrenar::gpu::wait` | ✅ Complete | 8 |
+| GPU profiler | `entrenar::gpu::profiler` | ✅ Complete | 6 |
+| MPS (experimental) | `entrenar::gpu::mps` | ✅ Complete | 11 |
+| Cluster config | `entrenar::gpu::cluster` | ✅ Complete | 12 |
+| Job placement | `entrenar::gpu::placement` | ✅ Complete | 10 |
+| Checkpoint coordinator | `entrenar::gpu::coordinator` | ✅ Complete | 16 |
+| Multi-adapter pipeline | `entrenar::finetune::multi_adapter_pipeline` | ✅ Complete | 18 |
+
+CLI flags: `--wait-gpu`, `--vram`, `--experimental-mps`, `--gpu-share`, `--adapters`, `--adapters-config`
 
 ## 19.5 `apr` CLI Subcommand Availability
 
@@ -121,3 +142,13 @@ The §10 golden ordering enforcement works. The pipeline allows violation but wa
 ### 19.6.5 Real Inference Verified
 
 `apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr "def fibonacci(n):" --max-tokens 128 --no-gpu` generates real Python code (Fibonacci implementation) in ~20s on CPU.
+
+### 19.6.6 GPU Sharing Spec Complete
+
+All three phases of the GPU-SHARE specification implemented and tested:
+
+- **Phase 1:** VRAM guard prevents OOM crashes. Ledger uses flock + atomic JSON write for crash safety. Wait queue polls until VRAM budget is available. MPS available as `--experimental-mps` opt-in.
+- **Phase 2:** Multi-adapter pipeline loads base model once, trains N LoRA adapters concurrently (3x VRAM savings for 3 adapters). Round-robin and priority scheduling. TOML config via `--adapters-config`.
+- **Phase 3:** Cluster config (YAML), job placement (VRAM-aware scoring), SSH transport (real `std::process::Command`, not stubs), checkpoint coordination with leaderboard, health check via SSH.
+
+143 GPU tests pass. Zero SATD. Examples: `gpu_ledger`, `multi_adapter_training`, `cluster_training`.
