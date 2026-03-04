@@ -388,3 +388,17 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 ```
 
 **Status:** Phase 1 (VRAM guard + ledger) and Phase 2 (multi-adapter) functionally complete. BatchLoRA fused forward (GH-204) deferred as KAIZEN optimization.
+
+**Additional Phase 2 deliverables (2026-03-04):**
+- `batch_train_step()`: schedule-aware dispatch (Synchronized trains all adapters, RoundRobin/Priority trains one)
+- `multi_adapter_training` example: `cargo run --example multi_adapter_training -- --adapters 3 --schedule priority`
+- `gpu_ledger` example registered in Cargo.toml
+- 6 unit tests for MultiAdapterPipeline (scheduling, checkpointing, shuffle determinism)
+
+**Phase 3 issues filed:**
+- GH-210: Cluster config schema + validation
+- GH-211: Job placement algorithm
+- GH-212: Checkpoint coordination + remote launch
+- GH-213: `apr train submit` + `apr cluster status` CLI
+
+**Phase 3 depends on:** forjar SSH transport readiness. Not started.
