@@ -61,13 +61,37 @@ else
     fi
 fi
 
-# BigCodeBench (download from HuggingFace datasets)
+# BigCodeBench (download via HuggingFace datasets server API)
 BCB_FILE="${OUTPUT_DIR}/bigcodebench.jsonl"
+BCB_VERSION="v0.1.4"
+BCB_API="https://datasets-server.huggingface.co/rows"
+BCB_BATCH=100
 if [ -f "${BCB_FILE}" ]; then
     count="$(wc -l < "${BCB_FILE}")"
     printf "  %-20s %s problems (cached)\n" "BigCodeBench" "${count}"
+elif ! command -v jq >/dev/null 2>&1; then
+    printf "  %-20s skipped (jq required for JSON conversion)\n" "BigCodeBench"
 else
-    printf "  %-20s skipped (manual download from HF datasets)\n" "BigCodeBench"
+    printf "  %-20s downloading (${BCB_VERSION})...\n" "BigCodeBench"
+    TMP_BCB="$(mktemp)"
+    TMP_FILES+=("${TMP_BCB}")
+    offset=0
+    truncate -s 0 "${TMP_BCB}"
+    while true; do
+        chunk="$(curl -sf "${BCB_API}?dataset=bigcode%2Fbigcodebench&config=default&split=${BCB_VERSION}&offset=${offset}&length=${BCB_BATCH}" 2>/dev/null)" || break
+        rows="$(echo "${chunk}" | jq -c '.rows[].row' 2>/dev/null)" || break
+        [ -z "${rows}" ] && break
+        echo "${rows}" >> "${TMP_BCB}"
+        num="$(echo "${rows}" | wc -l)"
+        offset=$((offset + num))
+        [ "${num}" -lt "${BCB_BATCH}" ] && break
+    done
+    if [ "${offset}" -gt 0 ]; then
+        mv -- "${TMP_BCB}" "${BCB_FILE}"
+        printf "  %-20s %s problems\n" "BigCodeBench" "${offset}"
+    else
+        printf "  %-20s FAILED (check network)\n" "BigCodeBench"
+    fi
 fi
 
 echo ""
