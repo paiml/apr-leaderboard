@@ -22,7 +22,7 @@ Where `n` = total completions generated, `c` = number that pass all tests, `k` =
 |---|---|
 | `--samples N` | Number of benchmark problems to evaluate (0 = all) |
 | `--n-samples N` | Completions per problem (for pass@k, best-of-N selection) |
-| `--prompt-strategy S` | Prompt formatting (standard, scot, few-shot, cgo, reflexion) |
+| `--prompt-strategy S` | Prompt formatting (standard, scot, few-shot, cgo) |
 
 ## 13.2 Code Execution Sandbox
 
