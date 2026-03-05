@@ -33,6 +33,53 @@ echo "Repo:    ${REPO_ID}"
 echo "Results: ${RESULTS_DIR}"
 echo ""
 
+# Pre-submission checks (§14.4)
+echo "Pre-submission checks..."
+PREFLIGHT_PASS=true
+
+# Check 1: APR format validation
+printf "  %-40s" "apr check (format validation)"
+if apr check "$MODEL" --json > /dev/null 2>&1; then
+    echo "PASS"
+else
+    echo "FAIL"
+    PREFLIGHT_PASS=false
+fi
+
+# Check 2: pmat compliance
+printf "  %-40s" "pmat comply check --strict"
+if pmat comply check --strict > /dev/null 2>&1; then
+    echo "PASS"
+else
+    echo "FAIL"
+    PREFLIGHT_PASS=false
+fi
+
+# Check 3: Results exist
+printf "  %-40s" "evaluation results present"
+if ls "${RESULTS_DIR}"/*.json > /dev/null 2>&1; then
+    RESULT_COUNT="$(ls "${RESULTS_DIR}"/*.json 2>/dev/null | wc -l)"
+    echo "PASS (${RESULT_COUNT} result files)"
+else
+    echo "FAIL (no results in ${RESULTS_DIR}/)"
+    PREFLIGHT_PASS=false
+fi
+
+# Check 4: HF repo format
+printf "  %-40s" "repo ID format (org/model)"
+if [[ "$REPO_ID" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9._-]+$ ]]; then
+    echo "PASS"
+else
+    echo "FAIL (expected org/model format)"
+    PREFLIGHT_PASS=false
+fi
+
+echo ""
+if ! $PREFLIGHT_PASS; then
+    echo "ERROR: Pre-submission checks failed. Fix issues above before submitting."
+    exit 1
+fi
+
 # Step 1: Export to SafeTensors
 echo "Step 1: Exporting to SafeTensors..."
 apr export "$MODEL" \
