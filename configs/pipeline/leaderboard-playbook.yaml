@@ -20,6 +20,8 @@ params:
   data_dir: data
   eval_suite: configs/eval/coding-benchmarks.yaml
   seed: 42
+  gpu_count: 2                                  # Dual AMD Radeon Pro W5700X (Navi10)
+  gpu_backend: wgpu                             # Vulkan — no CUDA
 
 targets:
   lambda:
@@ -28,8 +30,13 @@ targets:
     cores: 16
     memory_gb: 64
     workdir: "/home/noah/src/apr-leaderboard"
-    env:
-      CUDA_VISIBLE_DEVICES: "0"
+    gpus:
+      - device: "/dev/dri/renderD128"           # GPU0: AMD Radeon Pro W5700X
+        vram_gb: 16
+        role: train
+      - device: "/dev/dri/renderD129"           # GPU1: AMD Radeon Pro W5700X
+        vram_gb: 16
+        role: eval
 
 stages:
   # ===============================================================
@@ -84,9 +91,9 @@ stages:
   # ===============================================================
 
   distill:
-    description: "Knowledge distillation from teacher model"
+    description: "Knowledge distillation from teacher model (GPU0)"
     cmd: >
-      {{params.apr_cli}} distill {{distill.teacher}}
+      DRI_PRIME=0 {{params.apr_cli}} distill {{distill.teacher}}
         --student {{current_checkpoint}}
         --output {{params.output_dir}}/{{model.name}}-distilled.apr
         --strategy {{distill.strategy}}
@@ -102,13 +109,13 @@ stages:
       - import-model
     target: lambda
     resources:
-      gpu: 1
-      memory_gb: 24
+      gpu: 0                                    # GPU0: renderD128
+      vram_gb: 16
 
   finetune:
-    description: "LoRA/QLoRA fine-tuning"
+    description: "LoRA/QLoRA fine-tuning (GPU0)"
     cmd: >
-      {{params.apr_cli}} finetune {{current_checkpoint}}
+      DRI_PRIME=0 {{params.apr_cli}} finetune {{current_checkpoint}}
         --method {{finetune.method}}
         --rank {{finetune.rank}}
         --learning-rate {{finetune.lr}}
@@ -125,8 +132,8 @@ stages:
       - import-model
     target: lambda
     resources:
-      gpu: 1
-      memory_gb: 24
+      gpu: 0                                    # GPU0: renderD128
+      vram_gb: 16
 
   merge:
     description: "Weight merging (SLERP/TIES)"
@@ -194,9 +201,9 @@ stages:
   # ===============================================================
 
   eval:
-    description: "Run coding benchmark evaluation suite"
+    description: "Run coding benchmark evaluation suite (GPU1 — parallel with training)"
     cmd: >
-      for bench in {{benchmarks}}; do
+      DRI_PRIME=1 for bench in {{benchmarks}}; do
         ./scripts/eval-pass-at-k.sh $bench {{current_checkpoint}} {{params.results_dir}}/ 512 0.0 1;
       done
     deps:
@@ -209,6 +216,8 @@ stages:
     after:
       - finetune
     target: lambda
+    resources:
+      gpu: 1                                    # GPU1: renderD129 (runs in parallel with GPU0 training)
 
   # ===============================================================
   # PHASE 5: Publish
@@ -237,7 +246,7 @@ stages:
   # ===============================================================
 
   prove-wgpu:
-    description: "Prove wgpu GPU training works end-to-end"
+    description: "Prove dual wgpu GPU training works end-to-end"
     cmd: "./scripts/prove-wgpu.sh"
     deps:
       - path: scripts/prove-wgpu.sh
@@ -245,6 +254,8 @@ stages:
     outs:
       - path: results/wgpu-proof.log
     target: lambda
+    resources:
+      gpu: [0, 1]                               # Test both GPUs
 
 policy:
   failure: stop_on_first

@@ -4,7 +4,7 @@
 
 # apr-leaderboard
 
-HuggingFace leaderboard pipeline for the sovereign Rust AI stack. Proves that a single `apr` binary — with zero Python, zero CUDA toolkit, zero GPU vendor lock-in — can compete on code generation benchmarks (HumanEval, MBPP, BigCodeBench). GPU compute via wgpu (Vulkan/Metal/DX12) — runs on NVIDIA, AMD, Intel, or Apple Silicon.
+HuggingFace leaderboard pipeline for the sovereign Rust AI stack. Proves that a single `apr` binary — with zero Python, zero CUDA toolkit, zero GPU vendor lock-in — can compete on code generation benchmarks (HumanEval, MBPP, BigCodeBench). Dual wgpu GPU by default (2x AMD Radeon Pro W5700X via Vulkan) — runs on any vendor.
 
 **[Read the full specification](https://paiml.github.io/apr-leaderboard/)**
 

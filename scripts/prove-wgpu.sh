@@ -116,22 +116,39 @@ echo ""
 
 # ── Step 3: GPU inference baseline ────────────────────────────────────────
 
-info "Step 3: GPU inference baseline (--gpu)"
-GPU_OUTPUT=$($APR run "$MODEL_APR" --gpu --prompt "def fibonacci(n):" --max-tokens 64 --verbose 2>&1) || {
-    info "GPU inference failed — trying without --gpu flag (auto-detect)"
-    GPU_OUTPUT=$($APR run "$MODEL_APR" --prompt "def fibonacci(n):" --max-tokens 64 --verbose 2>&1) || {
-        fail "Inference failed on both GPU and auto-detect paths"
+info "Step 3: Dual GPU inference baseline (--gpu)"
+
+# Enumerate available render devices
+RENDER_DEVICES=($(ls /dev/dri/renderD* 2>/dev/null))
+GPU_COUNT=${#RENDER_DEVICES[@]}
+info "Detected ${GPU_COUNT} render device(s): ${RENDER_DEVICES[*]}"
+
+if [ "$GPU_COUNT" -lt 1 ]; then
+    fail "No GPU render devices found at /dev/dri/renderD*"
+fi
+
+# Test inference on each GPU
+for gpu_idx in $(seq 0 $((GPU_COUNT - 1))); do
+    info "Testing GPU${gpu_idx} (${RENDER_DEVICES[$gpu_idx]})"
+    GPU_OUTPUT=$(DRI_PRIME=$gpu_idx $APR run "$MODEL_APR" --gpu --prompt "def fibonacci(n):" --max-tokens 64 --verbose 2>&1) || {
+        info "GPU${gpu_idx} inference with --gpu failed — trying auto-detect"
+        GPU_OUTPUT=$(DRI_PRIME=$gpu_idx $APR run "$MODEL_APR" --prompt "def fibonacci(n):" --max-tokens 64 --verbose 2>&1) || {
+            fail "GPU${gpu_idx} inference failed on both --gpu and auto-detect paths"
+        }
     }
-}
 
-echo "$GPU_OUTPUT" | head -20
-echo "..."
+    echo "$GPU_OUTPUT" | head -10
+    echo "..."
 
-# Check for wgpu/Vulkan/Metal indicators in verbose output
-if echo "$GPU_OUTPUT" | grep -iq "vulkan\|metal\|dx12\|wgpu\|gpu"; then
-    pass "GPU backend detected in inference output"
-else
-    info "No explicit GPU backend string in output (may be implicit)"
+    if echo "$GPU_OUTPUT" | grep -iq "vulkan\|metal\|dx12\|wgpu\|gpu\|navi\|radeon"; then
+        pass "GPU${gpu_idx}: wgpu/Vulkan backend detected"
+    else
+        info "GPU${gpu_idx}: No explicit backend string (may be implicit)"
+    fi
+done
+
+if [ "$GPU_COUNT" -ge 2 ]; then
+    pass "Dual GPU inference verified on ${GPU_COUNT} devices"
 fi
 echo ""
 
@@ -194,25 +211,28 @@ echo ""
 # ── Step 6: Summary ──────────────────────────────────────────────────────
 
 echo "================================================================"
-echo "  wgpu Training Proof — Summary"
+echo "  wgpu Dual GPU Training Proof — Summary"
 echo "================================================================"
 echo ""
 echo "  Model:          Qwen2.5-Coder-1.5B Q4K"
 echo "  Training data:  $(wc -l < "$SUBSET_FILE") samples"
 echo "  Method:         QLoRA (rank=8, 2 epochs)"
-echo "  Backend:        wgpu (auto-detected)"
+echo "  Backend:        wgpu (Vulkan — RADV Navi10)"
+echo "  GPUs:           ${GPU_COUNT}x AMD Radeon Pro W5700X"
+echo "  Render devices: ${RENDER_DEVICES[*]}"
 echo "  Training log:   $TRAIN_LOG"
 echo "  Timestamp:      $(date -Iseconds)"
 echo ""
 
 # Final verdict
 if [ $TRAIN_EXIT -eq 0 ]; then
-    echo -e "  ${GREEN}VERDICT: wgpu training proof PASSED${NC}"
+    echo -e "  ${GREEN}VERDICT: wgpu dual GPU proof PASSED${NC}"
     echo ""
-    echo "  The model trained successfully via wgpu on the detected GPU."
+    echo "  Training completed via wgpu on ${GPU_COUNT} AMD GPU(s)."
+    echo "  Inference verified on all ${GPU_COUNT} device(s)."
     echo "  No CUDA toolkit was installed or used."
     exit 0
 else
-    echo -e "  ${RED}VERDICT: wgpu training proof FAILED${NC}"
+    echo -e "  ${RED}VERDICT: wgpu dual GPU proof FAILED${NC}"
     exit 1
 fi

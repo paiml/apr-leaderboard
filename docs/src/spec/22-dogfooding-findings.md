@@ -426,23 +426,37 @@ All 32 entrenar examples compile and run successfully:
 - `cargo run --example cluster_training` — 9-section demo: placement, SSH launch, coordination, MPS, cost model, adapters-config, health check
 - Plus 29 other examples covering fine-tuning, distillation, monitoring, LLaMA2, wgpu, CLI tools
 
-## 22.14 wgpu Training Proof (Recipe G)
+## 22.14 Dual wgpu Training Proof (Recipe G)
 
-**Goal:** Prove that the entire training pipeline runs on wgpu (Vulkan/Metal/DX12) without any CUDA toolkit dependency. This is the falsifiable claim that backs the spec's "wgpu only" stance.
+**Goal:** Prove that the entire training pipeline runs on dual wgpu GPUs (Vulkan) without any CUDA toolkit dependency. This is the falsifiable claim that backs the spec's "wgpu only" stance.
 
-**Recipe:** `configs/recipes/recipe-g-wgpu-proof.toml`
+**Hardware:** 2x AMD Radeon Pro W5700X (Navi10), 16 GB VRAM each, Vulkan 1.3.255, RADV Mesa driver.
+
+```
+GPU0: /dev/dri/renderD128 — AMD Radeon Pro W5700X (RADV NAVI10)
+GPU1: /dev/dri/renderD129 — AMD Radeon Pro W5700X (RADV NAVI10)
+```
+
+**Recipe:** `configs/recipes/recipe-g-wgpu-proof.yaml`
 
 **What it proves:**
 1. `apr import` produces a checkpoint that works with wgpu inference
-2. `apr run --gpu` uses wgpu backend (not CUDA) for inference
+2. `apr run --gpu` uses wgpu/Vulkan backend on **both** GPUs (not CUDA)
 3. `apr finetune --method qlora` trains on GPU via wgpu with decreasing loss
-4. Post-training model produces valid code output
-5. No CUDA toolkit is installed or referenced at any point
+4. Inference verified independently on GPU0 and GPU1 via `DRI_PRIME`
+5. Post-training model produces valid code output
+6. No CUDA toolkit is installed or referenced at any point
+
+**Dual GPU strategy:**
+- **GPU0 (renderD128):** Training workloads (`apr finetune`, `apr distill`)
+- **GPU1 (renderD129):** Concurrent evaluation (`apr eval`, `apr run` for benchmarks)
+- Both GPUs are wgpu/Vulkan — identical driver, identical capability
+- `DRI_PRIME=0` / `DRI_PRIME=1` selects GPU for each process
 
 **How to run (parallel with other work):**
 
 ```bash
-# Foreground (interactive)
+# Foreground (interactive) — tests both GPUs
 make prove-wgpu
 
 # Background (log to file, continue other work)
@@ -450,32 +464,47 @@ make prove-wgpu 2>&1 | tee results/wgpu-proof.log &
 
 # Just the recipe pipeline
 make pipeline RECIPE=recipe-g-wgpu-proof
+
+# Manual dual GPU test
+DRI_PRIME=0 apr run checkpoints/model.apr --gpu --prompt "def fib(n):" --max-tokens 64
+DRI_PRIME=1 apr run checkpoints/model.apr --gpu --prompt "def fib(n):" --max-tokens 64
 ```
 
 **Design choices:**
 - Uses Qwen2.5-Coder-1.5B (smallest model, ~1.1 GB Q4K) for fast turnaround
 - 200 training samples (subset or synthetic) — enough to prove loss decrease
 - QLoRA rank=8, 2 epochs — minimal compute, maximum signal
-- Expected wall-clock: <30 min on any 8+ GB GPU
+- Inference tested on both GPUs independently
+- Expected wall-clock: <30 min on 16 GB GPU
 
 **Success criteria:**
-- [ ] Training completes with exit code 0
+- [ ] Vulkan enumerates 2 discrete GPUs (verified: `vulkaninfo --summary`)
+- [ ] Training completes with exit code 0 on GPU0
+- [ ] Inference works on GPU0 AND GPU1 independently
 - [ ] Loss values present in output and decreasing
-- [ ] GPU backend indicators in verbose output (Vulkan/Metal/DX12)
+- [ ] GPU backend indicators in verbose output (Vulkan/RADV/Navi)
 - [ ] No `nvcc`, `libcudart`, or CUDA toolkit referenced in process
 - [ ] `apr run --gpu` produces valid Python code post-training
 
 **Verification commands:**
 ```bash
-# Verify no CUDA toolkit on system (optional — proves clean environment)
+# Enumerate GPUs
+vulkaninfo --summary 2>&1 | grep -A5 "GPU"
+
+# Verify no CUDA toolkit on system
 ! which nvcc 2>/dev/null && echo "PASS: no nvcc found"
 
-# Check wgpu adapter
-apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr --gpu --verbose \
-    --prompt "def hello():" --max-tokens 32 2>&1 | grep -i "vulkan\|metal\|wgpu"
+# Check render devices
+ls -la /dev/dri/renderD*
+
+# Test inference on each GPU
+DRI_PRIME=0 apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr --gpu --verbose \
+    --prompt "def hello():" --max-tokens 32 2>&1 | grep -i "vulkan\|navi\|wgpu"
+DRI_PRIME=1 apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr --gpu --verbose \
+    --prompt "def hello():" --max-tokens 32 2>&1 | grep -i "vulkan\|navi\|wgpu"
 
 # Check training log for GPU usage
-grep -i "gpu\|device\|vulkan\|metal\|wgpu" results/wgpu-proof-train.log
+grep -i "gpu\|device\|vulkan\|navi\|wgpu" results/wgpu-proof-train.log
 ```
 
-**Status:** READY to run. Awaiting first execution.
+**Status:** READY to run. Dual GPU hardware confirmed. Awaiting first execution.
