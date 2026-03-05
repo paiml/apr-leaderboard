@@ -645,11 +645,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Spec accuracy: fix counts, stale refs, broken links'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T16:51:35Z
-  updated: 2026-03-05T16:51:38.915181888+00:00
+  updated: 2026-03-05T16:58:47Z
   spec: null
   acceptance_criteria:
   - Fix subcommand counts (14 verified, 50 total), Makefile target count (31), remove make prep-data-stats ghost ref, fix TOML comment, fix intro.md link
