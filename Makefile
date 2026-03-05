@@ -13,7 +13,7 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data prep-data-audit decontaminate benchmark-download \
+        prep-data prep-data-audit decontaminate data-quality benchmark-download \
         finetune finetune-instruct align merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity results-history \
         export publish model-card \
@@ -85,6 +85,11 @@ decontaminate:
 	$(APR) data decontaminate "$(DATA)" \
 		--reference data/benchmarks/humaneval.jsonl data/benchmarks/mbpp.jsonl \
 		--ngram 10 --threshold 0.5 --json
+
+data-quality:
+	@echo "=== Data Quality Gate (AC-025) ==="
+	@test -f "$(DATA)" || { echo "ERROR: DATA file not found: $(DATA)"; exit 1; }
+	$(APR) data quality "$(DATA)" --min-score 80 --json
 
 benchmark-download:
 	@echo "=== Downloading benchmark data ==="

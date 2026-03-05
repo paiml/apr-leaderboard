@@ -41,6 +41,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make import-plan` | HF Hub check + dry-run | ✅ Working | Import plan preview |
 | `make clean` | `rm -rf checkpoints/ results/` | ✅ Working | Remove build artifacts |
 | `make decontaminate` | `apr data decontaminate` | ✅ Wired | N-gram overlap gate (AC-016) |
+| `make data-quality` | `apr data quality` | ✅ Wired | Quality scoring gate (AC-025) |
 | `make qa` | `apr qa $(CHECKPOINT) --verbose` | ✅ Wired | Full model QA gate |
 | `make compare-hf` | `apr compare-hf $(CHECKPOINT) --json` | ✅ Wired | HF parity check |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | ✅ Working | Download HumanEval/MBPP data |
@@ -66,7 +67,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 7 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 37 | — | `make verify` + `make validate` + `make dogfood` |
+| Makefile targets | 38 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 

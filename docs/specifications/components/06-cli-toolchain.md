@@ -120,6 +120,7 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make import-plan` | HF Hub check + dry-run | Import plan preview |
 | `make prep-data-audit` | `apr data audit --verbose` | Detailed corpus audit |
 | `make decontaminate` | `apr data decontaminate` | N-gram overlap gate (AC-016) |
+| `make data-quality` | `apr data quality` | Quality scoring gate (AC-025) |
 | `make qa` | `apr qa --verbose` | Full model QA gate |
 | `make compare-hf` | `apr compare-hf --json` | HF parity check |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | Download HumanEval/MBPP data |
