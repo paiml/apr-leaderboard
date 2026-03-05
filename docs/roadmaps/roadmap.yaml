@@ -27,11 +27,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Build code execution sandbox for pass@k evaluation
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-02-28T18:40:42Z
-  updated: 2026-02-28T18:40:42Z
+  updated: 2026-03-05T18:45:25Z
   spec: null
   acceptance_criteria:
   - '§5.3 — HumanEval/MBPP require executing generated code against test cases. v1: external EvalPlus harness (apr eval --output-completions → evalplus.evaluate). Stretch: WASM sandbox via wasmtime (apr eval --sandbox wasm --timeout 10s). Without this, we can only measure perplexity, not pass@k. Decision: Option A (external) for v1.0, Option B (WASM) as stretch.'
@@ -710,11 +710,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Strengthen verify/dogfood + add missing Makefile targets (qa, compare-hf, benchmark-download)
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T18:30:31Z
-  updated: 2026-03-05T18:30:35.596359993+00:00
+  updated: 2026-03-05T18:42:26Z
   spec: null
   acceptance_criteria: []
   phases: []
