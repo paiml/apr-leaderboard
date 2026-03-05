@@ -123,6 +123,7 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make qa` | `apr qa --verbose` | Full model QA gate |
 | `make compare-hf` | `apr compare-hf --json` | HF parity check |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | Download HumanEval/MBPP data |
+| `make results-history` | `scripts/results-history.sh` | View and compare eval results |
 | `make clean` | `rm -rf checkpoints/ results/` | Remove build artifacts |
 | `make book` | `mdbook build` | Build specification book |
 | `make docs` | `mdbook build` | Alias for book |

@@ -44,6 +44,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make qa` | `apr qa $(CHECKPOINT) --verbose` | ✅ Wired | Full model QA gate |
 | `make compare-hf` | `apr compare-hf $(CHECKPOINT) --json` | ✅ Wired | HF parity check |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | ✅ Working | Download HumanEval/MBPP data |
+| `make results-history` | `scripts/results-history.sh` | ✅ Working | View and compare eval results |
 
 ## 19.2 Shell Scripts
 
@@ -55,6 +56,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `scripts/import.sh` | Wrapper around `apr import` with HF Hub reachability check + `apr check` validation | ✅ Working |
 | `scripts/prove-wgpu.sh` | End-to-end wgpu training proof: import → train (QLoRA) → verify → report | ✅ Working |
 | `scripts/download-benchmarks.sh` | Download HumanEval/MBPP benchmark data for eval + decontamination | ✅ Working |
+| `scripts/results-history.sh` | View and compare evaluation results with filtering by benchmark/model | ✅ Working |
 
 ## 19.3 Quality Metrics
 
@@ -63,8 +65,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `apr` CLI version | 0.4.10 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
-| Shell scripts | 6 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 36 | — | `make verify` + `make validate` + `make dogfood` |
+| Shell scripts | 7 | — | All executable, pass `bashrs lint` |
+| Makefile targets | 37 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 

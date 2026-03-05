@@ -15,7 +15,7 @@
 .PHONY: import import-plan \
         prep-data prep-data-audit decontaminate benchmark-download \
         finetune finetune-instruct align merge prune quantize distill compile \
-        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity \
+        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity results-history \
         export publish model-card \
         pipeline pipeline-plan \
         check inspect qa compare-hf verify dogfood validate clean \
@@ -196,6 +196,9 @@ eval-all:
 eval-perplexity:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
 	$(APR) eval "$(CHECKPOINT)" --dataset wikitext-2 --json
+
+results-history:
+	./scripts/results-history.sh "$(RESULTS_DIR)"
 
 # -- Submission ------------------------------------------------------------------
 
