@@ -115,6 +115,11 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make pipeline-plan` | `scripts/pipeline.sh --plan` | Dry-run: validate config, show commands |
 | `make verify` | smoke-tests all `apr` subcommands | Validate `apr` CLI installation |
 | `make dogfood` | CLI + config validation | End-to-end smoke test |
+| `make validate` | `bashrs config lint` + `bashrs lint` | Lint all configs + scripts |
+| `make prove-wgpu` | `scripts/prove-wgpu.sh` | wgpu GPU training proof |
+| `make import-plan` | HF Hub check + dry-run | Import plan preview |
+| `make prep-data-audit` | `apr data audit --verbose` | Detailed corpus audit |
+| `make clean` | `rm -rf checkpoints/ results/` | Remove build artifacts |
 | `make book` | `mdbook build` | Build specification book |
 | `make docs` | `mdbook build` | Alias for book |
 | `make docs-serve` | `mdbook serve` | Local book preview |
