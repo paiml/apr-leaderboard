@@ -1,0 +1,46 @@
+# configs/models/phi-4.yaml — Phi-4 architecture diversity target
+#
+# Strategy: LoRA finetune -> eval across full benchmark suite.
+# Focus: Architecture diversity, 14B parameter sweet spot.
+#
+# Usage:
+#   make import MODEL=microsoft/phi-4
+
+model:
+  id: "microsoft/phi-4"
+  family: phi
+  params: 14B
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: open-llm-leaderboard
+
+benchmarks:
+  - humaneval
+  - humaneval-plus
+  - mbpp
+  - mbpp-plus
+  - bigcodebench
+  - multipl-e
+  - crux-eval
+
+finetune:
+  method: lora
+  dataset: "data/code-instruct.jsonl"
+  rank: 32
+  lr: 2.0e-4
+  epochs: 5
+
+quantize:
+  scheme: int8
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "gradient_norm"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "phi-4-lora"
+    tags:
+      model: "phi-4"
+      method: "lora"

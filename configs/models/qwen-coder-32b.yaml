@@ -1,0 +1,25 @@
+# configs/models/qwen-coder-32b.yaml — Qwen2.5-Coder-32B evaluation-only
+#
+# Largest model in the evaluation suite. Q8 quantized for inference.
+# No finetune — evaluate base model first, then decide on optimization.
+#
+# Usage:
+#   make import MODEL=Qwen/Qwen2.5-Coder-32B
+
+model:
+  id: "Qwen/Qwen2.5-Coder-32B"
+  family: qwen2.5-coder
+  params: 32B
+  output_dir: checkpoints
+  quantization: q8
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - humaneval-plus
+  - mbpp
+  - mbpp-plus
+  - bigcodebench
+  - livecodebench
+  - multipl-e
+  - crux-eval

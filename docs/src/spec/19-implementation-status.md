@@ -23,21 +23,24 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make export` | `apr export $(CHECKPOINT) --format safetensors` | ✅ Wired | SafeTensors/GGUF/MLX/ONNX |
 | `make publish` | `scripts/submit.sh $(CHECKPOINT) $(HF_REPO)` | ✅ Working | Dry-run + confirm + HF Hub upload |
 | `make model-card` | `apr eval $(CHECKPOINT) --generate-card --json` | ✅ Wired | Model card generation |
-| `make pipeline` | `scripts/pipeline.sh configs/recipes/$(RECIPE).toml` | ✅ Working | Config-driven multi-stage pipeline |
+| `make pipeline` | `scripts/pipeline.sh configs/recipes/$(RECIPE).yaml` | ✅ Working | Config-driven multi-stage pipeline (YAML-first) |
 | `make pipeline-plan` | `scripts/pipeline.sh --plan ...` | ✅ Working | Dry-run: validate config, show commands |
+| `make validate` | `bashrs config lint` + `bashrs lint` + `bashrs make lint` | ✅ Working | Sovereign stack config validation (zero Python) |
 | `make check` | `apr check $(CHECKPOINT) --json` | ✅ Working | APR file integrity validation |
 | `make inspect` | `apr inspect $(CHECKPOINT)` | ✅ Working | Model inspection |
 | `make verify` | Smoke-tests all `apr` subcommands | ✅ Working | 16 subcommands verified |
 | `make dogfood` | End-to-end smoke test | ✅ Working | CLI + configs validated |
+| `make prove-wgpu` | `scripts/prove-wgpu.sh` | ✅ Working | wgpu training proof (§22.14) |
 
 ## 19.2 Shell Scripts
 
 | Script | Purpose | Status |
 |---|---|---|
 | `scripts/eval-pass-at-k.sh` | Download benchmark → generate completions via `apr run` → sandbox execute → compute pass@k → write JSON | ✅ Working |
-| `scripts/pipeline.sh` | Parse recipe TOML → determine stages → execute sequentially (or `--plan` dry-run) | ✅ Working |
+| `scripts/pipeline.sh` | Parse recipe YAML (bash-native) → determine stages → execute sequentially (or `--plan` dry-run) | ✅ Working |
 | `scripts/submit.sh` | Export to SafeTensors → generate model card → dry-run → publish to HF Hub | ✅ Working |
 | `scripts/import.sh` | Wrapper around `apr import` with HF Hub reachability check + `apr check` validation | ✅ Working |
+| `scripts/prove-wgpu.sh` | End-to-end wgpu training proof: import → train (QLoRA) → verify → report | ✅ Working |
 
 ## 19.3 Quality Metrics
 
@@ -45,28 +48,33 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.10 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 16/16 OK | 16/16 | `make verify` |
-| Pipeline configs | 12 | — | `configs/models/*.toml` (6) + `configs/recipes/*.toml` (6) |
-| Shell scripts | 4 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 21 | — | `make verify` + `make dogfood` |
-| TOML config validity | 9/9 | 9/9 | `python3 -c "import tomllib; ..."` in `make dogfood` |
+| YAML configs | 19 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) + legacy TOML (13) |
+| Shell scripts | 5 | — | All executable, pass `bashrs lint` |
+| Makefile targets | 22 | — | `make verify` + `make validate` + `make dogfood` |
+| Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
 ## 19.4 Config Templates (§4)
 
 | Config | Location | Model | Strategy | Status |
 |---|---|---|---|---|
-| `qwen-coder-7b.toml` | `configs/models/` | Qwen2.5-Coder-7B | LoRA finetune → eval | ✅ Complete |
-| `qwen-coder-32b.toml` | `configs/models/` | Qwen2.5-Coder-32B | Eval only (q8) | ✅ Complete |
-| `qwen-coder-1.5b.toml` | `configs/models/` | Qwen2.5-Coder-1.5B | QLoRA → prune → INT4 → compile | ✅ Complete |
-| `deepseek-r1-distill-7b.toml` | `configs/models/` | DeepSeek-R1-Distill-Qwen-7B | DPO align → prune → INT4 | ✅ Complete |
-| `phi-4.toml` | `configs/models/` | Phi-4 | LoRA finetune → INT8 | ✅ Complete |
-| `recipe-a-quick-lora.toml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Quick LoRA (§9.1) | ✅ Complete |
-| `recipe-b-merge-alchemist.toml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Zero-training merge (§9.2) | ✅ Complete |
-| `recipe-c-full-pipeline.toml` | `configs/recipes/` | Qwen2.5-Coder-7B | Full pipeline (§9.3) | ✅ Complete |
-| `recipe-d-sovereign-binary.toml` | `configs/recipes/` | Qwen2.5-Coder-1.5B | Sovereign binary (§9.4) | ✅ Complete |
-| `recipe-e-instruct-finetune.toml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Instruct fine-tune (§9.5) | ✅ Complete |
-| `recipe-f-qwen3-qlora.toml` | `configs/recipes/` | Qwen3-8B | QLoRA instruct pipeline (§9.6) | ✅ Complete |
-| `qwen3-8b.toml` | `configs/models/` | Qwen3-8B | QLoRA instruct + eval | ✅ Complete |
+| `qwen-coder-7b.yaml` | `configs/models/` | Qwen2.5-Coder-7B | LoRA finetune → eval | ✅ Complete |
+| `qwen-coder-32b.yaml` | `configs/models/` | Qwen2.5-Coder-32B | Eval only (q8) | ✅ Complete |
+| `qwen-coder-1.5b.yaml` | `configs/models/` | Qwen2.5-Coder-1.5B | QLoRA → prune → INT4 → compile | ✅ Complete |
+| `deepseek-r1-distill-7b.yaml` | `configs/models/` | DeepSeek-R1-Distill-Qwen-7B | DPO align → prune → INT4 | ✅ Complete |
+| `phi-4.yaml` | `configs/models/` | Phi-4 | LoRA finetune → INT8 | ✅ Complete |
+| `qwen3-8b.yaml` | `configs/models/` | Qwen3-8B | QLoRA instruct + eval | ✅ Complete |
+| `recipe-a-quick-lora.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Quick LoRA (§9.1) | ✅ Complete |
+| `recipe-b-merge-alchemist.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Zero-training merge (§9.2) | ✅ Complete |
+| `recipe-c-full-pipeline.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B | Full pipeline (§9.3) | ✅ Complete |
+| `recipe-d-sovereign-binary.yaml` | `configs/recipes/` | Qwen2.5-Coder-1.5B | Sovereign binary (§9.4) | ✅ Complete |
+| `recipe-e-instruct-finetune.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Instruct fine-tune (§9.5) | ✅ Complete |
+| `recipe-f-qwen3-qlora.yaml` | `configs/recipes/` | Qwen3-8B | QLoRA instruct pipeline (§9.6) | ✅ Complete |
+| `recipe-g-wgpu-proof.yaml` | `configs/recipes/` | Qwen2.5-Coder-1.5B | wgpu training proof (§22.14) | ✅ Complete |
+| `coding-benchmarks.yaml` | `configs/eval/` | — | Benchmark suite definitions + targets + baselines | ✅ Complete |
+| `leaderboard.yaml` | `configs/pipeline/` | — | Forjar infrastructure manifest | ✅ Complete |
+| `leaderboard-playbook.yaml` | `configs/pipeline/` | — | Batuta playbook DAG | ✅ Complete |
+| `data_catalog.yaml` | root | — | Data governance, lineage, classification | ✅ Complete |
 
 ## 19.4.1 GPU Sharing Infrastructure (entrenar)
 
@@ -122,9 +130,9 @@ SafeTensors imports produce F16/BF16 tensors that realizar cannot run inference 
 | SafeTensors (F16) | F (3/100) | Fails | "Fused matmul only supports Q4_0/Q8_0/Q4_K/Q5_K/Q6_K, got type 30" |
 | GGUF (Q4_K_M) | B+ (85/100) | Works | 10/10 validation stages, real code generation |
 
-### 19.6.2 GPU Inference Gap
+### 19.6.2 GPU Inference Status
 
-realizar CUDA path panics with shape mismatch on Qwen2.5-Coder-1.5B: `range end index 1536 out of range for slice of length 1024`. CPU inference with `--no-gpu` works. This is an upstream realizar issue.
+GPU inference uses wgpu (Vulkan/Metal/DX12) for vendor-agnostic compute. Historical CUDA path has been replaced. CPU inference with `--no-gpu` is always available as a fallback.
 
 ### 19.6.3 `apr serve` for .apr Files
 

@@ -1,0 +1,39 @@
+# configs/models/qwen3-8b.yaml — Qwen3-8B QLoRA fine-tuning
+#
+# Base model (not Instruct) — QLoRA on base + instruct data avoids
+# double-instruction-tuning and gives cleaner signal.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-f-qwen3-qlora
+#   make import MODEL=Qwen/Qwen3-8B
+
+model:
+  id: "Qwen/Qwen3-8B"
+  family: qwen3
+  params: 8B
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - bigcodebench
+
+finetune:
+  method: qlora
+  dataset: "data/instruct-corpus.jsonl"
+  rank: 16
+  lr: 2.0e-4
+  epochs: 3
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "gradient_norm"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "qwen3-8b-qlora"
+    tags:
+      model: "qwen3-8b"
+      method: "qlora"

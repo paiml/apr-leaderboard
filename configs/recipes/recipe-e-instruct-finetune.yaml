@@ -1,0 +1,47 @@
+# Recipe E: "Instruct LoRA" — finetune on ground truth corpora for BigCodeBench.
+#
+# Pipeline: import (Q4K) -> prep-data -> finetune (instruct) -> eval
+#
+# Uses 15.5K instruction/response pairs extracted from depyler, hf-gtc,
+# jax-gtc, and vllm-gtc ground truth corpora via AST parsing.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-e-instruct-finetune
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  output_dir: checkpoints
+  quantization: q4k
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - bigcodebench
+
+stages:
+  - import
+  - prep-data
+  - finetune
+  - eval
+
+finetune:
+  method: lora
+  task: instruct
+  dataset: "data/instruct-corpus.jsonl"
+  rank: 16
+  lr: 2.0e-4
+  epochs: 3
+  model_size: "7B"
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "instruct-lora-7b"
+    tags:
+      model: "qwen-coder-7b-instruct"
+      method: "instruct-lora"
+      data: "ground-truth-corpora"

@@ -76,8 +76,8 @@ if [[ ! -f "${EXPORT_DIR}/README.md" ]]; then
             echo "| Benchmark | pass@1 |"
             echo "|-----------|--------|"
             for f in "${RESULTS_DIR}"/*.json; do
-                bench="$(python3 -c "import json; d=json.load(open('$f')); print(d.get('benchmark',''))" 2>/dev/null || true)"
-                score="$(python3 -c "import json; d=json.load(open('$f')); print(d.get('results',{}).get('pass_at_1','N/A'))" 2>/dev/null || true)"
+                bench="$(jq -r '.benchmark // ""' < "$f" 2>/dev/null || true)"
+                score="$(jq -r '.results.pass_at_1 // "N/A"' < "$f" 2>/dev/null || true)"
                 if [[ -n "$bench" ]]; then
                     echo "| ${bench} | ${score}% |"
                 fi

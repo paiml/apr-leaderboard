@@ -1,0 +1,38 @@
+# Recipe B: "The Merge Alchemist" — zero training compute.
+#
+# Pipeline: import -> TIES merge -> structured prune -> quantize -> eval
+# No GPU training. Pure weight manipulation for best score.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-b-merge-alchemist
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - humaneval-plus
+  - mbpp
+
+stages:
+  - import
+  - merge
+  - prune
+  - quantize
+  - eval
+
+merge:
+  models: ["checkpoints/reasoning-variant.apr"]
+  strategy: ties
+  base_model: "checkpoints/qwen_qwen2.5-coder-7b.apr"
+  density: 0.2
+
+prune:
+  method: structured
+  target_ratio: 0.15
+
+quantize:
+  scheme: q4k

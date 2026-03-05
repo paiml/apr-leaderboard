@@ -19,7 +19,7 @@ epic: "APR-LEADERBOARD"
 
 ### 1.1 Purpose
 
-**apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without an external CUDA toolkit.
+**apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without any CUDA toolkit or GPU vendor lock-in.
 
 It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer (~1,400 lines of Rust) that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
 
@@ -38,7 +38,7 @@ This repo exists to answer one falsifiable question:
 If the answer is yes, it proves:
 1. **aprender** can import, infer, and evaluate HuggingFace models via the `.apr` format
 2. **entrenar** can fine-tune those models with LoRA/QLoRA using its own autograd engine
-3. **trueno** can run transformer attention at competitive throughput via SIMD/PTX
+3. **trueno** can run transformer attention at competitive throughput via SIMD (CPU) and wgpu (any GPU)
 4. The full distill → finetune → merge → prune → quantize pipeline works end-to-end in pure Rust
 5. **provable-contracts** kernel verification (Kani bounded model checking) doesn't prevent competitive performance — correctness and speed coexist
 
@@ -65,7 +65,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 │  │                                                   │  │  │
 │  │  ┌─────────┐  ┌──────────┐  ┌─────────┐         │  │  │
 │  │  │ entrenar│  │  trueno   │  │provable │         │  │  │
-│  │  │ LoRA    │  │  SIMD/PTX │  │contracts│         │  │  │
+│  │  │ LoRA    │  │  SIMD     │  │contracts│         │  │  │
 │  │  │ QLoRA   │  │  AVX2     │  │ Kani    │         │  │  │
 │  │  │ AdamW   │  │  wgpu GPU │  │ L1-L4   │         │  │  │
 │  │  │ autograd│  │  Q4K/Q6K  │  │ proofs  │         │  │  │
@@ -164,11 +164,11 @@ The spec (this document) is the experimental protocol. The recipes in §9 are re
 
 ## 2. Thesis
 
-The Python ML ecosystem requires 200+ dependencies, GPU-locked CUDA toolchains, and multi-GB Docker images to compete on HuggingFace leaderboards. We will demonstrate that a single-binary Rust pipeline — using only `apr` CLI commands — can match or exceed these results with zero Python, zero external CUDA toolkit (trueno generates PTX natively), and 10x smaller deployment artifacts.
+The Python ML ecosystem requires 200+ dependencies, vendor-locked CUDA toolchains, and multi-GB Docker images to compete on HuggingFace leaderboards. We will demonstrate that a single-binary Rust pipeline — using only `apr` CLI commands — can match or exceed these results with zero Python, zero CUDA toolkit, zero vendor lock-in, and 10x smaller deployment artifacts.
 
 **Constraint:** Every optimization step must be expressible as an `apr` subcommand. No Python. No notebooks. No HuggingFace Transformers library. Pure sovereign stack.
 
-**Compute reality:** GPU hardware is recommended for training-phase techniques (distillation, fine-tuning). Inference-only techniques (merging, quantization) and small-model inference (≤7B quantized) run on CPU via trueno SIMD (AVX2/NEON). The "zero CUDA" claim means no `nvcc`, no `libcudart`, no CUDA toolkit install — trueno's PTX backend generates GPU kernels in pure Rust.
+**Compute reality:** GPU hardware is recommended for training-phase techniques (distillation, fine-tuning). Inference-only techniques (merging, quantization) and small-model inference (≤7B quantized) run on CPU via trueno SIMD (AVX2/NEON). GPU compute uses **wgpu** — the cross-platform GPU abstraction over Vulkan, Metal, and DX12. No `nvcc`, no `libcudart`, no CUDA toolkit, no vendor lock-in. Training and inference run on any GPU: NVIDIA, AMD, Intel Arc, or Apple Silicon (Metal).
 
 ## 3. Target Leaderboards & Competitive Thresholds
 
@@ -399,7 +399,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | Pruning | Wanda, SparseGPT, structured | **aprender** 0.27 | ✅ Complete | `apr prune` — 6 methods |
 | Quantization | INT4, INT8, Q4K, Q6K | **aprender** 0.27 | ✅ Complete | `apr quantize` — 4 formats |
 | SIMD tensor ops | AVX2, AVX-512, NEON matmul | **trueno** 0.16 | ✅ Complete | 6% faster than NumPy at 256×256 |
-| GPU compute | PTX generation, wgpu | **trueno** 0.16 | ✅ Complete | Pure Rust, no nvcc |
+| GPU compute | wgpu (Vulkan/Metal/DX12) | **trueno** 0.16 | ✅ Complete | Pure Rust, any GPU vendor, no CUDA |
 | Speculative decoding | Draft model + verification | **realizar** 0.8 | ✅ Complete | `apr run --speculative` |
 | KV cache management | PagedAttention, CoW | **realizar** 0.8 | ✅ Complete | vLLM-style paged KV |
 | Data loading | Parquet, JSONL, Arrow, HF Hub | **alimentar** 0.2 | ✅ Complete | Zero-copy Arrow RecordBatches |
@@ -745,7 +745,7 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 | 262 proof obligations | none | **provable-contracts** | ✅ **Unique** |
 | Compliance enforcement | none | **pmat comply** 30+ checks | ✅ **Unique** |
 | Deterministic builds | pip/conda chaos | Cargo.lock | ✅ **Unique** |
-| Pure Rust PTX generation | requires nvcc | **trueno** pure Rust | ✅ **Unique** |
+| wgpu GPU compute (any vendor) | requires CUDA toolkit | **trueno** wgpu (Vulkan/Metal/DX12) | ✅ **Unique** |
 | Format-agnostic conversion | not supported | **aprender** `apr rosetta` | ✅ **Unique** |
 | Model diff/forensics | not supported | **aprender** `apr diff`, `apr hex` | ✅ **Unique** |
 | 10-stage integrity check | not supported | **aprender** `apr check` | ✅ **Unique** |
@@ -1422,7 +1422,7 @@ apr run model.apr --speculative --draft-model-path draft.apr --speculation-k 6 \
 apr bench model.apr --speculative --speculation-k 4 --json
 ```
 
-**Implementation status:** Speculative decoding EXISTS in aprender (`generate_speculative_with_draft`, `generate_speculative_cuda`). CLI flags `--speculative`, `--speculation-k`, `--draft-model-path` are available.
+**Implementation status:** Speculative decoding EXISTS in aprender (`generate_speculative_with_draft`, `generate_speculative_wgpu`). CLI flags `--speculative`, `--speculation-k`, `--draft-model-path` are available.
 
 **Expected gain:** 2-3x throughput improvement for code generation tasks. No quality change (output distribution is mathematically identical).
 
@@ -1777,7 +1777,7 @@ apr compile tiny.apr \
 ./qwen-coder "def fibonacci(n):"
 ```
 
-**Size estimates:** 1.5B INT4 ≈ 800MB, 7B INT4 ≈ 4GB, 32B INT4 ≈ 17GB. Still dramatically smaller than Docker + Python + CUDA runtime images (typically 10-20GB for a 7B setup).
+**Size estimates:** 1.5B INT4 ≈ 800MB, 7B INT4 ≈ 4GB, 32B INT4 ≈ 17GB. Still dramatically smaller than Docker + Python + GPU runtime images (typically 10-20GB for a 7B setup).
 
 **This is the marketing win:** While competitors need `pip install transformers torch accelerate bitsandbytes`, we ship `./qwen-coder`.
 
@@ -1908,14 +1908,14 @@ Rationale:
 | Aspect | Python Ecosystem | `apr` CLI |
 |--------|-----------------|-----------|
 | Dependencies | transformers, torch, accelerate, bitsandbytes, peft, trl, vllm | Single binary |
-| Setup time | 30-60 min (CUDA toolkit, conda, pip conflicts) | 0 min (`cargo install apr-cli`, trueno generates PTX natively) |
+| Setup time | 30-60 min (CUDA toolkit, conda, pip conflicts) | 0 min (`cargo install apr-cli`, wgpu auto-detects any GPU) |
 | Merge | 50-line Python script | `apr merge --strategy slerp` |
 | Prune | 100+ lines, custom hooks | `apr prune --method wanda` |
 | LoRA | peft + trl + custom training loop | `apr finetune --method lora` |
 | Distill | Custom training loop, 200+ lines | `apr distill --strategy progressive` |
 | Quantize | bitsandbytes or GPTQ, GPU required | `apr quantize --scheme int4` |
 | Reproducibility | requirements.txt + CUDA version + random seeds | Deterministic Rust binary |
-| Deployment | Docker + CUDA runtime + Python | `apr compile → single binary` |
+| Deployment | Docker + CUDA runtime + Python | `apr compile → single binary` (runs on any GPU) |
 | CI/CD | Complex, flaky GPU runners | `cargo test` on any machine |
 | Auditability | Opaque Python state | `apr check` — 10-stage integrity pipeline |
 | Correctness | pytest + hope | `pv proof-status` — Kani bounded model checking, 262 proof obligations |
@@ -2127,7 +2127,7 @@ Before `apr-leaderboard submit`:
 | Total binary size (compiled, 7B INT4) | < 5GB | < 4GB | 3.5GB weights + runtime |
 | Wall-clock (import → submit) | < 24h (GPU) | < 8h (GPU) | CPU-only: much longer |
 | Python dependencies | 0 | 0 | External sandbox for eval only |
-| CUDA toolkit | Not required | Not required | trueno PTX generation handles GPU |
+| CUDA toolkit | Not required | Not required | wgpu handles GPU compute (any vendor) |
 | GPU hardware | Recommended | Optional (≤7B) | Required for distill/finetune 32B teacher |
 
 ### 15.3 Quality Metrics

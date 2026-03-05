@@ -1,0 +1,260 @@
+# configs/pipeline/leaderboard-playbook.yaml — Batuta playbook
+#
+# Deterministic YAML pipeline with BLAKE3 caching.
+# Defines the full leaderboard pipeline DAG: import -> optimize -> eval -> publish.
+#
+# Usage:
+#   batuta playbook validate configs/pipeline/leaderboard-playbook.yaml
+#   batuta playbook run configs/pipeline/leaderboard-playbook.yaml
+#   batuta playbook run configs/pipeline/leaderboard-playbook.yaml --recipe recipe-a-quick-lora
+#   batuta playbook status configs/pipeline/leaderboard-playbook.yaml
+
+version: "1.0"
+name: apr-leaderboard-playbook
+description: "Coding leaderboard evaluation + model optimization — full pipeline DAG"
+
+params:
+  apr_cli: apr
+  output_dir: checkpoints
+  results_dir: results
+  data_dir: data
+  eval_suite: configs/eval/coding-benchmarks.yaml
+  seed: 42
+
+targets:
+  lambda:
+    host: "lambda"
+    ssh_user: "noah"
+    cores: 16
+    memory_gb: 64
+    workdir: "/home/noah/src/apr-leaderboard"
+    env:
+      CUDA_VISIBLE_DEVICES: "0"
+
+stages:
+  # ===============================================================
+  # PHASE 0: Validate
+  # ===============================================================
+
+  validate-configs:
+    description: "Validate all YAML configs (bashrs — zero Python)"
+    cmd: >
+      for f in configs/models/*.yaml configs/recipes/*.yaml configs/eval/*.yaml configs/pipeline/*.yaml data_catalog.yaml; do
+        bashrs config lint "$f" || exit 1;
+      done && echo "All YAML configs valid"
+    deps:
+      - path: configs/models/*.yaml
+      - path: configs/recipes/*.yaml
+      - path: configs/eval/coding-benchmarks.yaml
+    outs:
+      - path: state/validation/configs.log
+
+  # ===============================================================
+  # PHASE 1: Data preparation
+  # ===============================================================
+
+  prep-data:
+    description: "Prepare and audit instruction data (alimentar + apr data)"
+    cmd: "apr data audit {{params.data_dir}}/instruct-corpus.jsonl --verbose"
+    deps:
+      - path: "{{params.data_dir}}/instruct-corpus.jsonl"
+    outs:
+      - path: data/instruct-corpus.jsonl
+    after:
+      - validate-configs
+    target: lambda
+
+  # ===============================================================
+  # PHASE 2: Import models from HuggingFace
+  # ===============================================================
+
+  import-model:
+    description: "Import model from HuggingFace Hub"
+    cmd: "{{params.apr_cli}} import hf://{{model.id}} -o {{params.output_dir}}/{{model.name}}.apr --quantize {{model.quantization}} --verbose"
+    deps:
+      - path: configs/models/*.yaml
+    outs:
+      - path: "{{params.output_dir}}/{{model.name}}.apr"
+    after:
+      - validate-configs
+    target: lambda
+
+  # ===============================================================
+  # PHASE 3: Optimization (recipe-dependent stages)
+  # ===============================================================
+
+  distill:
+    description: "Knowledge distillation from teacher model"
+    cmd: >
+      {{params.apr_cli}} distill {{distill.teacher}}
+        --student {{current_checkpoint}}
+        --output {{params.output_dir}}/{{model.name}}-distilled.apr
+        --strategy {{distill.strategy}}
+        --temperature {{distill.temperature}}
+        --alpha {{distill.alpha}}
+        --verbose
+    deps:
+      - path: "{{distill.teacher}}"
+      - path: "{{current_checkpoint}}"
+    outs:
+      - path: "{{params.output_dir}}/{{model.name}}-distilled.apr"
+    after:
+      - import-model
+    target: lambda
+    resources:
+      gpu: 1
+      memory_gb: 24
+
+  finetune:
+    description: "LoRA/QLoRA fine-tuning"
+    cmd: >
+      {{params.apr_cli}} finetune {{current_checkpoint}}
+        --method {{finetune.method}}
+        --rank {{finetune.rank}}
+        --learning-rate {{finetune.lr}}
+        --epochs {{finetune.epochs}}
+        --data {{finetune.dataset}}
+        --output {{params.output_dir}}/{{model.name}}-finetuned.apr
+        --verbose
+    deps:
+      - path: "{{current_checkpoint}}"
+      - path: "{{finetune.dataset}}"
+    outs:
+      - path: "{{params.output_dir}}/{{model.name}}-finetuned.apr"
+    after:
+      - import-model
+    target: lambda
+    resources:
+      gpu: 1
+      memory_gb: 24
+
+  merge:
+    description: "Weight merging (SLERP/TIES)"
+    cmd: >
+      {{params.apr_cli}} merge {{current_checkpoint}} {{merge.models}}
+        --strategy {{merge.strategy}}
+        --output {{params.output_dir}}/{{model.name}}-merged.apr
+        --verbose
+    deps:
+      - path: "{{current_checkpoint}}"
+    outs:
+      - path: "{{params.output_dir}}/{{model.name}}-merged.apr"
+    after:
+      - finetune
+    target: lambda
+
+  prune:
+    description: "Weight pruning (Wanda/magnitude/structured)"
+    cmd: >
+      {{params.apr_cli}} prune {{current_checkpoint}}
+        --method {{prune.method}}
+        --target-ratio {{prune.target_ratio}}
+        --output {{params.output_dir}}/{{model.name}}-pruned.apr
+        --verbose
+    deps:
+      - path: "{{current_checkpoint}}"
+    outs:
+      - path: "{{params.output_dir}}/{{model.name}}-pruned.apr"
+    after:
+      - merge
+    target: lambda
+
+  quantize:
+    description: "Post-training quantization"
+    cmd: >
+      {{params.apr_cli}} quantize {{current_checkpoint}}
+        --scheme {{quantize.scheme}}
+        --output {{params.output_dir}}/{{model.name}}-{{quantize.scheme}}.apr
+        --verbose
+    deps:
+      - path: "{{current_checkpoint}}"
+    outs:
+      - path: "{{params.output_dir}}/{{model.name}}-{{quantize.scheme}}.apr"
+    after:
+      - prune
+    target: lambda
+
+  compile:
+    description: "Compile model to sovereign binary"
+    cmd: >
+      {{params.apr_cli}} compile {{current_checkpoint}}
+        --output {{params.output_dir}}/{{compile.output}}
+        --release --strip --lto
+        --verbose
+    deps:
+      - path: "{{current_checkpoint}}"
+    outs:
+      - path: "{{params.output_dir}}/{{compile.output}}"
+    after:
+      - quantize
+    target: lambda
+
+  # ===============================================================
+  # PHASE 4: Evaluation
+  # ===============================================================
+
+  eval:
+    description: "Run coding benchmark evaluation suite"
+    cmd: >
+      for bench in {{benchmarks}}; do
+        ./scripts/eval-pass-at-k.sh $bench {{current_checkpoint}} {{params.results_dir}}/ 512 0.0 1;
+      done
+    deps:
+      - path: "{{current_checkpoint}}"
+      - path: scripts/eval-pass-at-k.sh
+      - path: configs/eval/coding-benchmarks.yaml
+    outs:
+      - path: "{{params.results_dir}}/"
+        type: directory
+    after:
+      - finetune
+    target: lambda
+
+  # ===============================================================
+  # PHASE 5: Publish
+  # ===============================================================
+
+  publish:
+    description: "Export and publish to HuggingFace Hub"
+    cmd: >
+      {{params.apr_cli}} export {{current_checkpoint}}
+        --format safetensors
+        --output {{params.output_dir}}/export/ --verbose &&
+      ./scripts/submit.sh {{current_checkpoint}} {{hf_repo}} {{params.results_dir}}/
+    deps:
+      - path: "{{current_checkpoint}}"
+      - path: "{{params.results_dir}}/"
+        type: directory
+    outs:
+      - path: "{{params.output_dir}}/export/"
+        type: directory
+    after:
+      - eval
+    target: lambda
+
+  # ===============================================================
+  # PHASE 6: wgpu proof (independent)
+  # ===============================================================
+
+  prove-wgpu:
+    description: "Prove wgpu GPU training works end-to-end"
+    cmd: "./scripts/prove-wgpu.sh"
+    deps:
+      - path: scripts/prove-wgpu.sh
+      - path: configs/recipes/recipe-g-wgpu-proof.yaml
+    outs:
+      - path: results/wgpu-proof.log
+    target: lambda
+
+policy:
+  failure: stop_on_first
+  validation: checksum
+  lock_file: true
+
+compliance:
+  pre_flight:
+    - type: "config_validation"
+      path: "configs/"
+  post_flight:
+    - type: "eval_threshold"
+      suite: "configs/eval/coding-benchmarks.yaml"

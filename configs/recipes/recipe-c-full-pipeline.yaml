@@ -1,0 +1,66 @@
+# Recipe C: "The Full Pipeline" — every technique stacked.
+#
+# Pipeline: distill -> finetune -> merge -> prune -> quantize -> eval
+# This is the kitchen sink. Maximum effort, maximum score.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-c-full-pipeline
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B"
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - humaneval-plus
+  - mbpp
+  - mbpp-plus
+  - bigcodebench
+
+stages:
+  - import
+  - distill
+  - finetune
+  - merge
+  - prune
+  - quantize
+  - eval
+
+distill:
+  teacher: "checkpoints/teacher-32b.apr"
+  strategy: progressive
+  temperature: 3.0
+  alpha: 0.7
+
+finetune:
+  method: lora
+  dataset: "data/code-instruct-50k.jsonl"
+  rank: 32
+  lr: 2.0e-4
+  epochs: 5
+
+merge:
+  models: ["checkpoints/reasoning-variant.apr"]
+  strategy: ties
+  base_model: "checkpoints/qwen_qwen2.5-coder-7b.apr"
+
+prune:
+  method: wanda
+  target_ratio: 0.2
+
+quantize:
+  scheme: int4
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "kd_loss", "ce_loss", "learning_rate", "gradient_norm"]
+  alerts:
+    - condition: "loss > 10"
+      action: stop
+      message: "Loss exploded"
+    - condition: "gradient_norm > 100"
+      action: stop
+      message: "Gradient explosion"

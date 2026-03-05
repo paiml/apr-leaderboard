@@ -43,7 +43,7 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
     --adapters-config adapters.toml
 
-# With experimental MPS (multi-process GPU sharing)
+# With experimental multi-process GPU sharing
 apr finetune model.apr --task instruct --experimental-mps --gpu-share 50
 
 # Plan-only mode (shows config without training)

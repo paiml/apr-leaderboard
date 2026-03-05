@@ -29,3 +29,5 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 - [ ] AC-025: `alimentar quality` scores all training data ≥80/100 before use in fine-tuning
 - [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
 - [ ] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary
+- [ ] AC-028: `make prove-wgpu` completes successfully — QLoRA training runs on wgpu (Vulkan/Metal/DX12) with no CUDA toolkit installed
+- [ ] AC-029: Training via wgpu produces decreasing loss over 2 epochs on Qwen2.5-Coder-1.5B

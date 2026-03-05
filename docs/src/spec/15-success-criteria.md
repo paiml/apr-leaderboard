@@ -17,8 +17,8 @@
 | Total binary size (compiled, 7B INT4) | < 5GB | < 4GB | 3.5GB weights + runtime |
 | Wall-clock (import → submit) | < 24h (GPU) | < 8h (GPU) | CPU-only: much longer |
 | Python dependencies | 0 | 0 | External sandbox for eval only |
-| CUDA toolkit | Not required | Not required | trueno PTX generation handles GPU |
-| GPU hardware | Recommended | Optional (≤7B) | Required for distill/finetune 32B teacher |
+| CUDA toolkit | Not required | Not required | wgpu handles GPU compute (any vendor) |
+| GPU hardware | Recommended (any vendor) | Optional (≤7B) | Required for distill/finetune 32B teacher; NVIDIA, AMD, Intel, or Apple Silicon |
 
 ## 15.3 Quality Metrics
 

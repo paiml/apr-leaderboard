@@ -1,0 +1,67 @@
+# Data Catalog — Sovereign Data Governance
+# Classification: Internal/Research
+# Lifecycle: Retained for reproducibility
+
+datasets:
+  instruct-corpus:
+    purpose: "Instruction/response pairs for LoRA fine-tuning"
+    classification: internal
+    format: jsonl
+    location: data/instruct-corpus.jsonl
+    records: 15500
+    sources:
+      - depyler ground truth corpus
+      - hf-gtc ground truth corpus
+      - jax-gtc ground truth corpus
+      - vllm-gtc ground truth corpus
+    lifecycle: retained
+
+  wgpu-proof-subset:
+    purpose: "200-sample subset for wgpu training proof"
+    classification: internal
+    format: jsonl
+    location: data/wgpu-proof-subset.jsonl
+    records: 200
+    lifecycle: ephemeral
+
+  code-instruct:
+    purpose: "Code instruction data for general fine-tuning"
+    classification: internal
+    format: jsonl
+    location: data/code-instruct.jsonl
+    lifecycle: retained
+
+  reasoning-preferences:
+    purpose: "DPO preference pairs for reasoning alignment"
+    classification: internal
+    format: jsonl
+    location: data/reasoning-preferences.jsonl
+    lifecycle: retained
+
+external_datasets:
+  bigcode-starcoderdata:
+    purpose: "StarCoder training data (code fine-tuning source)"
+    provider: "bigcode/starcoderdata"
+    platform: huggingface
+    license: "Apache-2.0"
+
+benchmarks:
+  humaneval:
+    purpose: "OpenAI HumanEval evaluation benchmark"
+    provider: "openai/human-eval"
+    problems: 164
+  mbpp:
+    purpose: "Mostly Basic Python Problems benchmark"
+    provider: "google-research/mbpp"
+    problems: 500
+  bigcodebench:
+    purpose: "BigCodeBench practical coding evaluation"
+    provider: "bigcode/bigcodebench"
+    problems: 1140
+
+data_lineage:
+  raw_source: "Ground truth corpora (depyler, hf-gtc, jax-gtc, vllm-gtc)"
+  extraction: "alimentar import -> AST parsing -> instruction pairs"
+  training: "apr finetune -> LoRA/QLoRA adapters -> .apr checkpoint"
+  evaluation: "scripts/eval-pass-at-k.sh -> apr run -> sandbox execution -> scoring"
+  submission: "scripts/submit.sh -> apr export -> apr publish -> HuggingFace Hub"

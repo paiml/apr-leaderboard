@@ -16,7 +16,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | Pruning | Wanda, SparseGPT, structured | **aprender** 0.27 | ✅ Complete | `apr prune` — 6 methods |
 | Quantization | INT4, INT8, Q4K, Q6K | **aprender** 0.27 | ✅ Complete | `apr quantize` — 4 formats |
 | SIMD tensor ops | AVX2, AVX-512, NEON matmul | **trueno** 0.16 | ✅ Complete | 6% faster than NumPy at 256×256 |
-| GPU compute | PTX generation, wgpu | **trueno** 0.16 | ✅ Complete | Pure Rust, no nvcc |
+| GPU compute | wgpu (Vulkan/Metal/DX12) | **trueno** 0.16 | ✅ Complete | Pure Rust, any GPU vendor, no CUDA |
 | Speculative decoding | Draft model + verification | **realizar** 0.8 | ✅ Complete | `apr run --speculative` |
 | KV cache management | PagedAttention, CoW | **realizar** 0.8 | ✅ Complete | vLLM-style paged KV |
 | Data loading | Parquet, JSONL, Arrow, HF Hub | **alimentar** 0.2 | ✅ Complete | Zero-copy Arrow RecordBatches |
@@ -32,7 +32,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ✅ **Ready** | `--prompt-strategy` implemented in apr-leaderboard (5 strategies); upstream `--system` available |
 | **Synthetic data gen** | Teacher → training corpus | **alimentar** 0.2 + **aprender** | ⚠️ Partial | Generation via `apr chat --batch`; curation pipeline needed |
 | **Continued pretraining** | Full-weight code corpus training | **entrenar** 0.7 | ⚠️ Partial | Full finetune works; needs large-corpus streaming |
-| **Flash Attention** | Online softmax, tiled attention | **trueno** 0.16 | 🔧 In Progress | Phase 12 planned; tiling infra ready |
+| **Flash Attention** | Online softmax, tiled attention | **trueno** 0.16 | 🔧 In Progress | Phase 12 planned; tiling infra ready (wgpu compute shaders) |
 
 ## 5.2 Gap 1: DPO/ORPO Preference Optimization (CRITICAL)
 
@@ -216,7 +216,7 @@ When we find a gap:
 3. **Is it fundamentally outside the stack's scope?** → Use an external tool (e.g., EvalPlus for code execution) and document the boundary explicitly.
 4. **Is it a research problem with no clear solution?** → Add to §21 Open Questions. Don't block the pipeline.
 
-**Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
+**Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. We never add a CUDA/nvcc dependency. GPU compute is wgpu only — any vendor, pure Rust. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
 
 ## 5.9 Parity Check: Ludwig Feature Coverage
 
@@ -255,7 +255,7 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 
 | Ludwig Feature | Ludwig Implementation | Sovereign Stack | Status |
 |---|---|---|---|
-| Multi-GPU DDP | PyTorch DDP via Ray | — not yet (single-GPU DDP) | ❌ **Gap** |
+| Multi-GPU DDP | PyTorch DDP via Ray | — not yet (single-GPU via wgpu) | ❌ **Gap** |
 | DeepSpeed ZeRO | Microsoft DeepSpeed | — not yet | ❌ **Gap** |
 | Multi-node training | Ray cluster | **entrenar** GPU-SHARE Phase 3 (SSH cluster, job placement) | ✅ **Exceeds** (heterogeneous: 4090 + Jetson + CPU nodes) |
 | Automatic batch size selection | binary search on GPU OOM | **aprender** `--vram` planning + **entrenar** VRAM guard | ✅ Parity |
@@ -362,7 +362,7 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 | 262 proof obligations | none | **provable-contracts** | ✅ **Unique** |
 | Compliance enforcement | none | **pmat comply** 30+ checks | ✅ **Unique** |
 | Deterministic builds | pip/conda chaos | Cargo.lock | ✅ **Unique** |
-| Pure Rust PTX generation | requires nvcc | **trueno** pure Rust | ✅ **Unique** |
+| wgpu GPU compute (any vendor) | requires CUDA toolkit | **trueno** wgpu (Vulkan/Metal/DX12) | ✅ **Unique** |
 | Format-agnostic conversion | not supported | **aprender** `apr rosetta` | ✅ **Unique** |
 | Model diff/forensics | not supported | **aprender** `apr diff`, `apr hex` | ✅ **Unique** |
 | 10-stage integrity check | not supported | **aprender** `apr check` | ✅ **Unique** |

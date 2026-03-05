@@ -2,9 +2,9 @@
 
 ## 1.1 Purpose
 
-**apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without an external CUDA toolkit.
+**apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without any CUDA toolkit or GPU vendor lock-in.
 
-It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile, four shell scripts, and twelve TOML configs — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
+It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile, five shell scripts, YAML configs, a batuta playbook, and a forjar infrastructure manifest — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
 
 ```
 apr import → apr distill → apr finetune → apr merge → apr prune → apr quantize → apr eval → apr submit
@@ -21,8 +21,8 @@ This repo exists to answer one falsifiable question:
 If the answer is yes, it proves:
 1. **aprender** can import, infer, and evaluate HuggingFace models via the `.apr` format
 2. **entrenar** can fine-tune those models with LoRA/QLoRA using its own autograd engine
-3. **trueno** can run transformer attention at competitive throughput via SIMD/PTX
-4. The full distill → finetune → merge → prune → quantize pipeline works end-to-end in pure Rust
+3. **trueno** can run transformer attention at competitive throughput via SIMD (CPU) and wgpu (any GPU)
+4. The full distill → finetune → merge → prune → quantize pipeline works end-to-end in pure Rust — on any GPU vendor
 5. **provable-contracts** kernel verification (Kani bounded model checking) doesn't prevent competitive performance — correctness and speed coexist
 
 If the answer is no, it identifies exactly where the sovereign stack falls short (inference parity gap, training convergence, quantization quality loss) via `apr compare-hf`.
@@ -33,8 +33,9 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 ┌──────────────────────────────────────────────────────────┐
 │                    apr-leaderboard                        │
 │                                                          │
-│  Makefile           TOML configs        Shell scripts    │
-│  (orchestration)    (12 configs)        (4 scripts)      │
+│  Makefile           YAML configs        Shell scripts    │
+│  (dev convenience)  (models/recipes/   (5 scripts)      │
+│                      eval/pipeline)                      │
 │                                                          │
 │  ┌──────────────── calls ─────────────────────────────┐  │
 │  │                                                     │  │
@@ -48,8 +49,8 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 │  │                                                   │  │  │
 │  │  ┌─────────┐  ┌──────────┐  ┌─────────┐         │  │  │
 │  │  │ entrenar│  │  trueno   │  │provable │         │  │  │
-│  │  │ LoRA    │  │  SIMD/PTX │  │contracts│         │  │  │
-│  │  │ QLoRA   │  │  AVX2     │  │ Kani    │         │  │  │
+│  │  │ LoRA    │  │  SIMD     │  │contracts│         │  │  │
+│  │  │ QLoRA   │  │  AVX2/NEON│  │ Kani    │         │  │  │
 │  │  │ AdamW   │  │  wgpu GPU │  │ L1-L4   │         │  │  │
 │  │  │ autograd│  │  Q4K/Q6K  │  │ proofs  │         │  │  │
 │  │  └─────────┘  └──────────┘  └─────────┘         │  │  │
@@ -67,7 +68,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 | **Orchestration** | apr-leaderboard | Makefile targets, shell scripts, pipeline configs, benchmark metadata, result tracking, strategy spec |
 | **ML Operations** | aprender (apr CLI) | Model import, inference, eval, distillation, merging, pruning, quantization |
 | **Training** | entrenar | LoRA/QLoRA, autograd, optimizers, gradient checkpointing |
-| **Compute** | trueno | SIMD tensor ops, GPU kernels, quantized matmul |
+| **Compute** | trueno | SIMD tensor ops, wgpu GPU kernels, quantized matmul |
 | **Correctness** | provable-contracts | Kernel contracts, Kani proofs, falsification tests |
 | **Quality** | pmat comply | Compliance checks, spec scoring, cross-crate consistency |
 
@@ -77,16 +78,20 @@ All orchestration is implemented via Makefile + shell scripts. Every `make` targ
 
 | Component | Status | What It Does |
 |---|---|---|
-| **Makefile** | **Working** | 21 targets: import, finetune, merge, prune, quantize, distill, compile, eval-*, export, publish, pipeline, verify, dogfood |
+| **Makefile** | **Working** | Dev convenience: import, finetune, merge, prune, quantize, distill, compile, eval-*, export, publish, pipeline, verify, validate, dogfood, prove-wgpu |
 | **scripts/eval-pass-at-k.sh** | **Working** | Downloads benchmark data, generates completions via `apr run`, executes in sandbox, computes pass@k |
-| **scripts/pipeline.sh** | **Working** | Parses recipe TOML, runs up to 12 stages sequentially, supports `--plan` dry-run |
+| **scripts/pipeline.sh** | **Working** | Parses recipe YAML (bash-native, zero Python), runs stages sequentially, supports `--plan` dry-run and explicit `stages:` list |
 | **scripts/submit.sh** | **Working** | Exports to SafeTensors, generates model card, publishes to HF Hub with dry-run confirmation |
 | **scripts/import.sh** | **Working** | Wraps `apr import` with HF Hub reachability check and `apr check` validation |
-| **configs/models/** | **Complete** | 6 model configs (Qwen-7B, Qwen-32B, Qwen-1.5B, Qwen3-8B, DeepSeek-R1-7B, Phi-4) |
-| **configs/recipes/** | **Complete** | 6 recipe configs (quick-lora, merge-alchemist, full-pipeline, sovereign-binary, instruct-finetune, qwen3-qlora) |
+| **scripts/prove-wgpu.sh** | **Working** | End-to-end wgpu training proof: import → QLoRA train → verify GPU backend |
+| **configs/models/** | **Complete** | 6 YAML model configs (Qwen-7B, Qwen-32B, Qwen-1.5B, Qwen3-8B, DeepSeek-R1-7B, Phi-4) |
+| **configs/recipes/** | **Complete** | 7 YAML recipe configs (quick-lora, merge-alchemist, full-pipeline, sovereign-binary, instruct-finetune, qwen3-qlora, wgpu-proof) |
+| **configs/eval/** | **Complete** | Eval suite YAML with benchmark definitions, targets, and baselines |
+| **configs/pipeline/** | **Complete** | Forjar infra manifest + batuta playbook DAG |
+| **data_catalog.yaml** | **Complete** | Data governance: datasets, lineage, classification, lifecycle |
 | **docs/** | **Complete** | Strategy spec (mdbook), 22 sections covering full pipeline |
 
-**Quality:** All 12 TOML configs valid, all 4 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B.
+**Quality:** All YAML configs valid (`make validate`), all 5 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B. Legacy TOML configs retained for backward compatibility.
 
 **GPU sharing infrastructure:** 143 tests across 9 entrenar modules (VRAM guard, ledger, wait queue, profiler, MPS, cluster config, placement, coordinator, multi-adapter pipeline). See §22 for details.
 

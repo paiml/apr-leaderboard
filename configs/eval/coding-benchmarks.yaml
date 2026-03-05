@@ -1,0 +1,116 @@
+# configs/eval/coding-benchmarks.yaml — Coding benchmark evaluation suite
+#
+# Defines all benchmarks, their parameters, and pass/fail thresholds.
+# Used by the batuta playbook and `apr eval` to run standardized evaluations.
+#
+# Usage:
+#   apr eval apply --suite configs/eval/coding-benchmarks.yaml --model checkpoints/model.apr
+
+version: "1.0"
+name: coding-benchmarks
+description: "Coding benchmark suite for leaderboard evaluation"
+
+defaults:
+  max_tokens: 512
+  temperature: 0.0
+  num_samples: 1
+  timeout: 300                                # Per-problem timeout (seconds)
+
+tasks:
+  humaneval:
+    type: code_generation
+    metric: pass@1
+    n_samples: 164
+    temperature: 0.0
+    max_tokens: 512
+    stop_tokens: ["\nclass ", "\ndef ", "\n#", "\nif __name__"]
+    description: "OpenAI HumanEval — 164 Python problems"
+
+  humaneval-plus:
+    type: code_generation
+    metric: pass@1
+    n_samples: 164
+    temperature: 0.0
+    max_tokens: 512
+    stop_tokens: ["\nclass ", "\ndef ", "\n#", "\nif __name__"]
+    description: "EvalPlus HumanEval+ — augmented test cases"
+
+  humaneval-fim:
+    type: fill_in_middle
+    metric: pass@1
+    n_samples: 164
+    temperature: 0.0
+    max_tokens: 256
+    description: "HumanEval FIM — fill-in-the-middle variant"
+
+  mbpp:
+    type: code_generation
+    metric: pass@1
+    n_samples: 500
+    temperature: 0.0
+    max_tokens: 512
+    description: "Mostly Basic Python Problems — 500 problems"
+
+  mbpp-plus:
+    type: code_generation
+    metric: pass@1
+    n_samples: 500
+    temperature: 0.0
+    max_tokens: 512
+    description: "EvalPlus MBPP+ — augmented test cases"
+
+  bigcodebench:
+    type: code_generation
+    metric: pass@1
+    n_samples: 1140
+    temperature: 0.0
+    max_tokens: 1024
+    description: "BigCodeBench — practical coding tasks with library usage"
+
+  livecodebench:
+    type: code_generation
+    metric: pass@1
+    temperature: 0.0
+    max_tokens: 2048
+    description: "LiveCodeBench — competitive programming (contamination-free)"
+
+  multipl-e:
+    type: code_generation
+    metric: pass@1
+    languages: [python, rust, javascript, typescript, go, java, cpp]
+    temperature: 0.0
+    max_tokens: 512
+    description: "MultiPL-E — multilingual code generation"
+
+  crux-eval:
+    type: code_reasoning
+    metric: accuracy
+    temperature: 0.0
+    max_tokens: 256
+    description: "CRUXEval — code reasoning and understanding"
+
+# Targets: minimum scores per pipeline stage
+targets:
+  base:
+    humaneval: 0.30
+    mbpp: 0.35
+  finetuned:
+    humaneval: 0.50
+    mbpp: 0.55
+    bigcodebench: 0.20
+  optimized:
+    humaneval: 0.45
+    mbpp: 0.50
+
+# Baselines: known scores for comparison
+baselines:
+  "Qwen/Qwen2.5-Coder-7B-Instruct":
+    humaneval: 0.878
+    mbpp: 0.804
+    bigcodebench: 0.411
+  "Qwen/Qwen2.5-Coder-1.5B":
+    humaneval: 0.439
+    mbpp: 0.498
+  "Qwen/Qwen3-8B":
+    humaneval: 0.720
+    mbpp: 0.650

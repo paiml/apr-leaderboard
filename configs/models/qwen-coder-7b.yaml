@@ -1,0 +1,42 @@
+# configs/models/qwen-coder-7b.yaml — Qwen2.5-Coder-7B leaderboard config
+#
+# Primary evaluation target. 7B parameter sweet spot for coding benchmarks.
+#
+# Usage:
+#   apr pipeline plan configs/pipeline/leaderboard-playbook.yaml --model configs/models/qwen-coder-7b.yaml
+#   make import MODEL=Qwen/Qwen2.5-Coder-7B
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B"
+  family: qwen2.5-coder
+  params: 7B
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - humaneval-plus
+  - mbpp
+  - mbpp-plus
+  - bigcodebench
+  - multipl-e
+
+finetune:
+  method: lora
+  dataset: "bigcode/starcoderdata"
+  rank: 16
+  lr: 1.0e-4
+  epochs: 3
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "gradient_norm"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "qwen-coder-7b-lora"
+    tags:
+      model: "qwen-coder-7b"
+      method: "lora"

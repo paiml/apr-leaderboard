@@ -109,7 +109,7 @@ apr run model.apr --speculative --draft-model-path draft.apr --speculation-k 6 \
 apr bench model.apr --speculative --speculation-k 4 --json
 ```
 
-**Implementation status:** Speculative decoding EXISTS in aprender (`generate_speculative_with_draft`, `generate_speculative_cuda`). CLI flags `--speculative`, `--speculation-k`, `--draft-model-path` are available.
+**Implementation status:** Speculative decoding EXISTS in aprender (`generate_speculative_with_draft`, `generate_speculative_wgpu`). CLI flags `--speculative`, `--speculation-k`, `--draft-model-path` are available.
 
 **Expected gain:** 2-3x throughput improvement for code generation tasks. No quality change (output distribution is mathematically identical).
 
@@ -141,7 +141,7 @@ apr align model.apr \
     -o aligned.apr
 ```
 
-**Implementation status:** NOT YET IMPLEMENTED. DPO requires: (1) paired preference data, (2) reference model log-probs, (3) DPO loss function. ORPO is simpler — single model, odds ratio penalty on rejected responses. Both build on the existing LoRA training infrastructure in entrenar.
+**Implementation status:** NOT YET IMPLEMENTED. DPO requires: (1) paired preference data, (2) reference model log-probs, (3) DPO loss function. ORPO is simpler — single model, odds ratio penalty on rejected responses. Both build on the existing LoRA training infrastructure in entrenar (wgpu-accelerated).
 
 **Expected gain:** +3-8% pass@1 over SFT-only models.
 

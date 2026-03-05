@@ -196,7 +196,7 @@ apr compile tiny.apr \
 ./qwen-coder "def fibonacci(n):"
 ```
 
-**Size estimates:** 1.5B INT4 ≈ 800MB, 7B INT4 ≈ 4GB, 32B INT4 ≈ 17GB. Still dramatically smaller than Docker + Python + CUDA runtime images (typically 10-20GB for a 7B setup).
+**Size estimates:** 1.5B INT4 ≈ 800MB, 7B INT4 ≈ 4GB, 32B INT4 ≈ 17GB. Still dramatically smaller than Docker + Python + GPU runtime images (typically 10-20GB for a 7B setup).
 
 **This is the marketing win:** While competitors need `pip install transformers torch accelerate bitsandbytes`, we ship `./qwen-coder`.
 
@@ -243,7 +243,7 @@ diff results/humaneval-pre.json results/humaneval-post.json
 
 **Expected:** +3-8% pass@1 from instruction tuning on domain-specific corpora. The 15.5K corpus covers algorithms (depyler), HuggingFace patterns (hf-gtc), JAX numerics (jax-gtc), and vLLM inference (vllm-gtc).
 
-**Status (2026-03-04):** Training pipeline fully implemented. InstructPipeline supports CPU and NF4 QLoRA GPU paths (KAIZEN-064/065/068). CLI wired: `apr finetune --task instruct --method qlora --quantize-nf4`. Ready for 7B training run.
+**Status (2026-03-04):** Training pipeline fully implemented. InstructPipeline supports CPU and NF4 QLoRA GPU paths via wgpu (KAIZEN-064/065/068). CLI wired: `apr finetune --task instruct --method qlora --quantize-nf4`. Ready for 7B training run on any GPU.
 
 ## 9.6 Recipe F: "Qwen3 QLoRA" (Consumer GPU Path)
 
@@ -323,7 +323,7 @@ apr quantize checkpoints/qwen3-8b-qlora.apr \
 
 **Expected:** +5-12% pass@1 over apr-native baseline. QLoRA on Qwen3-8B with curated instruction data should approach the instruct model's HF-reference score.
 
-**Status (2026-03-04): READY.** QLoRA instruct pipeline fully implemented with CUDA NF4 support (GPU-resident gradients, fused causal cross-entropy, LoRA backward GEMM). GPU-SHARE infrastructure (143 tests) enables multi-adapter concurrent training. CLI: `apr finetune --task instruct --method qlora --quantize-nf4 --adapters-config adapters.toml`. Ready for full training run on 15K-sample instruct corpus.
+**Status (2026-03-04): READY.** QLoRA instruct pipeline fully implemented with wgpu NF4 support (GPU-resident gradients, fused causal cross-entropy, LoRA backward GEMM). GPU-SHARE infrastructure (143 tests) enables multi-adapter concurrent training. CLI: `apr finetune --task instruct --method qlora --quantize-nf4 --adapters-config adapters.toml`. Ready for full training run on 15K-sample instruct corpus. Runs on any GPU via wgpu (Vulkan/Metal/DX12).
 
 ### 9.6.1 Recipe E vs Recipe F Decision Matrix
 
@@ -332,7 +332,7 @@ apr quantize checkpoints/qwen3-8b-qlora.apr \
 | Model | Qwen2.5-Coder-7B Q4K | Qwen3-8B FP16 |
 | Method | LoRA (full precision) | QLoRA (NF4 base) |
 | VRAM required | ~28 GB | ~4.5 GB |
-| GPU required | A100/H100 or 2×4090 | Any 8+ GB GPU |
+| GPU required | 32+ GB GPU (any vendor) | Any 8+ GB GPU (any vendor via wgpu) |
 | Training quality | Highest (no quantization noise) | ~0.85x (NF4 noise in backward pass) |
 | Use case | Maximum quality, server GPU | Consumer GPU, rapid iteration |
 | **Recommended for** | Final submission | Development + ablation |

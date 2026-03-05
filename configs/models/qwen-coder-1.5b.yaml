@@ -1,0 +1,53 @@
+# configs/models/qwen-coder-1.5b.yaml — Qwen2.5-Coder-1.5B sovereign binary target
+#
+# Strategy: QLoRA -> aggressive prune -> INT4 quantize -> compile to static binary.
+# Goal: <1GB standalone binary that generates valid Python code.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-d-sovereign-binary
+
+model:
+  id: "Qwen/Qwen2.5-Coder-1.5B"
+  family: qwen2.5-coder
+  params: 1.5B
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - humaneval-plus
+  - mbpp
+  - mbpp-plus
+
+finetune:
+  method: qlora
+  dataset: "data/code-instruct.jsonl"
+  rank: 16
+  lr: 1.0e-4
+  epochs: 3
+
+prune:
+  method: magnitude
+  target_ratio: 0.4
+
+quantize:
+  scheme: int4
+
+compile:
+  release: true
+  lto: true
+  output: "qwen-coder-1.5b"
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "gradient_norm"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "qwen-coder-1.5b-sovereign"
+    tags:
+      model: "qwen-coder-1.5b"
+      method: "qlora"
+      target: "sovereign-binary"

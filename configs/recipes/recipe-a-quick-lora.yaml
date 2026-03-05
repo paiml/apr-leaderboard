@@ -1,0 +1,38 @@
+# Recipe A: "Quick LoRA" — fast iteration with a single LoRA pass.
+#
+# Pipeline: import -> LoRA finetune -> eval
+# Wall-clock: ~2 hours on 24GB GPU
+#
+# Usage:
+#   make pipeline RECIPE=recipe-a-quick-lora
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - mbpp
+
+stages:
+  - import
+  - finetune
+  - eval
+
+finetune:
+  method: lora
+  dataset: "data/code-instruct.jsonl"
+  rank: 16
+  lr: 1.0e-4
+  epochs: 3
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate"]
+  alerts:
+    - condition: "loss > 10"
+      action: stop
+      message: "Loss exploded"

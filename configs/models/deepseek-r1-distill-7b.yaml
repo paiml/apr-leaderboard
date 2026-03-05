@@ -1,0 +1,48 @@
+# configs/models/deepseek-r1-distill-7b.yaml — Reasoning-enhanced model
+#
+# Strategy: DPO alignment -> light prune -> INT4 quantize -> eval.
+# Focus: LiveCodeBench and reasoning-heavy benchmarks.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-c-full-pipeline
+
+model:
+  id: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+  family: deepseek-r1
+  params: 7B
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: evalplus
+
+benchmarks:
+  - humaneval
+  - humaneval-plus
+  - mbpp
+  - mbpp-plus
+  - livecodebench
+  - crux-eval
+
+align:
+  data: "data/reasoning-preferences.jsonl"
+  method: dpo
+  beta: 0.1
+  epochs: 3
+
+prune:
+  method: wanda
+  target_ratio: 0.15
+
+quantize:
+  scheme: int4
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "gradient_norm"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "deepseek-r1-dpo"
+    tags:
+      model: "deepseek-r1-distill-7b"
+      method: "dpo"

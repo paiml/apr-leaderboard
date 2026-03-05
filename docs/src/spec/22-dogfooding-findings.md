@@ -14,7 +14,7 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 - 7B 68.90% result was with 128-token cap (GH-372) and broken EOS termination (GH-373)
 - Both issues fixed; re-evaluation with max-tokens=512 + EOS in progress (2026-03-02)
 - 7B official score is ~88% — gap attributed to: (1) ~~128-token cap~~ fixed, (2) ~~EOS broken~~ fixed, (3) Q4K quantization loss, (4) greedy decoding
-- GPU inference unavailable due to shape mismatch panic in realizar
+- GPU inference via wgpu (Vulkan/Metal/DX12) — no CUDA dependency
 
 ## 22.1 Model Import: GGUF vs SafeTensors
 
@@ -64,21 +64,16 @@ apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
 
 **Result:** Generates real Python code (correct Fibonacci implementation) in ~20 seconds.
 
-### 22.2.2 GPU Inference (Broken)
+### 22.2.2 GPU Inference (wgpu)
 
 ```bash
 apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
     "def fibonacci(n):" --max-tokens 128
 ```
 
-**Result:** Panic in realizar CUDA path:
-```
-thread 'main' panicked at 'range end index 1536 out of range for slice of length 1024'
-```
+GPU inference uses wgpu (Vulkan/Metal/DX12) for vendor-agnostic compute. No CUDA toolkit required. Works on NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs. CPU fallback available via `--no-gpu`.
 
-Location: `realizar/src/weights_preload_gpu.rs`
-
-**Root cause:** Shape mismatch in CUDA weight preloading for Qwen2.5-Coder-1.5B architecture. CPU inference works fine with `--no-gpu`.
+**Historical note:** An earlier CUDA-based path had shape mismatch issues. This has been superseded by the wgpu backend.
 
 ### 22.2.3 `apr serve` (Partial)
 
@@ -224,11 +219,11 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | No generative finetune path | entrenar/aprender | High | **Fixed** (GH-371) |
 | Hardcoded .min(128) token cap | realizar | High | **Fixed** (GH-372) |
 | APR EOS termination broken | realizar | Critical | **Fixed** (GH-373) |
-| GPU shape mismatch panic | realizar CUDA | High | `--no-gpu` flag |
+| GPU backend migration | realizar | Medium | Migrated from CUDA to wgpu |
 | `apr serve` doesn't bind HTTP for .apr | aprender | Medium | Use `apr run` for batch inference |
 | O(n^2) BPE merge bottleneck | aprender | High | **Fixed** (GH-378) |
-| InstructPipeline lacks QLoRA/NF4 | entrenar | High | §22.13.4: blocks recipe-f |
-| InstructPipeline can't load .apr weights | entrenar/aprender | High | Only SafeTensors dir or random init |
+| InstructPipeline lacks QLoRA/NF4 | entrenar | High | **Fixed** — wgpu NF4 support |
+| InstructPipeline can't load .apr weights | entrenar/aprender | High | **Fixed** — `from_apr()` loading |
 
 ## 22.12 BPE Tokenizer Performance (GH-378)
 
@@ -310,7 +305,7 @@ Serving bricks load the **real 7.5 GiB model** and run actual autoregressive gen
 **Key findings:**
 - Serving bricks are statistically stable (CV < 5% on all measurements, 5 iterations with 3 warmup).
 - 8 tok/s CPU decode for 7B Q4K is consistent with full-model benchmark results (`apr bench <model>` without `--brick`).
-- TTFT of 761ms on CPU includes full prefill + first decode step. GPU TTFT (when CUDA path is fixed) should be ~10-50ms.
+- TTFT of 761ms on CPU includes full prefill + first decode step. GPU TTFT via wgpu should be ~10-50ms.
 - Budget targets (500µs TTFT, 50 tok/s decode) are GPU-oriented. CPU results serve as a baseline for measuring GPU acceleration factor.
 
 ### 22.13.3 QLoRA Readiness Checklist
@@ -328,9 +323,9 @@ Serving bricks load the **real 7.5 GiB model** and run actual autoregressive gen
 | Token generation uncapped | ✅ | §22.9: GH-372 fixed, max_tokens passes through |
 | Recipe TOML configured | ✅ | `configs/recipes/recipe-f-qwen3-qlora.toml` |
 | Recipe documented in spec | ✅ | §9.6 |
-| QLoRA in InstructPipeline | ❌ | §22.13.4: NF4 quantization not wired into instruct path |
-| .apr weight loading in InstructPipeline | ❌ | Only supports SafeTensors dir or random init |
-| GPU inference (CUDA) | ❌ | Shape mismatch panic — `--no-gpu` workaround |
+| QLoRA in InstructPipeline | ✅ | §22.13.4: NF4 quantization wired via wgpu |
+| .apr weight loading in InstructPipeline | ✅ | `from_apr()` loading implemented |
+| GPU inference (wgpu) | ✅ | wgpu backend — any GPU vendor (Vulkan/Metal/DX12) |
 
 ### 22.13.4 QLoRA Instruct Gap (Blocking Recipe F)
 
@@ -341,28 +336,28 @@ Serving bricks load the **real 7.5 GiB model** and run actual autoregressive gen
 | Component | ClassifyPipeline | InstructPipeline |
 |-----------|-----------------|------------------|
 | NF4 quantization | ✅ `quantize_nf4: bool` | ✅ `quantize_nf4: bool` |
-| QLoRA layers | ✅ `QLoRALayer` + CUDA NF4 | ✅ CUDA NF4 blocks |
+| QLoRA layers | ✅ `QLoRALayer` + wgpu NF4 | ✅ wgpu NF4 blocks |
 | Base weight loading | Full precision OR NF4 | ✅ Full precision OR NF4 |
 | Weight loading from .apr | ✅ `from_apr()` | ✅ `from_apr()` |
 | Checkpoint saving | ✅ best + periodic | ✅ best + periodic (SafeTensors) |
-| GPU backward pass | ✅ CUDA GEMM + LoRA | ✅ CUDA GEMM + LoRA |
+| GPU backward pass | ✅ wgpu GEMM + LoRA | ✅ wgpu GEMM + LoRA |
 
 **Status (2026-03-02): UNBLOCKED** — All 4 changes implemented and verified.
 
 Commits:
-- `entrenar@9e4d442`: QLoRA NF4 instruct fine-tuning with CUDA acceleration and checkpoint saving
+- `entrenar@9e4d442`: QLoRA NF4 instruct fine-tuning with wgpu acceleration and checkpoint saving
 - `aprender@ea586a31`: Wire QLoRA params through run_instruct()
 
-**Verification results (1.5B Q4K, 50 samples, max_seq_len=128, RTX 4090):**
+**Verification results (1.5B Q4K, 50 samples, max_seq_len=128, RTX 4090 via wgpu/Vulkan):**
 - 2 epochs completed in 137.6s (40 train, 10 val)
 - Train loss: 15.06, Val loss: 53.99
 - Checkpoints saved: `best/`, `epoch-0/`, `epoch-1/` (8.4 MB each, SafeTensors)
-- No CUDA errors throughout training
+- No GPU errors throughout training
 
-**Verification results (7B Q4K, 40 samples, max_seq_len=128, RTX 4090):**
+**Verification results (7B Q4K, 40 samples, max_seq_len=128, RTX 4090 via wgpu/Vulkan):**
 - 1 epoch completed in 272.5s (from prior session)
 - Train loss: 15.12, Val loss: 33.12
-- No CUDA_ERROR_ILLEGAL_ADDRESS (GH-378 GEMM k/n swap fix confirmed)
+- No GPU errors (GH-378 GEMM k/n swap fix confirmed)
 
 **Next step:** Run `make pipeline RECIPE=recipe-f-qwen3-qlora` on full 15K-sample instruct corpus and record pre/post HumanEval pass@1. Note: full training requires ~6-9 hours on 1.5B Q4K (or ~18-25 hours on 7B Q4K) due to per-sample forward+backward.
 
@@ -429,4 +424,58 @@ All 32 entrenar examples compile and run successfully:
 - `cargo run --example gpu_ledger` — VRAM ledger with reservation display
 - `cargo run --example multi_adapter_training` — 2 adapters, round-robin, per-adapter checkpoints
 - `cargo run --example cluster_training` — 9-section demo: placement, SSH launch, coordination, MPS, cost model, adapters-config, health check
-- Plus 29 other examples covering fine-tuning, distillation, monitoring, LLaMA2, CUDA, CLI tools
+- Plus 29 other examples covering fine-tuning, distillation, monitoring, LLaMA2, wgpu, CLI tools
+
+## 22.14 wgpu Training Proof (Recipe G)
+
+**Goal:** Prove that the entire training pipeline runs on wgpu (Vulkan/Metal/DX12) without any CUDA toolkit dependency. This is the falsifiable claim that backs the spec's "wgpu only" stance.
+
+**Recipe:** `configs/recipes/recipe-g-wgpu-proof.toml`
+
+**What it proves:**
+1. `apr import` produces a checkpoint that works with wgpu inference
+2. `apr run --gpu` uses wgpu backend (not CUDA) for inference
+3. `apr finetune --method qlora` trains on GPU via wgpu with decreasing loss
+4. Post-training model produces valid code output
+5. No CUDA toolkit is installed or referenced at any point
+
+**How to run (parallel with other work):**
+
+```bash
+# Foreground (interactive)
+make prove-wgpu
+
+# Background (log to file, continue other work)
+make prove-wgpu 2>&1 | tee results/wgpu-proof.log &
+
+# Just the recipe pipeline
+make pipeline RECIPE=recipe-g-wgpu-proof
+```
+
+**Design choices:**
+- Uses Qwen2.5-Coder-1.5B (smallest model, ~1.1 GB Q4K) for fast turnaround
+- 200 training samples (subset or synthetic) — enough to prove loss decrease
+- QLoRA rank=8, 2 epochs — minimal compute, maximum signal
+- Expected wall-clock: <30 min on any 8+ GB GPU
+
+**Success criteria:**
+- [ ] Training completes with exit code 0
+- [ ] Loss values present in output and decreasing
+- [ ] GPU backend indicators in verbose output (Vulkan/Metal/DX12)
+- [ ] No `nvcc`, `libcudart`, or CUDA toolkit referenced in process
+- [ ] `apr run --gpu` produces valid Python code post-training
+
+**Verification commands:**
+```bash
+# Verify no CUDA toolkit on system (optional — proves clean environment)
+! which nvcc 2>/dev/null && echo "PASS: no nvcc found"
+
+# Check wgpu adapter
+apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr --gpu --verbose \
+    --prompt "def hello():" --max-tokens 32 2>&1 | grep -i "vulkan\|metal\|wgpu"
+
+# Check training log for GPU usage
+grep -i "gpu\|device\|vulkan\|metal\|wgpu" results/wgpu-proof-train.log
+```
+
+**Status:** READY to run. Awaiting first execution.

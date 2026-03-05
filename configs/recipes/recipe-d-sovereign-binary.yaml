@@ -1,0 +1,44 @@
+# Recipe D: "Sovereign Binary" — ship the model as a Rust binary.
+#
+# Pipeline: import -> qlora finetune -> magnitude prune -> int4 quantize -> compile -> eval
+# Target: single static binary, no runtime deps, no Python, no Docker.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-d-sovereign-binary
+
+model:
+  id: "Qwen/Qwen2.5-Coder-1.5B"
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - mbpp
+
+stages:
+  - import
+  - finetune
+  - prune
+  - quantize
+  - compile
+  - eval
+
+finetune:
+  method: qlora
+  dataset: "data/instruct.jsonl"
+  rank: 16
+  lr: 1.0e-4
+  epochs: 3
+
+prune:
+  method: magnitude
+  target_ratio: 0.4
+
+quantize:
+  scheme: int4
+
+compile:
+  release: true
+  lto: true
+  output: "qwen-coder"

@@ -1,0 +1,45 @@
+# Recipe G: "wgpu Proof" — Prove wgpu GPU training works end-to-end.
+#
+# Pipeline: import (Q4K GGUF) -> finetune (QLoRA via wgpu) -> eval -> verify
+#
+# Deliberately small, fast recipe designed to prove one thing:
+# training on ANY GPU via wgpu (Vulkan/Metal/DX12) produces a model with
+# decreasing loss and non-degraded eval scores.
+#
+# Uses Qwen2.5-Coder-1.5B (smallest competitive model) for fast turnaround.
+# Training data: 200 samples from instruct corpus (subset for speed).
+# Expected wall-clock: <30 min on any 8+ GB GPU.
+#
+# Success criteria:
+#   1. Training completes without GPU errors
+#   2. Loss decreases over epochs
+#   3. `apr run --gpu` produces valid code output
+#   4. Verbose output shows wgpu adapter (not CUDA)
+#
+# Usage:
+#   make prove-wgpu
+#   make pipeline RECIPE=recipe-g-wgpu-proof
+
+model:
+  id: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+  output_dir: checkpoints
+  quantization: q4k
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+
+stages:
+  - import
+  - finetune
+  - eval
+
+finetune:
+  method: qlora
+  task: classify
+  dataset: "data/wgpu-proof-subset.jsonl"
+  rank: 8
+  lr: 2.0e-4
+  epochs: 2
+  model_size: "1.5B"
+  vram: 8.0

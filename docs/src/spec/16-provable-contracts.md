@@ -71,8 +71,8 @@ cargo test --features kani -p aprender -- contract
 | PO-LB-003 | Prune maintains attention head structure | L2 (falsification) | Before `apr prune` |
 | PO-LB-004 | Quantization ordering matches golden order §8 | L1 (type system) | Compile-time |
 | PO-LB-005 | LoRA adapter rank ≤ hidden dim | L1 (Poka-Yoke) | Compile-time |
-| PO-LB-006 | Q4K dequantize × quantize ≈ identity | L4 (Kani, bound=256) | CI |
-| PO-LB-007 | Softmax normalization: sum(output) ≈ 1.0 | L4 (Kani, bound=16) | CI |
+| PO-LB-006 | Q4K dequantize × quantize ≈ identity (CPU + wgpu) | L4 (Kani, bound=256) | CI |
+| PO-LB-007 | Softmax normalization: sum(output) ≈ 1.0 (CPU + wgpu) | L4 (Kani, bound=16) | CI |
 | PO-LB-008 | SLERP interpolation preserves weight norms | L3 (proptest) | Before `apr merge --strategy slerp` |
 
 ## 16.4 `#[contract]` Annotations

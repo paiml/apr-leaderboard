@@ -266,7 +266,7 @@ roadmap:
   updated: 2026-02-28T18:41:43Z
   spec: null
   acceptance_criteria:
-  - '§4.3.3 — The marketing win: ship model AS a Rust binary. Import → LoRA finetune → INT4 quantize → apr compile → single static binary ~800MB. AC-026: binary <1GB generates valid Python code. Demo: ./qwen-coder ''def fibonacci(n):'' just works. No Python, no Docker, no CUDA. While competitors need pip install transformers torch accelerate, we ship one executable.'
+  - '§4.3.3 — The marketing win: ship model AS a Rust binary. Import → LoRA finetune → INT4 quantize → apr compile → single static binary ~800MB. AC-026: binary <1GB generates valid Python code. Demo: ./qwen-coder ''def fibonacci(n):'' just works. No Python, no Docker, no CUDA toolkit. While competitors need pip install transformers torch accelerate, we ship one executable.'
   phases: []
   subtasks: []
   estimated_effort: null

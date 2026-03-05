@@ -1,0 +1,82 @@
+# configs/pipeline/leaderboard.yaml — Forjar infrastructure manifest
+#
+# Single YAML that describes infrastructure for the leaderboard pipeline.
+# Forjar resolves dependencies, tracks state, dispatches across machines.
+#
+# Usage:
+#   apr pipeline plan configs/pipeline/leaderboard.yaml
+#   apr pipeline apply configs/pipeline/leaderboard.yaml
+#   apr pipeline status
+#   apr pipeline drift
+
+version: "1.0"
+name: apr-leaderboard-pipeline
+description: "Coding leaderboard evaluation + model optimization pipeline"
+
+machines:
+  lambda:
+    hostname: lambda
+    addr: 127.0.0.1
+    user: noah
+    arch: x86_64
+    roles: [gpu-train, eval, inference]
+
+resources:
+  # Infrastructure
+  gpu-driver:
+    type: gpu
+    machine: lambda
+    gpu_backend: wgpu                         # Vulkan/Metal/DX12 — no CUDA toolkit
+    persistence_mode: true
+    compute_mode: exclusive_process
+
+  data-dir:
+    type: file
+    machine: lambda
+    path: /home/noah/src/apr-leaderboard/data
+    state: directory
+    mode: "0755"
+
+  checkpoints-dir:
+    type: file
+    machine: lambda
+    path: /home/noah/src/apr-leaderboard/checkpoints
+    state: directory
+    mode: "0755"
+
+  results-dir:
+    type: file
+    machine: lambda
+    path: /home/noah/src/apr-leaderboard/results
+    state: directory
+    mode: "0755"
+
+  # Tools
+  apr-cli:
+    type: package
+    machine: lambda
+    provider: cargo
+    state: present
+    packages: [aprender]
+    min_version: "0.4.10"
+
+  bashrs:
+    type: package
+    machine: lambda
+    provider: cargo
+    state: present
+    packages: [bashrs]
+
+  # Data preparation
+  prep-instruct-data:
+    type: task
+    machine: lambda
+    command: >
+      apr data audit data/instruct-corpus.jsonl --verbose
+    output_artifacts: ["data/instruct-corpus.jsonl"]
+    depends_on: [data-dir, apr-cli]
+
+policy:
+  failure: stop_on_first
+  parallel_machines: false
+  retry: 1

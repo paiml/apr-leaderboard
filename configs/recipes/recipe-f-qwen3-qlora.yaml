@@ -1,0 +1,56 @@
+# Recipe F: "Qwen3 QLoRA" — QLoRA fine-tune Qwen3-8B on instruct corpus.
+#
+# Pipeline: import (FP16) -> finetune (QLoRA + NF4) -> eval
+#
+# QLoRA freezes NF4-quantized base weights and trains rank-16 LoRA adapters
+# in FP16. Total VRAM ~4.5 GB — fits 3x within 24 GB GPU budget.
+#
+# Uses the same 15.5K instruct corpus as recipe-e (depyler, hf-gtc,
+# jax-gtc, vllm-gtc ground truth corpora).
+#
+# Usage:
+#   make pipeline RECIPE=recipe-f-qwen3-qlora
+
+model:
+  id: "Qwen/Qwen3-8B"
+  output_dir: checkpoints
+  quantization: fp16
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - bigcodebench
+
+stages:
+  - import
+  - finetune
+  - eval
+
+finetune:
+  method: qlora
+  task: instruct
+  dataset: "data/instruct-corpus.jsonl"
+  rank: 16
+  lr: 2.0e-4
+  epochs: 3
+  model_size: "8B"
+  quantize_nf4: true
+  max_seq_len: 512
+  vram: 8.0
+  wait_gpu: 3600                              # Wait up to 1h for VRAM (GPU-SHARE-003)
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "gradient_norm"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "qwen3-8b-qlora"
+    tags:
+      model: "qwen3-8b"
+      method: "qlora-nf4"
+  alerts:
+    - condition: "loss > 10"
+      action: stop
+      message: "Loss exploded"

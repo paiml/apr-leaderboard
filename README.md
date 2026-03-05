@@ -4,7 +4,7 @@
 
 # apr-leaderboard
 
-HuggingFace leaderboard pipeline for the sovereign Rust AI stack. Proves that a single `apr` binary — with zero Python, zero CUDA toolkit — can compete on code generation benchmarks (HumanEval, MBPP, BigCodeBench).
+HuggingFace leaderboard pipeline for the sovereign Rust AI stack. Proves that a single `apr` binary — with zero Python, zero CUDA toolkit, zero GPU vendor lock-in — can compete on code generation benchmarks (HumanEval, MBPP, BigCodeBench). GPU compute via wgpu (Vulkan/Metal/DX12) — runs on NVIDIA, AMD, Intel, or Apple Silicon.
 
 **[Read the full specification](https://paiml.github.io/apr-leaderboard/)**
 
@@ -51,7 +51,7 @@ make pipeline-plan RECIPE=recipe-c-full-pipeline
 |-------|------|---------|
 | [aprender](https://crates.io/crates/aprender) | .apr format, inference, distillation, merging, pruning, quantization | 0.27 |
 | [entrenar](https://crates.io/crates/entrenar) | LoRA/QLoRA training, autograd, AdamW, gradient checkpointing | 0.7 |
-| [trueno](https://crates.io/crates/trueno) | SIMD tensor ops (AVX2/NEON), wgpu GPU, PTX generation | 0.16 |
+| [trueno](https://crates.io/crates/trueno) | SIMD tensor ops (AVX2/NEON), wgpu GPU (Vulkan/Metal/DX12) | 0.16 |
 
 ## Benchmarks Supported
 

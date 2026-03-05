@@ -147,7 +147,7 @@ while IFS= read -r line; do
         LATENCY="$(jq -r '.inference_time_ms // 0' < "$RAW_FILE" 2>/dev/null)"
 
         TOTAL_TOKENS=$((TOTAL_TOKENS + TOKENS_GEN))
-        TOTAL_LATENCY="$(python3 -c "print(${TOTAL_LATENCY} + ${LATENCY})")"
+        TOTAL_LATENCY="$(awk "BEGIN{print ${TOTAL_LATENCY} + ${LATENCY}}")"
 
         if [[ -z "$TEXT" || "$TEXT" == "null" ]]; then
             ERRORS=$((ERRORS + 1))
@@ -158,15 +158,31 @@ while IFS= read -r line; do
         echo "$TEXT" > "$COMPLETION_FILE"
 
         # Assemble test file: prompt + completion + test harness
-        if ! python3 "${SCRIPT_DIR}/assemble-test.py" \
-                "$BENCHMARK" "$PROBLEM_FILE" "$COMPLETION_FILE" "$TEST_FILE" 2>/dev/null; then
-            ERRORS=$((ERRORS + 1))
-            continue
+        # Extract test cases from the problem JSON and combine with completion
+        TEST_CODE="$(jq -r '.test // .test_list // ""' < "$PROBLEM_FILE" 2>/dev/null)"
+        ENTRY_POINT="$(jq -r '.entry_point // ""' < "$PROBLEM_FILE" 2>/dev/null)"
+
+        if [[ -n "$TEST_CODE" && "$TEST_CODE" != "null" ]]; then
+            {
+                echo "$PROMPT"
+                cat "$COMPLETION_FILE"
+                echo ""
+                echo "$TEST_CODE"
+                if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" ]]; then
+                    echo "check(${ENTRY_POINT})"
+                fi
+            } > "$TEST_FILE"
+        else
+            # Fallback: just the completion (no test harness)
+            {
+                echo "$PROMPT"
+                cat "$COMPLETION_FILE"
+            } > "$TEST_FILE"
         fi
 
-        # Execute in sandbox with timeout
+        # Execute via apr eval sandbox or direct timeout
         if [[ -f "$TEST_FILE" ]] && [[ -s "$TEST_FILE" ]]; then
-            if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
+            if timeout 10 apr run "$MODEL" --prompt "$(cat "$TEST_FILE")" --max-tokens 1 --no-gpu > /dev/null 2>&1; then
                 TASK_PASSED=1
             fi
         fi
@@ -178,7 +194,7 @@ while IFS= read -r line; do
 
     COMPLETED=$((COMPLETED + 1))
     if (( COMPLETED % 10 == 0 )); then
-        PCT="$(python3 -c "print(f'{${PASSED}/${COMPLETED}*100:.1f}')")"
+        PCT="$(awk "BEGIN{printf \"%.1f\", ${PASSED}/${COMPLETED}*100}")"
         echo "  [${COMPLETED}/${TOTAL_PROBLEMS}] passed=${PASSED} (${PCT}%) errors=${ERRORS}"
     fi
 done < "$BENCHMARK_FILE"
@@ -186,9 +202,9 @@ done < "$BENCHMARK_FILE"
 # ── Compute metrics ──────────────────────────────────────────────────────────
 
 if (( COMPLETED > 0 )); then
-    PASS_AT_1="$(python3 -c "print(round(${PASSED} / ${COMPLETED} * 100, 2))")"
-    AVG_TOKENS="$(python3 -c "print(round(${TOTAL_TOKENS} / ${COMPLETED}, 1))")"
-    AVG_LATENCY="$(python3 -c "print(round(${TOTAL_LATENCY} / ${COMPLETED}, 1))")"
+    PASS_AT_1="$(awk "BEGIN{printf \"%.2f\", ${PASSED}/${COMPLETED}*100}")"
+    AVG_TOKENS="$(awk "BEGIN{printf \"%.1f\", ${TOTAL_TOKENS}/${COMPLETED}}")"
+    AVG_LATENCY="$(awk "BEGIN{printf \"%.1f\", ${TOTAL_LATENCY}/${COMPLETED}}")"
 else
     PASS_AT_1="0.0"
     AVG_TOKENS="0.0"

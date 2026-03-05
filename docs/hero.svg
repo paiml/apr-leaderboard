@@ -88,7 +88,7 @@
     <!-- trueno -->
     <rect x="460" y="220" width="160" height="65" rx="6" fill="#161b22" stroke="#30363d"/>
     <text x="540" y="240" fill="#f5c2a0" text-anchor="middle" font-weight="bold">trueno</text>
-    <text x="540" y="255" fill="#8b949e" text-anchor="middle" font-size="10">SIMD + PTX compute</text>
+    <text x="540" y="255" fill="#8b949e" text-anchor="middle" font-size="10">SIMD + wgpu compute</text>
     <text x="540" y="270" fill="#8b949e" text-anchor="middle" font-size="10">AVX2 / wgpu GPU</text>
 
     <!-- provable-contracts -->
