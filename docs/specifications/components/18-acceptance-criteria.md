@@ -39,5 +39,5 @@ demonstrated, this spec has failed. Status: ✅ = verified,
 
 - [ ] AC-017: N-sampling generates 20 distinct completions per problem — eval script supports `NUM_SAMPLES`, tracks per-task pass counts, computes Chen et al. unbiased pass@k; `apr eval --n-samples` flag not yet in CLI
 - [ ] AC-018: Speculative decoding achieves ≥1.5x throughput over standard decoding (GH-10: `apr run --speculative` not yet exposed)
-- [ ] AC-019: Structured prompting produces reasoning before code (PMAT-005: `--prompt-strategy` not yet implemented)
+- [ ] AC-019: Structured prompting produces reasoning before code (`PROMPT_STRATEGY=scot` implemented in eval script; awaiting model evaluation to verify output quality)
 - [ ] AC-020: DPO alignment reduces loss on preference pairs over 3 epochs (GH-8: `apr align` not yet implemented, routes through `apr finetune --method dpo`)

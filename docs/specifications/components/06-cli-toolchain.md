@@ -144,26 +144,33 @@ make import MODEL=Qwen/Qwen2.5-Coder-7B CHECKPOINT=checkpoints/qwen7b.apr
 ## 6.2.2 Eval
 
 ```bash
-# Run HumanEval with defaults (512 tokens, temperature 0.0, 1 sample)
+# Run HumanEval with defaults (512 tokens, temperature 0.0, 1 sample, standard prompt)
 make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr
 
 # Full benchmark suite
 make eval-all CHECKPOINT=checkpoints/qwen-7b.apr
 
-# Custom parameters
+# Custom parameters with structured chain-of-thought prompting
 make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr \
-    MAX_TOKENS=1024 TEMPERATURE=0.2 NUM_SAMPLES=10
+    MAX_TOKENS=1024 TEMPERATURE=0.2 NUM_SAMPLES=10 PROMPT_STRATEGY=scot
 
 # Perplexity baseline
 make eval-perplexity CHECKPOINT=checkpoints/qwen-7b.apr
 ```
 
+| Variable | Default | Description |
+|---|---|---|
+| `MAX_TOKENS` | `512` | Max tokens per completion |
+| `TEMPERATURE` | `0.0` | Sampling temperature |
+| `NUM_SAMPLES` | `1` | Completions per problem (for pass@k) |
+| `PROMPT_STRATEGY` | `standard` | Prompt strategy: `standard`, `scot`, `few-shot`, `cgo` |
+
 The eval script (`scripts/eval-pass-at-k.sh`) handles the full pipeline:
 1. Downloads benchmark data (HumanEval, MBPP, BigCodeBench) if not cached
-2. For each problem: generates completion via `apr run`
-3. Combines completion + test cases
-4. Executes in sandbox with `timeout 10`
-5. Computes pass@k and writes result JSON
+2. For each problem: generates completion via `apr run` with chosen prompt strategy
+3. Strips markdown fences, combines completion + test cases
+4. Executes in python3/Docker sandbox with `timeout 10`
+5. Computes pass@k via Chen et al. unbiased estimator and writes result JSON
 
 ## 6.2.3 Data Preparation
 
