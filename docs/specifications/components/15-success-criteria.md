@@ -4,9 +4,9 @@
 
 | Metric | Target | Stretch | Measurement | Notes |
 |--------|--------|---------|-------------|-------|
-| HumanEval pass@1 | ≥ apr baseline | ≥ HF reference | `apr-leaderboard eval --benchmark humaneval` | Relative to Step 0 baseline |
-| MBPP pass@1 | ≥ apr baseline | ≥ HF reference | `apr-leaderboard eval --benchmark mbpp` | Relative to Step 0 baseline |
-| BigCodeBench pass@1 | > 0 (eval works) | ≥ HF reference | `apr-leaderboard eval --benchmark bigcodebench` | Stretch: competitive |
+| HumanEval pass@1 | ≥ apr baseline | ≥ HF reference | `make eval-humaneval` | Relative to Step 0 baseline |
+| MBPP pass@1 | ≥ apr baseline | ≥ HF reference | `make eval-mbpp` | Relative to Step 0 baseline |
+| BigCodeBench pass@1 | > 0 (eval works) | ≥ HF reference | `make eval-bigcodebench` | Stretch: competitive |
 | Inference parity | <5% gap vs HF | <2% gap vs HF | `apr compare-hf` | Perplexity gap on WikiText-2 |
 
 ## 15.2 Infrastructure Metrics
