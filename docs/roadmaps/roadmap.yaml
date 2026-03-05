@@ -611,11 +611,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Reconcile spec with codebase: purge Python scripts, add missing Makefile targets, version bump'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T16:32:53Z
-  updated: 2026-03-05T16:32:53Z
+  updated: 2026-03-05T16:46:48Z
   spec: null
   acceptance_criteria:
   - Remove Python scripts (assemble-test.py, prep-instruct-data.py) that violate zero-Python constraint. Add missing 'make align' target from spec §5. Bump spec version. Clean TOML legacy where safe. All files stay under 500 lines.
@@ -628,11 +628,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Spec implementation: mdbook setup, Python purge, Makefile alignment'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T16:35:56Z
-  updated: 2026-03-05T16:35:59.513235336+00:00
+  updated: 2026-03-05T16:46:42Z
   spec: null
   acceptance_criteria:
   - Set up mdbook for docs/book, remove Python scripts, add missing Makefile targets, maintain pmat comply
