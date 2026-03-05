@@ -42,7 +42,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make finetune-instruct` | `apr finetune --task instruct` | ✅ Wired | Instruction LoRA fine-tuning |
 | `make import-plan` | HF Hub check + dry-run | ✅ Working | Import plan preview |
 | `make clean` | `rm -rf checkpoints/ results/` | ✅ Working | Remove build artifacts |
-| `make decontaminate` | `apr data decontaminate` | 🔧 Blocked | Subcommand not wired yet (GH-11) |
+| `make decontaminate` | `apr data decontaminate` | 🔄 PR Open | aprender#415 + alimentar#32 (GH-11) |
 | `make data-quality` | `apr data quality` | 🔧 Blocked | Subcommand not wired yet (GH-11) |
 | `make qa` | `apr qa $(CHECKPOINT) --verbose` | ✅ Wired | Full model QA gate |
 | `make compare-hf` | `apr compare-hf $(CHECKPOINT) --json` | ✅ Wired | HF parity check |
