@@ -298,7 +298,8 @@ if $PLAN_MODE; then
                 echo "[prep-data] apr data audit data/instruct-corpus.jsonl"
                 ;;
             eval)
-                echo "[eval] ./scripts/eval-pass-at-k.sh <benchmark> ${CURRENT}"
+                EVAL_STRATEGY="$(read_yaml eval.prompt_strategy standard)"
+                echo "[eval] ./scripts/eval-pass-at-k.sh <benchmark> ${CURRENT} (strategy=${EVAL_STRATEGY})"
                 echo "       Benchmarks: ${BENCH_LIST[*]}"
                 ;;
             submit)
@@ -444,12 +445,19 @@ for stage in "${STAGES[@]}"; do
             ;;
 
         eval)
+            EVAL_MAX_TOKENS="$(read_yaml eval.max_tokens 512)"
+            EVAL_TEMPERATURE="$(read_yaml eval.temperature 0.0)"
+            EVAL_SAMPLES="$(read_yaml eval.num_samples 1)"
+            EVAL_STRATEGY="$(read_yaml eval.prompt_strategy standard)"
             for bench in "${BENCH_LIST[@]}"; do
                 echo ""
-                echo "  Evaluating: ${bench}"
+                echo "  Evaluating: ${bench} (strategy=${EVAL_STRATEGY})"
                 case "$bench" in
                     humaneval|mbpp|bigcodebench)
-                        ./scripts/eval-pass-at-k.sh "$bench" "$CURRENT" results/ 512 0.0 1 || echo "  WARNING: ${bench} evaluation failed"
+                        ./scripts/eval-pass-at-k.sh "$bench" "$CURRENT" results/ \
+                            "$EVAL_MAX_TOKENS" "$EVAL_TEMPERATURE" "$EVAL_SAMPLES" \
+                            "$EVAL_STRATEGY" \
+                            || echo "  WARNING: ${bench} evaluation failed"
                         ;;
                     *)
                         echo "  SKIP: ${bench} (not yet supported in eval script)"
