@@ -34,7 +34,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 │                    apr-leaderboard                        │
 │                                                          │
 │  Makefile           YAML configs        Shell scripts    │
-│  (dev convenience)  (models/recipes/   (5 scripts)      │
+│  (dev convenience)  (models/recipes/   (7 scripts)      │
 │                      eval/pipeline)                      │
 │                                                          │
 │  ┌──────────────── calls ─────────────────────────────┐  │
@@ -91,7 +91,7 @@ All orchestration is implemented via Makefile + shell scripts. Every `make` targ
 | **data_catalog.yaml** | **Complete** | Data governance: datasets, lineage, classification, lifecycle |
 | **docs/** | **Complete** | Strategy spec (mdbook), 22 sections covering full pipeline |
 
-**Quality:** All YAML configs valid (`make validate`), all 5 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B. Zero Python scripts. Zero TOML configs (migrated to YAML).
+**Quality:** All YAML configs valid (`make validate`), all 7 scripts pass `bashrs lint`, 19/19 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B. Zero Python scripts. Zero TOML configs (migrated to YAML). Chen et al. unbiased pass@k estimator. 4 prompt strategies (standard, scot, few-shot, cgo).
 
 **GPU sharing infrastructure:** 143 tests across 9 entrenar modules (VRAM guard, ledger, wait queue, profiler, MPS, cluster config, placement, coordinator, multi-adapter pipeline). See §22 for details.
 

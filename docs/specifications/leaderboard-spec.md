@@ -62,9 +62,10 @@ Every command is provided by `apr` CLI (aprender). This repo provides:
 ```
 Makefile (dev convenience)
 +-- scripts/pipeline.sh       -> reads recipe YAML, runs stages
-+-- scripts/eval-pass-at-k.sh -> apr run + jq + awk scoring
-+-- scripts/submit.sh         -> apr export + apr publish
++-- scripts/eval-pass-at-k.sh -> apr run + sandbox + Chen et al. pass@k
++-- scripts/submit.sh         -> preflight checks + apr export + apr publish
 +-- scripts/prove-wgpu.sh     -> dual GPU wgpu training proof
++-- scripts/results-history.sh -> eval results viewer
 +-- configs/models/            -> 6 YAML model configs
 +-- configs/recipes/           -> 7 YAML recipe configs
 +-- configs/eval/              -> benchmark suite definitions
@@ -143,7 +144,7 @@ No CUDA toolkit. No vendor lock-in. 32 GB total VRAM across 2 GPUs.
 
 ## 6. CLI Toolchain
 
-19 `apr` subcommands verified. 6 shell scripts. 36 Makefile targets.
+19 `apr` subcommands verified. 7 shell scripts. 37 Makefile targets.
 Zero Python scripts — all data prep uses `apr` CLI.
 
 ```bash
@@ -298,7 +299,7 @@ a concrete command and a pass/fail threshold. Key milestones:
 
 ## 19. Implementation Status
 
-**All orchestration implemented.** 36 Makefile targets, 6 shell scripts,
+**All orchestration implemented.** 37 Makefile targets, 7 shell scripts,
 17 YAML configs, 19/19 `apr` subcommands verified. Zero Python scripts.
 Zero TOML configs (migrated to YAML-only).
 
