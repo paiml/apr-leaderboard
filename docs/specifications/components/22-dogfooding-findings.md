@@ -77,7 +77,10 @@ GPU inference uses wgpu (Vulkan/Metal/DX12) for vendor-agnostic compute. No CUDA
 
 ### 22.2.3 `apr serve` (Partial)
 
-`apr serve` loads .apr models but the HTTP server does not bind to a port. This may be an unimplemented feature for the .apr format — serve may only work with raw GGUF files. `apr run` is the reliable path for batch inference in eval scripts.
+`apr serve` loads .apr models but the HTTP server does not bind to a port.
+This may be an unimplemented feature for the .apr format — serve may only
+work with raw GGUF files. `apr run` is the reliable path for batch
+inference in eval scripts.
 
 ## 22.3 Validation (`apr check`)
 
@@ -227,11 +230,18 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 
 ## 22.12 BPE Tokenizer Performance (GH-378)
 
-**Problem:** QLoRA training (recipe-f) stuck 25+ minutes pre-tokenizing 15,494 instruction samples. The tokenizer was the bottleneck — not the model or GPU.
+**Problem:** QLoRA training (recipe-f) stuck 25+ minutes pre-tokenizing
+15,494 instruction samples. The tokenizer was the bottleneck — not the
+model or GPU.
 
-**Root cause:** The `bpe()` merge function used an O(n^2) greedy-rescan algorithm: for each merge iteration, it scanned the entire word to find the lowest-rank pair, then cloned a `String` and used `Vec::splice` to apply the merge. For large vocabularies (Qwen3: 151,665 tokens), this meant thousands of full rescans per word.
+**Root cause:** The `bpe()` merge function used an O(n^2) greedy-rescan
+algorithm: for each merge iteration, it scanned the entire word to find
+the lowest-rank pair, then cloned a `String` and used `Vec::splice` to
+apply the merge. For large vocabularies (Qwen3: 151,665 tokens), this
+meant thousands of full rescans per word.
 
-**Fix:** Replaced with a priority-queue (BinaryHeap) + doubly-linked symbol list algorithm, ported from HuggingFace `tokenizers` `word.rs`:
+**Fix:** Replaced with a priority-queue (BinaryHeap) + doubly-linked
+symbol list algorithm, ported from HuggingFace `tokenizers` `word.rs`:
 - Initial symbols linked by prev/next indices (no array shifting)
 - All valid initial merges pushed into a min-heap keyed by merge rank
 - Main loop pops lowest-rank merge, applies in O(1) via pointer updates
@@ -250,16 +260,27 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | Throughput (tokens/sec) | ~1.8M | **~3.76M** | ~2.5M |
 | Allocations in merge loop | O(m) String clones | **Zero** | Zero |
 
-**Impact:** Pre-tokenization of 15,494 samples for QLoRA training drops from O(minutes) to O(seconds). All 117 BPE tests pass with identical encode/decode behavior.
+**Impact:** Pre-tokenization of 15,494 samples for QLoRA training drops
+from O(minutes) to O(seconds). All 117 BPE tests pass with identical
+encode/decode behavior.
 
 ### 22.12.1 Tokenizer Loading Optimization (GH-378 follow-up)
 
-**Problem:** `BpeTokenizer::from_huggingface()` took 272ms to parse a 7MB `tokenizer.json` (Qwen2.5 151K vocab) — 1.45x slower than HuggingFace tokenizers v0.22 (187ms). The bottleneck was ~825K String/Vec allocations during loading: empty HashMaps rehashed ~15 times growing to 150K entries, vocab strings were cloned twice (300K clones), and each merge rule created 5+ String allocations.
+**Problem:** `BpeTokenizer::from_huggingface()` took 272ms to parse a
+7MB `tokenizer.json` (Qwen2.5 151K vocab) — 1.45x slower than
+HuggingFace tokenizers v0.22 (187ms). The bottleneck was ~825K
+String/Vec allocations during loading: empty HashMaps rehashed ~15
+times growing to 150K entries, vocab strings were cloned twice (300K
+clones), and each merge rule created 5+ String allocations.
 
 **Fix (3 changes):**
-1. **Pre-sized HashMaps** — `BpeTokenizer::with_capacity(config, vocab_size, merge_count)` eliminates all rehashing
-2. **Owned-string vocab loading** — `load_vocab_owned()` moves deserialized HashMap strings instead of cloning (saves 150K String allocations)
-3. **Fast merge path** — `add_merge_owned()` skips `merge_ranks` HashMap (only used by tests, never at encode time) and moves strings into `MergeRule` (saves 300K String clones + 150K Vec allocations)
+1. **Pre-sized HashMaps** — `with_capacity(config, vocab_size,
+   merge_count)` eliminates all rehashing
+2. **Owned-string vocab loading** — `load_vocab_owned()` moves
+   deserialized HashMap strings instead of cloning (saves 150K allocs)
+3. **Fast merge path** — `add_merge_owned()` skips `merge_ranks`
+   HashMap (only used by tests) and moves strings into `MergeRule`
+   (saves 300K String clones + 150K Vec allocations)
 
 **Before/After:**
 
@@ -270,7 +291,10 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | vs HF | 1.45x slower | **1.43x faster** | baseline |
 | String allocations | ~825K | ~225K | — |
 
-**Coverage:** All tokenizer formats (Qwen2, Whisper, GPT-2, LLaMA) share the same `load_from_json` → `with_capacity` → `load_vocab_owned` → `load_merges_fast` path via `config_from_vocab_size()` dispatch. A Whisper tokenizer (51K vocab) receives identical optimizations.
+**Coverage:** All tokenizer formats (Qwen2, Whisper, GPT-2, LLaMA)
+share the same optimized load path via `config_from_vocab_size()`
+dispatch. A Whisper tokenizer (51K vocab) receives identical
+optimizations.
 
 ## 22.13 Training & Serving Bricks (QLoRA Foundation)
 
@@ -288,8 +312,12 @@ All training bricks read **real model architecture** from `.apr` metadata. Teste
 | Training step | `apr bench <model> --brick train_step` | hidden=3584, 28 layers, rank=16 | 5,000µs | Analytical |
 
 **Key findings:**
-- `lora_forward` runs an actual two-stage matmul (A×x → intermediate, B×intermediate → output) using model-accurate dimensions. The 54µs CPU result for a 3584-dim rank-16 projection is consistent with expected FLOP count (~230K FLOPs).
-- LoRA parameter count formula: `num_layers × 2 × rank × hidden_dim × 2` = 28 × 2 × 16 × 3584 × 2 = 6,422,528. This is the number of trainable parameters in a QLoRA run targeting Q and V projections.
+- `lora_forward` runs an actual two-stage matmul using model-accurate
+  dimensions. The 54µs CPU result for a 3584-dim rank-16 projection is
+  consistent with expected FLOP count (~230K FLOPs).
+- LoRA parameter count formula:
+  `num_layers × 2 × rank × hidden_dim × 2` = 28 × 2 × 16 × 3584 × 2
+  = 6,422,528 trainable parameters (Q and V projections).
 - All bricks correctly parse APR v2 metadata JSON to extract `hidden_dim`, `num_layers`, `vocab_size`, and `architecture` fields.
 
 ### 22.13.2 Serving Bricks — Dogfood Results
@@ -304,9 +332,12 @@ Serving bricks load the **real 7.5 GiB model** and run actual autoregressive gen
 
 **Key findings:**
 - Serving bricks are statistically stable (CV < 5% on all measurements, 5 iterations with 3 warmup).
-- 8 tok/s CPU decode for 7B Q4K is consistent with full-model benchmark results (`apr bench <model>` without `--brick`).
-- TTFT of 761ms on CPU includes full prefill + first decode step. GPU TTFT via wgpu should be ~10-50ms.
-- Budget targets (500µs TTFT, 50 tok/s decode) are GPU-oriented. CPU results serve as a baseline for measuring GPU acceleration factor.
+- 8 tok/s CPU decode for 7B Q4K is consistent with full-model benchmark
+  results (`apr bench <model>` without `--brick`).
+- TTFT of 761ms on CPU includes full prefill + first decode step. GPU
+  TTFT via wgpu should be ~10-50ms.
+- Budget targets (500µs TTFT, 50 tok/s decode) are GPU-oriented. CPU
+  results serve as a baseline for measuring GPU acceleration factor.
 
 ### 22.13.3 QLoRA Readiness Checklist
 
@@ -329,9 +360,16 @@ Serving bricks load the **real 7.5 GiB model** and run actual autoregressive gen
 
 ### 22.13.4 QLoRA Instruct Gap (Blocking Recipe F)
 
-**Problem:** `apr finetune --task instruct --method qlora --quantize-nf4` does not work. The `--task instruct` dispatch (finetune.rs:397) exits before the qlora method handling (finetune.rs:411). The `run_instruct()` function does not receive `method`, `quantize_nf4`, `vram`, or `max_seq_len` parameters.
+**Problem:** `apr finetune --task instruct --method qlora --quantize-nf4`
+does not work. The `--task instruct` dispatch (finetune.rs:397) exits
+before the qlora method handling (finetune.rs:411). The
+`run_instruct()` function does not receive `method`, `quantize_nf4`,
+`vram`, or `max_seq_len` parameters.
 
-**Root cause:** `InstructPipeline` (entrenar) only supports full-precision LoRA. QLoRA (NF4 base weights + FP16 adapters) exists in entrenar's `ClassifyPipeline` but has not been plumbed into the instruction fine-tuning path.
+**Root cause:** `InstructPipeline` (entrenar) only supports
+full-precision LoRA. QLoRA (NF4 base weights + FP16 adapters) exists
+in entrenar's `ClassifyPipeline` but has not been plumbed into the
+instruction fine-tuning path.
 
 | Component | ClassifyPipeline | InstructPipeline |
 |-----------|-----------------|------------------|
@@ -359,13 +397,20 @@ Commits:
 - Train loss: 15.12, Val loss: 33.12
 - No GPU errors (GH-378 GEMM k/n swap fix confirmed)
 
-**Next step:** Run `make pipeline RECIPE=recipe-f-qwen3-qlora` on full 15K-sample instruct corpus and record pre/post HumanEval pass@1. Note: full training requires ~6-9 hours on 1.5B Q4K (or ~18-25 hours on 7B Q4K) due to per-sample forward+backward.
+**Next step:** Run `make pipeline RECIPE=recipe-f-qwen3-qlora` on full
+15K-sample instruct corpus. Full training requires ~6-9 hours on 1.5B
+Q4K (or ~18-25 hours on 7B Q4K).
 
 ### GH-206: GPU-SHARE Multi-Adapter Training (Phase 2)
 
-**Problem:** Training N LoRA adapters on the same base model required N separate processes, each loading the full 7B model to GPU (~7.3 GB each). 3 adapters = 21.9 GB VRAM.
+**Problem:** Training N LoRA adapters on the same base model required N
+separate processes, each loading the full 7B model to GPU (~7.3 GB
+each). 3 adapters = 21.9 GB VRAM.
 
-**Solution:** MultiAdapterPipeline trains N independent LoRA adapter sets on a single frozen NF4 base model. The base model is loaded once to GPU; each adapter maintains independent LoRA A/B matrices, optimizer state, and training data.
+**Solution:** MultiAdapterPipeline trains N independent LoRA adapter
+sets on a single frozen NF4 base model. Base model loaded once to GPU;
+each adapter maintains independent LoRA A/B matrices, optimizer state,
+and training data.
 
 **VRAM savings:** 3 adapters on 7B: MPS = 21.9 GB vs multi-adapter = 7.36 GB (**3x savings**).
 
@@ -384,47 +429,11 @@ apr finetune model.apr --task instruct --method qlora --quantize-nf4 \
 
 **Status:** Phase 1 (VRAM guard + ledger) and Phase 2 (multi-adapter) functionally complete. BatchLoRA fused forward (GH-204) deferred as KAIZEN optimization.
 
-**Additional Phase 2 deliverables (2026-03-04):**
-- `batch_train_step()`: schedule-aware dispatch (Synchronized trains all adapters, RoundRobin/Priority trains one)
-- `multi_adapter_training` example: `cargo run --example multi_adapter_training -- --adapters 3 --schedule priority`
-- `gpu_ledger` example registered in Cargo.toml
-- 6 unit tests for MultiAdapterPipeline (scheduling, checkpointing, shuffle determinism)
-
-**Phase 3 implementation (2026-03-04):**
-- GH-210: `gpu::cluster` module — ClusterConfig, NodeConfig, GpuConfig YAML schema + validation (15 tests). PR entrenar#215.
-- GH-211: `gpu::placement` module — greedy job placement with FLOPS scoring: `score = (free_vram / budget) × flops × (1/load)` (11 tests). PR entrenar#215.
-- GH-212: `gpu::coordinator` module — checkpoint polling, leaderboard ranking, SSH launch command generation (8 tests). PR entrenar#215.
-- GH-213: `apr train submit --cluster ... --adapter ...` + `apr train cluster-status` CLI commands. PR aprender#401.
-- `cluster_training` example: `cargo run --example cluster_training` demonstrates end-to-end placement + coordination.
-
-**§1.5 MPS implementation (2026-03-04):**
-- GH-216: `gpu::mps` module — `MpsConfig`, `setup_mps_env()`, `validate_mps_config()`, `is_mps_daemon_running()` (11 tests). PR entrenar#217.
-- GH-216: `--experimental-mps` + `--gpu-share <PCT>` CLI flags wired into `apr finetune`. PR aprender#402.
-- `cluster_training` example updated with GpuCostModel (PW-01) and MPS validation demos.
-
-**SSH transport implementation (2026-03-04):**
-- GH-218: Replaced SSH stub with real `std::process::Command` execution. PR entrenar#220.
-- `exec_ssh_command()`: stdin-piped scripts, `BatchMode=yes`, `ConnectTimeout=5`, `StrictHostKeyChecking=accept-new`.
-- `exec_launch()`: Spawns training jobs on local (bash -c) or remote (ssh host bash < script) nodes.
-- forjar#30 filed for library API integration (future optimization with ControlMaster multiplexing).
-- Zero SATD remaining in GPU modules.
-
-**Spec gap fixes (2026-03-04):**
-- GH-221: `AdaptersConfigFile` TOML parsing for `--adapters-config adapters.toml` (§2.4). 4 tests. PR entrenar#224, aprender#404.
-- GH-222: `pull_best_checkpoint()` copies best adapter via local copy or SCP from SSH (§3.4). 3 tests. PR entrenar#224.
-- GH-223: `check_cluster_health()` verifies node reachability and `apr` CLI availability (§3.6). 2 tests. PR entrenar#224.
-
-**Spec status:** Complete. 143 GPU tests pass. Zero SATD. All spec sections implemented:
-- Phase 1: VRAM guard, ledger, wait queue, profiler, MPS (§1.1-1.7)
-- Phase 2: Multi-adapter pipeline, scheduling, adapters-config TOML (§2.1-2.5)
-- Phase 3: Cluster config, placement, coordinator, SSH transport, health check, checkpoint pull (§3.1-3.6)
-
-**Example verification (2026-03-04):**
-All 32 entrenar examples compile and run successfully:
-- `cargo run --example gpu_ledger` — VRAM ledger with reservation display
-- `cargo run --example multi_adapter_training` — 2 adapters, round-robin, per-adapter checkpoints
-- `cargo run --example cluster_training` — 9-section demo: placement, SSH launch, coordination, MPS, cost model, adapters-config, health check
-- Plus 29 other examples covering fine-tuning, distillation, monitoring, LLaMA2, wgpu, CLI tools
+**Spec status:** Complete. 143 GPU tests pass. Zero SATD across all 3
+phases. All entrenar GPU modules implemented and verified:
+- Phase 1: VRAM guard, ledger, wait queue, profiler, MPS
+- Phase 2: Multi-adapter pipeline, scheduling, adapters-config TOML
+- Phase 3: Cluster config, placement, coordinator, SSH transport
 
 ## 22.14 Dual wgpu Training Proof (Recipe G)
 
@@ -453,22 +462,8 @@ GPU1: /dev/dri/renderD129 — AMD Radeon Pro W5700X (RADV NAVI10)
 - Both GPUs are wgpu/Vulkan — identical driver, identical capability
 - `DRI_PRIME=0` / `DRI_PRIME=1` selects GPU for each process
 
-**How to run (parallel with other work):**
-
-```bash
-# Foreground (interactive) — tests both GPUs
-make prove-wgpu
-
-# Background (log to file, continue other work)
-make prove-wgpu 2>&1 | tee results/wgpu-proof.log &
-
-# Just the recipe pipeline
-make pipeline RECIPE=recipe-g-wgpu-proof
-
-# Manual dual GPU test
-DRI_PRIME=0 apr run checkpoints/model.apr --gpu --prompt "def fib(n):" --max-tokens 64
-DRI_PRIME=1 apr run checkpoints/model.apr --gpu --prompt "def fib(n):" --max-tokens 64
-```
+**How to run:** `make prove-wgpu` (foreground) or
+`make prove-wgpu 2>&1 | tee results/wgpu-proof.log &` (background).
 
 **Design choices:**
 - Uses Qwen2.5-Coder-1.5B (smallest model, ~1.1 GB Q4K) for fast turnaround
