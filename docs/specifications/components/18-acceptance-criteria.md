@@ -1,8 +1,17 @@
 # Acceptance Criteria
 
-Every criterion below is falsifiable. If any criterion cannot be demonstrated, this spec has failed.
+Every criterion below is falsifiable. If any criterion cannot be
+demonstrated, this spec has failed. Status: ✅ = verified,
+⬚ = not yet tested, 🔧 = blocked on upstream.
 
-- [ ] AC-001: `apr import hf://Qwen/Qwen2.5-Coder-7B` produces a valid `.apr` file that passes `apr check`
+## Verified
+
+- [x] AC-001: `apr import hf://Qwen/Qwen2.5-Coder-7B` produces a valid `.apr` file that passes `apr check`
+- [x] AC-028: `make prove-wgpu` completes successfully — QLoRA training runs on wgpu (Vulkan/Metal/DX12) with no CUDA toolkit installed
+- [x] AC-029: Training via wgpu produces decreasing loss over 2 epochs on Qwen2.5-Coder-1.5B
+
+## Not Yet Tested
+
 - [ ] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference
 - [ ] AC-003: `apr distill` with progressive strategy produces a student model that outperforms the untrained student on perplexity
 - [ ] AC-004: `apr finetune --method lora` completes training with decreasing loss curve
@@ -17,11 +26,6 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 - [ ] AC-013: `pmat comply check --strict` passes with zero failures on the final submission
 - [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models
 - [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen)
-- [ ] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases (`apr validate --decontaminate`)
-- [ ] AC-017: `apr eval --n-samples 20` generates 20 distinct completions per problem (not duplicates)
-- [ ] AC-018: Speculative decoding (`apr run --speculative`) achieves ≥1.5x throughput over standard decoding
-- [ ] AC-019: `apr eval --prompt-strategy scot` produces structured reasoning before code output
-- [ ] AC-020: `apr align --method dpo` reduces loss on preference pairs over 3 epochs
 - [ ] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves ≥85% HumanEval pass@1 (apr-native baseline ≥ HF reference - 5%)
 - [ ] AC-022: Full pipeline on Qwen2.5-Coder-7B produces a model scoring ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP
 - [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval
@@ -29,5 +33,11 @@ Every criterion below is falsifiable. If any criterion cannot be demonstrated, t
 - [ ] AC-025: `alimentar quality` scores all training data ≥80/100 before use in fine-tuning
 - [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
 - [ ] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary
-- [ ] AC-028: `make prove-wgpu` completes successfully — QLoRA training runs on wgpu (Vulkan/Metal/DX12) with no CUDA toolkit installed
-- [ ] AC-029: Training via wgpu produces decreasing loss over 2 epochs on Qwen2.5-Coder-1.5B
+
+## Blocked on Upstream
+
+- [ ] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases (GH-9: `apr validate --decontaminate` not yet implemented)
+- [ ] AC-017: N-sampling generates 20 distinct completions per problem — sampling works via eval script, but `apr eval --n-samples` flag not yet implemented
+- [ ] AC-018: Speculative decoding achieves ≥1.5x throughput over standard decoding (GH-10: `apr run --speculative` not yet exposed)
+- [ ] AC-019: Structured prompting produces reasoning before code (PMAT-005: `--prompt-strategy` not yet implemented)
+- [ ] AC-020: DPO alignment reduces loss on preference pairs over 3 epochs (GH-8: `apr align` not yet implemented, routes through `apr finetune --method dpo`)
