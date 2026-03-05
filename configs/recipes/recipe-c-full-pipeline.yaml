@@ -53,6 +53,11 @@ prune:
 quantize:
   scheme: int4
 
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: scot
+
 monitoring:
   terminal:
     enabled: true

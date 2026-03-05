@@ -33,6 +33,11 @@ finetune:
   epochs: 3
   model_size: "7B"
 
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: scot
+
 monitoring:
   terminal:
     enabled: true

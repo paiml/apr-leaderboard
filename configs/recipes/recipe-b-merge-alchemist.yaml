@@ -36,3 +36,8 @@ prune:
 
 quantize:
   scheme: q4k
+
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard

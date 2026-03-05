@@ -28,6 +28,11 @@ finetune:
   lr: 1.0e-4
   epochs: 3
 
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard
+
 monitoring:
   terminal:
     enabled: true

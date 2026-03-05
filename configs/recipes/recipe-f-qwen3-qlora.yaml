@@ -39,6 +39,11 @@ finetune:
   vram: 8.0
   wait_gpu: 3600                              # Wait up to 1h for VRAM (GPU-SHARE-003)
 
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard
+
 monitoring:
   terminal:
     enabled: true
