@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mdBook
+        run: |
+          mkdir -p $HOME/bin
+          curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C $HOME/bin
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Check file sizes (500-line limit)
+        run: |
+          echo "=== File size check (pmat 500-line limit) ==="
+          OVER=0
+          for f in scripts/*.sh Makefile docs/specifications/components/*.md; do
+            [ -f "$f" ] || continue
+            LINES=$(wc -l < "$f")
+            if [ "$LINES" -gt 500 ]; then
+              echo "FAIL: $f ($LINES lines > 500)"
+              OVER=1
+            fi
+          done
+          [ "$OVER" -eq 0 ] && echo "All files under 500 lines" || exit 1
+
+      - name: Validate shell scripts (bash -n)
+        run: |
+          echo "=== Shell script syntax check ==="
+          for f in scripts/*.sh; do
+            printf "  %-50s" "$f"
+            bash -n "$f" && echo "OK" || { echo "FAIL"; exit 1; }
+          done
+
+      - name: Build mdBook
+        run: cd docs && mdbook build
+
+      - name: Validate YAML configs
+        run: |
+          echo "=== YAML config validation ==="
+          for f in configs/models/*.yaml configs/recipes/*.yaml configs/eval/*.yaml configs/pipeline/*.yaml data_catalog.yaml; do
+            [ -f "$f" ] || continue
+            printf "  %-50s" "$f"
+            python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>/dev/null && echo "valid" || echo "INVALID"
+          done
