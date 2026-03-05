@@ -51,8 +51,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Script | Purpose | Status |
 |---|---|---|
 | `scripts/eval-pass-at-k.sh` | Download benchmark → generate completions via `apr run` → strip markdown fences → sandbox execute (python3/Docker) → Chen et al. unbiased pass@k estimator → write JSON | ✅ Working |
-| `scripts/pipeline.sh` | Parse recipe YAML (bash-native) → determine stages → execute sequentially (or `--plan` dry-run) | ✅ Working |
-| `scripts/submit.sh` | Export to SafeTensors → generate model card → dry-run → publish to HF Hub | ✅ Working |
+| `scripts/pipeline.sh` | Parse recipe YAML (bash-native) → determine stages → execute sequentially with eval config (prompt_strategy, max_tokens) → `--plan` dry-run | ✅ Working |
+| `scripts/submit.sh` | Pre-submission checks (§14.4) → export SafeTensors → model card → dry-run → publish to HF Hub | ✅ Working |
 | `scripts/import.sh` | Wrapper around `apr import` with HF Hub reachability check + `apr check` validation | ✅ Working |
 | `scripts/prove-wgpu.sh` | End-to-end wgpu training proof: import → train (QLoRA) → verify → report | ✅ Working |
 | `scripts/download-benchmarks.sh` | Download HumanEval/MBPP benchmark data for eval + decontamination | ✅ Working |
