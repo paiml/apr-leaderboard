@@ -182,10 +182,19 @@ while IFS= read -r line; do
             } > "$TEST_FILE"
         fi
 
-        # Run test in sandbox with timeout
+        # Execute test in sandbox with timeout
+        # Uses Python directly if available, Docker sandbox as fallback
         if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
-            if timeout 10 apr run "$MODEL" --prompt-file "$TEST_FILE" --max-tokens 1 --no-gpu > /dev/null 2>&1; then
-                TASK_PASSED=1
+            if command -v python3 >/dev/null 2>&1; then
+                if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
+                    TASK_PASSED=1
+                fi
+            elif command -v docker >/dev/null 2>&1; then
+                if timeout 30 docker run --rm --network=none --memory=512m \
+                    -v "${TEST_FILE}:/test.py:ro" python:3.11-slim \
+                    python3 /test.py > /dev/null 2>&1; then
+                    TASK_PASSED=1
+                fi
             fi
         fi
     done
