@@ -41,6 +41,10 @@ HF_REPO       ?=
 MAX_TOKENS    ?= 512
 TEMPERATURE   ?= 0.0
 NUM_SAMPLES   ?= 1
+CORPUS_DIR    ?=
+CORPUS_NAME   ?= corpus
+MIN_LINES     ?= 3
+MAX_LINES     ?= 200
 
 # -- Import ---------------------------------------------------------------------
 
@@ -62,10 +66,14 @@ import-plan:
 # -- Data Preparation -----------------------------------------------------------
 
 prep-data:
-	@echo "=== Preparing instruction corpus from ground truth corpora ==="
+	@echo "=== Extracting instruction/response pairs from Python source ==="
 	@mkdir -p data
-	$(APR) data audit data/instruct-corpus.jsonl --verbose 2>/dev/null || echo "  No existing corpus — run alimentar to generate"
-	@test -f data/instruct-corpus.jsonl && wc -l data/instruct-corpus.jsonl | awk '{print "  " $$1 " instruction pairs"}' || true
+	@test -d "$(CORPUS_DIR)" || { echo "ERROR: CORPUS_DIR not set or not found: $(CORPUS_DIR)"; exit 1; }
+	$(APR) data prep "$(CORPUS_DIR)" \
+		--output data/instruct-corpus.jsonl \
+		--corpus "$(CORPUS_NAME)" \
+		--min-lines $(MIN_LINES) --max-lines $(MAX_LINES)
+	@wc -l data/instruct-corpus.jsonl | awk '{print "  " $$1 " instruction pairs extracted"}'
 
 prep-data-audit:
 	$(APR) data audit data/instruct-corpus.jsonl --verbose

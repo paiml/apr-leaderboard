@@ -35,7 +35,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make book` | `mdbook build` | ✅ Working | Build specification book |
 | `make docs` | `mdbook build` | ✅ Working | Alias for book |
 | `make docs-serve` | `mdbook serve` | ✅ Working | Local book preview |
-| `make prep-data` | `apr data audit` | ✅ Working | Validate instruct corpus |
+| `make prep-data` | `apr data prep` | ✅ Wired | Extract instruction/response pairs (GH-7) |
 | `make prep-data-audit` | `apr data audit --verbose` | ✅ Working | Detailed corpus audit |
 | `make finetune-instruct` | `apr finetune --task instruct` | ✅ Wired | Instruction LoRA fine-tuning |
 | `make import-plan` | HF Hub check + dry-run | ✅ Working | Import plan preview |

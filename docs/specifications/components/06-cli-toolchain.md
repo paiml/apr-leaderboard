@@ -92,7 +92,7 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | Make Target | Calls | Description |
 |---|---|---|
 | `make import` | `apr import` | Download HF model → `.apr` format |
-| `make prep-data` | `apr data audit` | Validate instruct corpus quality (GH-7) |
+| `make prep-data` | `apr data prep` | Extract instruction/response pairs from Python source (GH-7) |
 | `make eval-humaneval` | `scripts/eval-pass-at-k.sh` | Generate completions → sandbox execute → pass@k |
 | `make eval-mbpp` | `scripts/eval-pass-at-k.sh` | Same pipeline, MBPP dataset |
 | `make eval-bigcodebench` | `scripts/eval-pass-at-k.sh` | Same pipeline, BigCodeBench dataset |

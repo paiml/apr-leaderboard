@@ -662,11 +662,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Dogfood pipeline: verify, validate, data audit + update §22 findings'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T17:04:42Z
-  updated: 2026-03-05T17:04:44.878277800+00:00
+  updated: 2026-03-05T17:26:00Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -678,11 +678,27 @@ roadmap:
   github_issue: null
   item_type: task
   title: Implement n-gram decontamination in alimentar + wire into apr data decontaminate
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T17:10:17Z
-  updated: 2026-03-05T17:10:21.369172200+00:00
+  updated: 2026-03-05T17:26:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-035
+  github_issue: null
+  item_type: task
+  title: 'Implement apr data prep: instruct pair extraction from corpora (GH-7)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-05T17:49:37Z
+  updated: 2026-03-05T17:49:41.046871212+00:00
   spec: null
   acceptance_criteria: []
   phases: []
