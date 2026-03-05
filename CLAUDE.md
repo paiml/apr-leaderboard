@@ -7,29 +7,33 @@ APR Leaderboard is a thin orchestration layer over the `apr` CLI for building, e
 ## Architecture
 
 ```
-Makefile (dev convenience)
-├── scripts/import.sh         → apr import
-├── scripts/eval-pass-at-k.sh → apr run + jq + awk scoring
-├── scripts/pipeline.sh       → reads recipe YAML, runs stages in order
-├── scripts/submit.sh         → apr export + apr publish
-├── scripts/prove-wgpu.sh     → wgpu training proof
-├── configs/models/            → per-model YAML configs
-├── configs/recipes/           → multi-stage pipeline recipes (YAML)
-├── configs/eval/              → benchmark evaluation suite (YAML)
-├── configs/pipeline/          → forjar manifest + batuta playbook (YAML)
-└── data_catalog.yaml          → data governance + lineage
+Makefile (37 targets)
+├── scripts/import.sh           → apr import + validation
+├── scripts/eval-pass-at-k.sh   → apr run + sandbox + Chen et al. pass@k
+├── scripts/pipeline.sh         → reads recipe YAML, runs stages in order
+├── scripts/submit.sh           → preflight checks + apr export + apr publish
+├── scripts/prove-wgpu.sh       → wgpu training proof
+├── scripts/download-benchmarks.sh → HumanEval/MBPP data
+├── scripts/results-history.sh  → eval results viewer
+├── configs/models/              → per-model YAML configs
+├── configs/recipes/             → multi-stage pipeline recipes (YAML)
+├── configs/eval/                → benchmark evaluation suite (YAML)
+├── configs/pipeline/            → forjar manifest + batuta playbook (YAML)
+└── data_catalog.yaml            → data governance + lineage
 ```
 
 ## Build Commands
 
 ```bash
-make verify                                          # check apr CLI available
-make validate                                        # lint all configs (bashrs)
-make dogfood                                         # end-to-end smoke test
-make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct    # download + convert to .apr
-make eval-humaneval CHECKPOINT=checkpoints/model.apr  # run HumanEval pass@k
-make pipeline RECIPE=recipe-a-quick-lora              # run a full recipe pipeline
-make prove-wgpu                                       # prove wgpu GPU training works
+make verify                                                        # check apr CLI available
+make validate                                                      # lint all configs (bashrs)
+make dogfood                                                       # end-to-end smoke test
+make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct                  # download + convert to .apr
+make eval-humaneval CHECKPOINT=checkpoints/model.apr               # run HumanEval pass@k
+make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=scot           # structured CoT prompting
+make pipeline RECIPE=recipe-a-quick-lora                           # run a full recipe pipeline
+make results-history                                               # view eval results
+make prove-wgpu                                                    # prove wgpu GPU training works
 ```
 
 ## Pipeline Flow
@@ -50,7 +54,7 @@ Every command is provided by the `apr` CLI (aprender). This repo provides pipeli
 
 ## Constraints
 
-- **Zero Python.** All config parsing, data processing, and orchestration uses sovereign stack tooling (`apr`, `bashrs`, `alimentar`) or bash builtins. No `python3` calls anywhere.
+- **Zero Python in pipeline.** Config parsing, data processing, and orchestration use sovereign stack tooling (`apr`, `bashrs`, `alimentar`) or bash builtins. The only `python3` usage is sandbox execution in eval (external boundary per §5.3).
 - **Zero CUDA.** GPU compute via wgpu (Vulkan/Metal/DX12). No CUDA toolkit, no nvcc, no vendor lock-in.
 - **YAML-only.** All configs are YAML (albor pattern). Legacy TOML configs have been removed.
 
