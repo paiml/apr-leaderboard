@@ -28,7 +28,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make validate` | `bashrs config lint` + `bashrs lint` + `bashrs make lint` | ✅ Working | Sovereign stack config validation (zero Python) |
 | `make check` | `apr check $(CHECKPOINT) --json` | ✅ Working | APR file integrity validation |
 | `make inspect` | `apr inspect $(CHECKPOINT)` | ✅ Working | Model inspection |
-| `make verify` | Smoke-tests all `apr` subcommands | ✅ Working | 16 subcommands verified |
+| `make verify` | Smoke-tests all `apr` subcommands | ✅ Working | 19 subcommands verified |
 | `make dogfood` | End-to-end smoke test | ✅ Working | CLI + configs validated |
 | `make prove-wgpu` | `scripts/prove-wgpu.sh` | ✅ Working | wgpu training proof (§22.14) |
 | `make align` | `apr finetune --method dpo/orpo` | ✅ Wired | DPO/ORPO alignment (GH-8) |
@@ -68,7 +68,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 7 | — | All executable, pass `bashrs lint` |
 | Makefile targets | 38 | — | `make verify` + `make validate` + `make dogfood` |
-| Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
+| Config validity | 17/17 | 17/17 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
 ## 19.4 Config Templates (§4)
