@@ -27,7 +27,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-007: `apr merge --strategy ties` resolves sign conflicts (merged model has fewer conflicting task vectors than input sum)
 - [ ] AC-008: `apr prune --method wanda` at conservative ratio degrades perplexity by <5%
 - [ ] AC-009: `apr quantize --scheme int4` produces model <50% size of FP16 original -- GGUF Q4K import: 1.04 GiB vs ~3.0 GiB FP16 (34.7%); `apr quantize` itself not tested (SafeTensors path broken §22.1)
-- [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies
+- [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies -- Binary created (671 KiB, §22.15) but inference dispatch not yet statically linked (needs realizar runtime)
 - [ ] AC-011: Full pipeline (Recipe C) completes end-to-end without manual intervention
 - [ ] AC-012: `pv proof-status` shows >=95% binding coverage for pipeline-relevant contracts
 - [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models
@@ -37,7 +37,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval
 - [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores >= best input specialist on at least one benchmark
 - [ ] AC-025: `alimentar quality` scores all training data >=80/100 before use in fine-tuning
-- [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
+- [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code -- Binary 671 KiB + model 1.04 GiB = 1.04 GiB total (§22.15). Runtime under 1MB, model data slightly over 1GB. Inference not yet working in compiled binary.
 
 ## Blocked on Upstream
 

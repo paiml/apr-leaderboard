@@ -330,7 +330,26 @@ Training bricks, QLoRA readiness, GPU sharing (multi-adapter), and dual wgpu tra
 
 6 PASS, 1 FAIL, 5 SKIP. The Format Parity failure is because .apr wraps GGUF internally but `apr qa` doesn't recognize it as GGUF for the cross-format test. All functional checks pass.
 
-## 22.15 Throughput Benchmarks
+## 22.15 Compile to Binary (AC-026)
+
+`apr compile` creates a standalone launcher binary:
+
+```bash
+apr compile checkpoints/qwen2.5-coder-1.5b-instruct-q4k.apr \
+    --release --strip -o checkpoints/qwen-1.5b-binary
+```
+
+| Component | Size |
+|-----------|------|
+| Binary (runtime) | 671 KiB |
+| Model (embedded ref) | 1.04 GiB |
+| **Total** | **~1.04 GiB** |
+
+The binary shows model info and accepts `--prompt` but reports "Full inference dispatch requires the aprender runtime." The compile command creates a launcher that packages the model reference, but full inference requires realizar crates to be statically linked. AC-026 target was <1GB — the runtime binary itself (671 KiB) is well under, but with model data it's 1.04 GiB. This is a GGUF Q4K model; INT4 quantization might bring it under 1GB.
+
+**LTO note:** `--lto` flag conflicts with `embed-bitcode=no` in the generated Cargo project. Use `--release --strip` without `--lto`.
+
+## 22.16 Throughput Benchmarks
 
 `apr bench` results on CPU (no GPU):
 
