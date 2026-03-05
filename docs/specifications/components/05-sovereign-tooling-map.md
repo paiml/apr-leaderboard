@@ -21,7 +21,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | KV cache management | PagedAttention, CoW | **realizar** 0.8 | ✅ Complete | vLLM-style paged KV |
 | Data loading | Parquet, JSONL, Arrow, HF Hub | **alimentar** 0.2 | ✅ Complete | Zero-copy Arrow RecordBatches |
 | Data quality | Null/outlier/drift detection | **alimentar** 0.2 | ✅ Complete | 100-point quality scoring |
-| Data decontamination | N-gram overlap detection | **alimentar** 0.2 | ⚠️ Partial | Doctest extraction exists; GH-9: benchmark-specific decontamination needed |
+| Data decontamination | N-gram overlap detection | **alimentar** 0.2 | ✅ **Wired** | `apr data decontaminate` — n-gram overlap vs benchmarks (alimentar#30, aprender#415) |
 | HPO | TPE, Hyperband, ASHA | **entrenar** 0.7 | ✅ Complete | `apr tune --strategy tpe` |
 | Compile to binary | Model + runtime → executable | **aprender** 0.27 | ✅ Complete | `apr compile` |
 | Correctness proofs | Kani bounded model checking | **provable-contracts** | ✅ Complete | 262 proof obligations |

@@ -143,7 +143,7 @@ No CUDA toolkit. No vendor lock-in. 32 GB total VRAM across 2 GPUs.
 
 ## 6. CLI Toolchain
 
-16 `apr` subcommands verified. 5 shell scripts. 32 Makefile targets.
+16 `apr` subcommands verified. 5 shell scripts. 33 Makefile targets.
 Zero Python scripts — all data prep uses `apr` CLI.
 
 ```bash
@@ -298,7 +298,7 @@ a concrete command and a pass/fail threshold. Key milestones:
 
 ## 19. Implementation Status
 
-**All orchestration implemented.** 32 Makefile targets, 5 shell scripts,
+**All orchestration implemented.** 33 Makefile targets, 5 shell scripts,
 17 YAML configs, 16/16 `apr` subcommands verified. Zero Python scripts.
 Zero TOML configs (migrated to YAML-only).
 

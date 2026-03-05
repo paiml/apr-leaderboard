@@ -32,11 +32,11 @@ demonstrated, this spec has failed. Status: ✅ = verified,
 - [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores ≥ best input specialist on at least one benchmark
 - [ ] AC-025: `alimentar quality` scores all training data ≥80/100 before use in fine-tuning
 - [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
+- [ ] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases (`apr data decontaminate` implemented, awaiting real data run)
 - [ ] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary
 
 ## Blocked on Upstream
 
-- [ ] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases (GH-9: `apr validate --decontaminate` not yet implemented)
 - [ ] AC-017: N-sampling generates 20 distinct completions per problem — sampling works via eval script, but `apr eval --n-samples` flag not yet implemented
 - [ ] AC-018: Speculative decoding achieves ≥1.5x throughput over standard decoding (GH-10: `apr run --speculative` not yet exposed)
 - [ ] AC-019: Structured prompting produces reasoning before code (PMAT-005: `--prompt-strategy` not yet implemented)

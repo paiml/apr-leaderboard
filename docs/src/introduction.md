@@ -10,7 +10,7 @@
 | Metric | Value |
 |---|---|
 | `apr` CLI subcommands verified | 16 |
-| Makefile targets | 32 |
+| Makefile targets | 33 |
 | Shell scripts | 5 |
 | YAML configs | 17 (6 models + 7 recipes + 1 eval + 2 pipeline + 1 data) |
 | Python scripts | 0 (zero-Python constraint) |

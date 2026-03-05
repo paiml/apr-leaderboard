@@ -119,6 +119,7 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make prove-wgpu` | `scripts/prove-wgpu.sh` | wgpu GPU training proof |
 | `make import-plan` | HF Hub check + dry-run | Import plan preview |
 | `make prep-data-audit` | `apr data audit --verbose` | Detailed corpus audit |
+| `make decontaminate` | `apr data decontaminate` | N-gram overlap gate (AC-016) |
 | `make clean` | `rm -rf checkpoints/ results/` | Remove build artifacts |
 | `make book` | `mdbook build` | Build specification book |
 | `make docs` | `mdbook build` | Alias for book |

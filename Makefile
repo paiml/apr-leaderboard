@@ -13,7 +13,7 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data prep-data-audit \
+        prep-data prep-data-audit decontaminate \
         finetune finetune-instruct align merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity \
         export publish model-card \
@@ -69,6 +69,13 @@ prep-data:
 
 prep-data-audit:
 	$(APR) data audit data/instruct-corpus.jsonl --verbose
+
+decontaminate:
+	@echo "=== Decontamination Gate (AC-016) ==="
+	@test -f "$(DATA)" || { echo "ERROR: DATA file not found: $(DATA)"; exit 1; }
+	$(APR) data decontaminate "$(DATA)" \
+		--reference data/benchmarks/humaneval.jsonl data/benchmarks/mbpp.jsonl \
+		--ngram 10 --threshold 0.5 --json
 
 # -- Optimization ----------------------------------------------------------------
 

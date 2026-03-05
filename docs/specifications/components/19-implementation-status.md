@@ -40,6 +40,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make finetune-instruct` | `apr finetune --task instruct` | ✅ Wired | Instruction LoRA fine-tuning |
 | `make import-plan` | HF Hub check + dry-run | ✅ Working | Import plan preview |
 | `make clean` | `rm -rf checkpoints/ results/` | ✅ Working | Remove build artifacts |
+| `make decontaminate` | `apr data decontaminate` | ✅ Wired | N-gram overlap gate (AC-016) |
 
 ## 19.2 Shell Scripts
 
@@ -59,7 +60,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Subcommand smoke test | 16/16 OK | 16/16 | `make verify` |
 | YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 5 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 32 | — | `make verify` + `make validate` + `make dogfood` |
+| Makefile targets | 33 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 

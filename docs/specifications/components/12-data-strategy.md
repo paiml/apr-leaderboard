@@ -34,13 +34,18 @@ Training data MUST NOT overlap with evaluation benchmarks. This is critical for 
 **n-gram decontamination:** Remove any training sample whose 10-gram overlap with any HumanEval/MBPP/BigCodeBench problem exceeds 50%. This is a hard gate — no exceptions.
 
 ```bash
-# GATE: Decontamination check before training (GH-9: not yet implemented)
-apr validate --data training.jsonl --decontaminate \
+# GATE: Decontamination check before training
+apr data decontaminate training.jsonl \
     --reference humaneval.jsonl mbpp.jsonl bigcodebench.jsonl \
-    --ngram 10 --threshold 0.50 --json > decontamination-report.json
+    --ngram 10 --threshold 0.50 --json
 
-# Verify <1% of training samples flagged
+# Or via Makefile:
+make decontaminate DATA=data/instruct-corpus.jsonl
 ```
+
+**Implementation:** `alimentar::quality::decontaminate` (alimentar#30)
+wired into `apr data decontaminate` (aprender#415). Enforces AC-016
+gate: fails if contamination rate >= 1%.
 
 **Time-based decontamination for LiveCodeBench:** Any problem published within 90 days of training data generation is excluded. LiveCodeBench's rolling nature makes this mandatory.
 
@@ -62,7 +67,7 @@ apr validate --data code-instruct-raw.jsonl --format jsonl
 alimentar quality code-instruct-raw.jsonl --min-score 80 -o code-instruct-clean.jsonl
 
 # Decontamination gate
-apr validate --data code-instruct-clean.jsonl --decontaminate \
+apr data decontaminate code-instruct-clean.jsonl \
     --reference humaneval.jsonl mbpp.jsonl --ngram 10 --threshold 0.50
 ```
 
