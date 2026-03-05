@@ -52,7 +52,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.10 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 16/16 OK | 16/16 | `make verify` |
-| YAML configs | 19 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) + legacy TOML (13) |
+| YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 5 | — | All executable, pass `bashrs lint` |
 | Makefile targets | 26 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |

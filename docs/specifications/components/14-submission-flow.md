@@ -40,7 +40,7 @@ The model card (`README.md` in the HF repo) MUST include:
 - **Evaluation results:** pass@1/pass@10 on HumanEval, MBPP, BigCodeBench
 - **Infrastructure:** "Built with aprender (Rust, no Python dependencies)"
 - **Quantization:** Scheme used, size reduction, quality impact
-- **Reproducibility:** Link to pipeline config TOML
+- **Reproducibility:** Link to pipeline config YAML
 
 ## 14.4 Pre-Submission Checklist
 

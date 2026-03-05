@@ -75,7 +75,7 @@ Makefile (dev convenience)
 **Constraints:**
 - Zero Python (bash-native YAML parsing, `awk`/`jq` for math/JSON)
 - Zero CUDA (wgpu only — Vulkan/Metal/DX12)
-- YAML-first (albor pattern, legacy TOML retained)
+- YAML-only (albor pattern, legacy TOML removed)
 
 -> [Full details](components/01-what-this-repo-does.md)
 
@@ -299,7 +299,8 @@ a concrete command and a pass/fail threshold. Key milestones:
 ## 19. Implementation Status
 
 **All orchestration implemented.** 26 Makefile targets, 5 shell scripts,
-19 YAML configs, 16/16 `apr` subcommands verified. Zero Python scripts.
+17 YAML configs, 16/16 `apr` subcommands verified. Zero Python scripts.
+Zero TOML configs (migrated to YAML-only).
 
 | Component | Count | Status |
 |---|---|---|

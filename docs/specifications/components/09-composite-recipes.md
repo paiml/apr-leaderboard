@@ -234,7 +234,7 @@ make eval-humaneval CHECKPOINT=checkpoints/qwen2.5-coder-7b-instruct-lora.apr
 diff results/humaneval-pre.json results/humaneval-post.json
 ```
 
-**Config:** `configs/recipes/recipe-e-instruct-finetune.toml`
+**Config:** `configs/recipes/recipe-e-instruct-finetune.yaml`
 
 **Gate criteria:**
 - Training loss must decrease monotonically (proves optimizer is working)
@@ -293,7 +293,7 @@ apr quantize checkpoints/qwen3-8b-qlora.apr \
     -o checkpoints/qwen3-8b-qlora-q4k.apr
 ```
 
-**Config:** `configs/recipes/recipe-f-qwen3-qlora.toml`
+**Config:** `configs/recipes/recipe-f-qwen3-qlora.yaml`
 
 **VRAM budget breakdown (rank-16, batch-1, seq-512):**
 
@@ -323,7 +323,7 @@ apr quantize checkpoints/qwen3-8b-qlora.apr \
 
 **Expected:** +5-12% pass@1 over apr-native baseline. QLoRA on Qwen3-8B with curated instruction data should approach the instruct model's HF-reference score.
 
-**Status (2026-03-04): READY.** QLoRA instruct pipeline fully implemented with wgpu NF4 support (GPU-resident gradients, fused causal cross-entropy, LoRA backward GEMM). GPU-SHARE infrastructure (143 tests) enables multi-adapter concurrent training. CLI: `apr finetune --task instruct --method qlora --quantize-nf4 --adapters-config adapters.toml`. Ready for full training run on 15K-sample instruct corpus. Runs on any GPU via wgpu (Vulkan/Metal/DX12).
+**Status (2026-03-04): READY.** QLoRA instruct pipeline fully implemented with wgpu NF4 support (GPU-resident gradients, fused causal cross-entropy, LoRA backward GEMM). GPU-SHARE infrastructure (143 tests) enables multi-adapter concurrent training. CLI: `apr finetune --task instruct --method qlora --quantize-nf4`. Ready for full training run on 15K-sample instruct corpus. Runs on any GPU via wgpu (Vulkan/Metal/DX12).
 
 ### 9.6.1 Recipe E vs Recipe F Decision Matrix
 

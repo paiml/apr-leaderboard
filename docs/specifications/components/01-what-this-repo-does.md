@@ -91,7 +91,7 @@ All orchestration is implemented via Makefile + shell scripts. Every `make` targ
 | **data_catalog.yaml** | **Complete** | Data governance: datasets, lineage, classification, lifecycle |
 | **docs/** | **Complete** | Strategy spec (mdbook), 22 sections covering full pipeline |
 
-**Quality:** All YAML configs valid (`make validate`), all 5 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B. Legacy TOML configs retained for backward compatibility.
+**Quality:** All YAML configs valid (`make validate`), all 5 scripts pass `bashrs lint`, 16/16 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B. Zero Python scripts. Zero TOML configs (migrated to YAML).
 
 **GPU sharing infrastructure:** 143 tests across 9 entrenar modules (VRAM guard, ledger, wait queue, profiler, MPS, cluster config, placement, coordinator, multi-adapter pipeline). See §22 for details.
 

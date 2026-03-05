@@ -192,27 +192,17 @@ model-card:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
 	$(APR) eval "$(CHECKPOINT)" --generate-card --json
 
-# -- Pipeline (YAML-first, TOML fallback) ----------------------------------------
+# -- Pipeline (YAML configs) -----------------------------------------------------
 
 pipeline:
 	@test -n "$(RECIPE)" || { echo "ERROR: RECIPE required (e.g., make pipeline RECIPE=recipe-a-quick-lora)"; exit 1; }
-	@if [ -f "configs/recipes/$(RECIPE).yaml" ]; then \
-		./scripts/pipeline.sh "configs/recipes/$(RECIPE).yaml"; \
-	elif [ -f "configs/recipes/$(RECIPE).toml" ]; then \
-		./scripts/pipeline.sh "configs/recipes/$(RECIPE).toml"; \
-	else \
-		echo "ERROR: Recipe not found: configs/recipes/$(RECIPE).yaml (or .toml)"; exit 1; \
-	fi
+	@test -f "configs/recipes/$(RECIPE).yaml" || { echo "ERROR: Recipe not found: configs/recipes/$(RECIPE).yaml"; exit 1; }
+	./scripts/pipeline.sh "configs/recipes/$(RECIPE).yaml"
 
 pipeline-plan:
 	@test -n "$(RECIPE)" || { echo "ERROR: RECIPE required"; exit 1; }
-	@if [ -f "configs/recipes/$(RECIPE).yaml" ]; then \
-		./scripts/pipeline.sh --plan "configs/recipes/$(RECIPE).yaml"; \
-	elif [ -f "configs/recipes/$(RECIPE).toml" ]; then \
-		./scripts/pipeline.sh --plan "configs/recipes/$(RECIPE).toml"; \
-	else \
-		echo "ERROR: Recipe not found: configs/recipes/$(RECIPE).yaml (or .toml)"; exit 1; \
-	fi
+	@test -f "configs/recipes/$(RECIPE).yaml" || { echo "ERROR: Recipe not found: configs/recipes/$(RECIPE).yaml"; exit 1; }
+	./scripts/pipeline.sh --plan "configs/recipes/$(RECIPE).yaml"
 
 # -- Inspection ------------------------------------------------------------------
 

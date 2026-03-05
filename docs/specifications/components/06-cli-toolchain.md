@@ -228,7 +228,7 @@ make distill TEACHER=checkpoints/teacher-32b.apr STUDENT=checkpoints/student-7b.
 # SLERP merge of two models
 make merge MODELS="checkpoints/a.apr checkpoints/b.apr" STRATEGY=slerp
 
-# TIES merge (set via recipe TOML for full control)
+# TIES merge (set via recipe YAML for full control)
 make pipeline RECIPE=recipe-b-merge-alchemist
 ```
 
@@ -261,20 +261,20 @@ make quantize CHECKPOINT=checkpoints/pruned.apr SCHEME=q6k
 ## 6.2.8 Pipeline (config-driven)
 
 ```bash
-# Run entire pipeline from a recipe TOML config
+# Run entire pipeline from a recipe YAML config
 make pipeline RECIPE=recipe-a-quick-lora
 
 # Dry-run: show commands without executing
 make pipeline-plan RECIPE=recipe-c-full-pipeline
 ```
 
-The pipeline script (`scripts/pipeline.sh`) reads a recipe TOML and runs each stage in order:
+The pipeline script (`scripts/pipeline.sh`) reads a recipe YAML and runs each stage in order:
 
 ```
 import → [distill] → [finetune] → [align] → [merge] → [prune] → [quantize] → eval → [submit] → [compile]
 ```
 
-Stages in brackets are optional — only included if the corresponding TOML section exists.
+Stages in brackets are optional — only included if the corresponding YAML section exists.
 
 ## 6.2.9 Submit
 
@@ -307,9 +307,9 @@ make dogfood
 The full mapping between Makefile targets and `apr` CLI operations:
 
 ```
-make pipeline RECIPE=recipe-c-full-pipeline.toml
+make pipeline RECIPE=recipe-c-full-pipeline
     │
-    │  scripts/pipeline.sh reads TOML, runs stages:
+    │  scripts/pipeline.sh reads YAML, runs stages:
     │
     ├── [import]    ──► apr import hf://... -o checkpoints/base.apr
     ├── [distill]   ──► apr distill teacher.apr --student base.apr -o distilled.apr

@@ -131,9 +131,9 @@ inspect      OK
 
 ### 22.5.2 `make dogfood` Output
 
-All 12 TOML configs validated:
-- 6 model configs in `configs/models/` (added `qwen3-8b.toml`)
-- 6 recipe configs in `configs/recipes/` (added `recipe-f-qwen3-qlora.toml`)
+All YAML configs validated:
+- 6 model configs in `configs/models/` (YAML-only, legacy TOML removed)
+- 7 recipe configs in `configs/recipes/` (YAML-only)
 
 ### 22.5.3 `make pipeline-plan` Output
 
@@ -352,7 +352,7 @@ Serving bricks load the **real 7.5 GiB model** and run actual autoregressive gen
 | Serving bricks benchmarked | ✅ | §22.13.2: real inference, stable measurements |
 | EOS termination working | ✅ | §22.10: GH-373 fixed, stop tokens resolve correctly |
 | Token generation uncapped | ✅ | §22.9: GH-372 fixed, max_tokens passes through |
-| Recipe TOML configured | ✅ | `configs/recipes/recipe-f-qwen3-qlora.toml` |
+| Recipe YAML configured | ✅ | `configs/recipes/recipe-f-qwen3-qlora.yaml` |
 | Recipe documented in spec | ✅ | §9.6 |
 | QLoRA in InstructPipeline | ✅ | §22.13.4: NF4 quantization wired via wgpu |
 | .apr weight loading in InstructPipeline | ✅ | `from_apr()` loading implemented |
