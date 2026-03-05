@@ -496,9 +496,7 @@ roadmap:
   updated: 2026-02-28T18:52:45Z
   spec: null
   acceptance_criteria:
-  - '§5.9 Ludwig parity — Add ContrastiveSearch and DiverseBeamSearch to
-    generation config. Wire into apr run --decoding-strategy contrastive.
-    Target: aprender 0.28.'
+  - '§5.9 Ludwig parity — Add ContrastiveSearch and DiverseBeamSearch to generation config. Wire into apr run --decoding-strategy contrastive. Target: aprender 0.28.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -596,11 +594,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Implement definitive spec: single executive summary + 22 components under 500 lines'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T16:12:57Z
-  updated: 2026-03-05T16:13:00.607192247+00:00
+  updated: 2026-03-05T16:23:26Z
   spec: null
   acceptance_criteria:
   - 'Restructure docs/specifications/leaderboard-spec.md as the ONE definitive spec. TOC links to components/ subdirectory. Each component file implements its section fully. pmat comply: no file over 500 lines.'
