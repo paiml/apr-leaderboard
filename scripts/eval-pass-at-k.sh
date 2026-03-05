@@ -83,6 +83,31 @@ TOTAL_PROBLEMS="$(wc -l < "$BENCHMARK_FILE")"
 echo "Problems: ${TOTAL_PROBLEMS}"
 echo ""
 
+# ── Markdown fence stripping ─────────────────────────────────────────────────
+
+strip_markdown_fences() {
+    # Remove ```python ... ``` or ``` ... ``` fences from model output
+    sed -E '/^```(python|py)?[[:space:]]*$/d' <<< "$1"
+}
+
+# ── Chen et al. unbiased pass@k estimator (§13.1) ───────────────────────────
+# pass@k = 1 - C(n-c,k) / C(n,k) where n=total samples, c=correct, k=selected
+# Uses log-space to avoid overflow: log(C(a,b)) = sum(log(a-i) - log(i+1), i=0..b-1)
+
+compute_pass_at_k() {
+    local n="$1" c="$2" k="$3"
+    awk -v n="$n" -v c="$c" -v k="$k" 'BEGIN {
+        if (n - c < k) { print 1.0; exit }
+        if (c == 0)    { print 0.0; exit }
+        # log C(n-c, k) - log C(n, k)
+        log_ratio = 0
+        for (i = 0; i < k; i++) {
+            log_ratio += log(n - c - i) - log(n - i)
+        }
+        printf "%.6f", 1.0 - exp(log_ratio)
+    }'
+}
+
 # ── Build instruction prompt ─────────────────────────────────────────────────
 
 build_instruction() {
@@ -109,6 +134,9 @@ PASSED=0
 ERRORS=0
 TOTAL_TOKENS=0
 TOTAL_LATENCY=0
+# Per-task sample counts for pass@k estimator (n_i, c_i pairs)
+TASK_RESULTS_FILE="${WORK_DIR}/task_results.tsv"
+: > "$TASK_RESULTS_FILE"
 
 while IFS= read -r line; do
     TASK_ID="$(jq -r '.task_id // .name // "unknown"' <<< "$line" 2>/dev/null)"
@@ -128,6 +156,7 @@ while IFS= read -r line; do
 
     # Generate completion(s) and test
     TASK_PASSED=0
+    TASK_GENERATED=0
     for sample_idx in $(seq 1 "$NUM_SAMPLES"); do
         RAW_FILE="${WORK_DIR}/raw_${COMPLETED}_${sample_idx}.json"
         COMPLETION_FILE="${WORK_DIR}/completion_${COMPLETED}_${sample_idx}.py"
@@ -156,7 +185,8 @@ while IFS= read -r line; do
             continue
         fi
 
-        # Write raw completion (markdown fences stripped by assembler)
+        # Strip markdown fences from model output
+        TEXT="$(strip_markdown_fences "$TEXT")"
         echo "$TEXT" > "$COMPLETION_FILE"
 
         # Assemble test file: prompt + completion + test harness
@@ -182,22 +212,29 @@ while IFS= read -r line; do
             } > "$TEST_FILE"
         fi
 
+        TASK_GENERATED=$((TASK_GENERATED + 1))
+
         # Execute test in sandbox with timeout
         # Uses Python directly if available, Docker sandbox as fallback
         if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
             if command -v python3 >/dev/null 2>&1; then
                 if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
-                    TASK_PASSED=1
+                    TASK_PASSED=$((TASK_PASSED + 1))
                 fi
             elif command -v docker >/dev/null 2>&1; then
                 if timeout 30 docker run --rm --network=none --memory=512m \
                     -v "${TEST_FILE}:/test.py:ro" python:3.11-slim \
                     python3 /test.py > /dev/null 2>&1; then
-                    TASK_PASSED=1
+                    TASK_PASSED=$((TASK_PASSED + 1))
                 fi
             fi
         fi
     done
+
+    # Record per-task results for pass@k estimator
+    if (( TASK_GENERATED > 0 )); then
+        printf "%s\t%s\t%s\n" "$TASK_ID" "$TASK_GENERATED" "$TASK_PASSED" >> "$TASK_RESULTS_FILE"
+    fi
 
     if (( TASK_PASSED > 0 )); then
         PASSED=$((PASSED + 1))
@@ -210,14 +247,37 @@ while IFS= read -r line; do
     fi
 done < "$BENCHMARK_FILE"
 
-# ── Compute metrics ──────────────────────────────────────────────────────────
+# ── Compute metrics (Chen et al. unbiased estimator) ─────────────────────────
 
 if (( COMPLETED > 0 )); then
-    PASS_AT_1="$(awk "BEGIN{printf \"%.2f\", ${PASSED}/${COMPLETED}*100}")"
     AVG_TOKENS="$(awk "BEGIN{printf \"%.1f\", ${TOTAL_TOKENS}/${COMPLETED}}")"
     AVG_LATENCY="$(awk "BEGIN{printf \"%.1f\", ${TOTAL_LATENCY}/${COMPLETED}}")"
+
+    # Compute pass@k using the unbiased estimator (§13.1)
+    # Average per-task pass@k values
+    PASS_AT_1="$(awk -F'\t' '{
+        n = $2; c = $3; sum += 1
+        if (n - c < 1) { p1 += 1.0; next }
+        if (c == 0)    { next }
+        log_ratio = log(n - c) - log(n)
+        p1 += 1.0 - exp(log_ratio)
+    } END { printf "%.2f", (sum > 0) ? p1/sum*100 : 0 }' "$TASK_RESULTS_FILE")"
+
+    # pass@10 (only meaningful when NUM_SAMPLES >= 10)
+    if (( NUM_SAMPLES >= 10 )); then
+        PASS_AT_10="$(awk -F'\t' -v k=10 '{
+            n = $2; c = $3; sum += 1
+            if (n - c < k) { pk += 1.0; next }
+            if (c == 0)    { next }
+            lr = 0; for (i=0;i<k;i++) lr += log(n-c-i) - log(n-i)
+            pk += 1.0 - exp(lr)
+        } END { printf "%.2f", (sum > 0) ? pk/sum*100 : 0 }' "$TASK_RESULTS_FILE")"
+    else
+        PASS_AT_10="null"
+    fi
 else
     PASS_AT_1="0.0"
+    PASS_AT_10="null"
     AVG_TOKENS="0.0"
     AVG_LATENCY="0.0"
 fi
@@ -225,13 +285,17 @@ fi
 echo ""
 echo "=== Results ==="
 echo "Completed:   ${COMPLETED}/${TOTAL_PROBLEMS}"
-echo "Passed:      ${PASSED}"
+echo "Passed:      ${PASSED}/${COMPLETED} tasks (at least 1 sample correct)"
 echo "Errors:      ${ERRORS}"
-echo "pass@1:      ${PASS_AT_1}%"
+echo "pass@1:      ${PASS_AT_1}%  (Chen et al. unbiased estimator)"
+if [[ "$PASS_AT_10" != "null" ]]; then
+    echo "pass@10:     ${PASS_AT_10}%"
+fi
 echo "Avg tokens:  ${AVG_TOKENS}"
 echo "Avg latency: ${AVG_LATENCY}ms"
 
 # Write result JSON
+PASS_AT_10_JSON="${PASS_AT_10}"
 cat > "$RESULT_FILE" << EOF
 {
   "benchmark": "${BENCHMARK}",
@@ -248,6 +312,7 @@ cat > "$RESULT_FILE" << EOF
     "passed": ${PASSED},
     "errors": ${ERRORS},
     "pass_at_1": ${PASS_AT_1},
+    "pass_at_10": ${PASS_AT_10_JSON},
     "avg_tokens_generated": ${AVG_TOKENS},
     "avg_latency_ms": ${AVG_LATENCY}
   }
