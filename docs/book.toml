@@ -1,0 +1,14 @@
+[book]
+title = "APR Leaderboard Specification"
+authors = ["APR Team"]
+language = "en"
+multilingual = false
+src = "src"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/anthropics/apr-leaderboard"
