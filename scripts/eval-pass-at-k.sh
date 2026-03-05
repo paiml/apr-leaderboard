@@ -92,6 +92,19 @@ strip_markdown_fences() {
     sed -E '/^```(python|py)?[[:space:]]*$/d' <<< "$1"
 }
 
+extract_python_code() {
+    # Strip trailing non-Python text from instruct model output.
+    # Models often append "Human\n..." conversational turns or markdown explanations.
+    # Stop at lines that are clearly not Python code.
+    awk '{
+        if ($0 ~ /^Human$/ || $0 ~ /^Assistant$/ || $0 ~ /^User$/ || \
+            $0 ~ /^\*\*/ || $0 ~ /^###/ || $0 ~ /^---$/) {
+            exit
+        }
+        print
+    }' <<< "$1"
+}
+
 # ── Chen et al. unbiased pass@k estimator (§13.1) ───────────────────────────
 # pass@k = 1 - C(n-c,k) / C(n,k) where n=total samples, c=correct, k=selected
 # Uses log-space to avoid overflow: log(C(a,b)) = sum(log(a-i) - log(i+1), i=0..b-1)
@@ -212,8 +225,9 @@ while IFS= read -r line; do
             continue
         fi
 
-        # Strip markdown fences from model output
+        # Strip markdown fences and trailing non-code text from model output
         TEXT="$(strip_markdown_fences "$TEXT")"
+        TEXT="$(extract_python_code "$TEXT")"
         echo "$TEXT" > "$COMPLETION_FILE"
 
         # Assemble test file: prompt + completion + test harness
