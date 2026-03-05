@@ -236,6 +236,7 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | O(n^2) BPE merge bottleneck | aprender | High | **Fixed** (GH-378) |
 | InstructPipeline lacks QLoRA/NF4 | entrenar | High | **Fixed** — wgpu NF4 support |
 | InstructPipeline can't load .apr weights | entrenar/aprender | High | **Fixed** — `from_apr()` loading |
+| Chat mode trailing text breaks eval | eval script | High | **Fixed** — `extract_python_code()` strips non-Python |
 
 ## 22.12 BPE Tokenizer Performance (GH-378)
 
@@ -330,7 +331,17 @@ Training bricks, QLoRA readiness, GPU sharing (multi-adapter), and dual wgpu tra
 
 6 PASS, 1 FAIL, 5 SKIP. The Format Parity failure is because .apr wraps GGUF internally but `apr qa` doesn't recognize it as GGUF for the cross-format test. All functional checks pass.
 
-## 22.15 Compile to Binary (AC-026)
+## 22.15 Instruct Model Conversational Trailing Text
+
+**Problem:** Instruct models (Qwen2.5-Coder-1.5B-Instruct via `--chat`) generate correct Python code but append conversational text like `Human\nCan you explain...` or `**Explanation**:`. This causes Python syntax errors in the test harness, producing 0% pass rate despite correct code generation.
+
+**Root cause:** The `--chat` flag causes `apr run` to use chat template formatting. The model completes the instruction correctly, then continues generating in chat turn format. EOS termination (GH-373) helps but doesn't always prevent this.
+
+**Fix:** Added `extract_python_code()` to the eval script that stops at non-Python markers (`Human`, `Assistant`, `**`, `###`, `---`). Applied after markdown fence stripping, before test assembly.
+
+**Impact:** Without fix: 0% pass rate. With fix: expected to match or exceed the 1.5B base model's 59.15%.
+
+## 22.16 Compile to Binary (AC-026)
 
 `apr compile` creates a standalone launcher binary:
 
