@@ -38,18 +38,19 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 
 **Why world-class:** DPO is the single most impactful post-training technique for leaderboards. Merged + DPO models "completely dominate" HF leaderboard rankings. Without DPO, we compete with one hand tied.
 
-**Current state:** The `apr-leaderboard align` subcommand is wired to `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}` for DPO/ORPO preference optimization. Loads model via `apr_bridge::load_apr_as_merge_model`, computes preference loss, saves aligned model via `apr_bridge::save_merge_model_as_apr`.
+**Current state:** `make align` routes through `apr finetune --method dpo`
+which connects to entrenar's loss functions. A dedicated `apr align`
+subcommand is planned (GH-8).
 
-**Implemented (apr-leaderboard):**
+**Current implementation:**
 
 ```bash
-# DPO alignment (wired to entrenar loss functions)
-apr-leaderboard align --model model.apr --data prefs.jsonl \
-    --method dpo --beta 0.1 --epochs 3 --ref-model base.apr -o aligned.apr
+# DPO alignment via make align (routes through apr finetune)
+make align CHECKPOINT=model.apr PREFS_DATA=prefs.jsonl ALIGN_METHOD=dpo
 
-# ORPO alignment (no reference model needed)
-apr-leaderboard align --model model.apr --data prefs.jsonl \
-    --method orpo --beta 0.1 --epochs 3 -o aligned.apr
+# Equivalent direct command
+apr finetune model.apr --method dpo --data prefs.jsonl \
+    --output aligned.apr --verbose
 ```
 
 **Remaining wire-in plan:**

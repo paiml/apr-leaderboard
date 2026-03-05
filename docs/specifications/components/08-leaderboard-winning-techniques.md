@@ -51,7 +51,11 @@ apr eval model.apr --task classify --data humaneval.jsonl \
     --n-samples 10 --rerank majority --json
 ```
 
-**Implementation status:** `--n-samples` and `--rerank` flags need to be added to `apr eval`. The generation engine supports temperature/top-p/top-k sampling. Best-of-N requires: (1) batched generation of N completions, (2) a reranking strategy (log-prob, majority vote, or test execution).
+**Implementation status:** N-sampling is implemented in
+`scripts/eval-pass-at-k.sh` via the `NUM_SAMPLES` parameter. Reranking
+strategies (logprob, majority) are not yet implemented. `apr eval`
+does not have `--n-samples` or `--rerank` flags — sampling is handled
+at the orchestration layer.
 
 **Expected gain:** +10-30% effective pass@1 with N=10-50 over single-shot greedy.
 
@@ -89,7 +93,9 @@ apr eval model.apr --task classify --data humaneval.jsonl \
 | `cgo` | `code-gen-opt` | Chain of Grounded Objectives — goal-oriented decomposition | +5-10% pass@1 |
 | `reflexion` | `reflect` | Generate → test → reflect → regenerate (iterative self-correction) | +3-10% pass@1 |
 
-**Implementation status:** `--prompt-strategy` flag is implemented in `apr-leaderboard eval` with all 5 strategies above. `--n-samples` enables best-of-N selection. The `--exemplars` flag (for few-shot) and `--system` flag (for custom system prompts) are available via the upstream `apr eval` command.
+**Implementation status:** `--prompt-strategy` is not yet implemented
+(PMAT-005). The `--system` flag is available via upstream `apr chat`.
+Prompt strategy engine planned for eval script integration.
 
 ## 8.4 Speculative Decoding (Inference Speedup)
 
@@ -109,7 +115,9 @@ apr run model.apr --speculative --draft-model-path draft.apr --speculation-k 6 \
 apr bench model.apr --speculative --speculation-k 4 --json
 ```
 
-**Implementation status:** Speculative decoding EXISTS in aprender (`generate_speculative_with_draft`, `generate_speculative_wgpu`). CLI flags `--speculative`, `--speculation-k`, `--draft-model-path` are available.
+**Implementation status:** Speculative decoding engine exists in
+aprender internals. CLI flags (`--speculative`, `--speculation-k`,
+`--draft-model-path`) are not yet exposed (GH-10).
 
 **Expected gain:** 2-3x throughput improvement for code generation tasks. No quality change (output distribution is mathematically identical).
 
