@@ -21,3 +21,5 @@
 | HumanEval pass@1 | 68.90% (7B Q4K, pre-EOS-fix) |
 
 See [Implementation Status](./spec/19-implementation-status.md) for detailed tracking.
+
+> **Definitive spec:** [`docs/specifications/leaderboard-spec.md`](../specifications/leaderboard-spec.md) — single executive summary with [component files](../specifications/components/).
