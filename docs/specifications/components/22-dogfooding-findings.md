@@ -487,9 +487,8 @@ GPU1: /dev/dri/renderD129 — AMD Radeon Pro W5700X (RADV NAVI10)
 
 ## 22.8 Pipeline Verification (2026-03-05)
 
-`make verify`: 16/16 subcommands OK, 17 YAML configs found, 5 scripts
-executable. `make validate`: all 17 YAML configs pass `bashrs` lint.
-Shell scripts trigger bashrs SEC010/DET002 false positives (bracket
-parsing inside strings, intentional `date` usage). Zero functional
-errors. GitHub Pages deploys via `.github/workflows/mdbook.yml`
-(verified live at paiml.github.io/apr-leaderboard).
+`make verify`: 19/19 subcommands OK, 17 YAML configs, 6 scripts. Eval
+script now implements: (1) python3/Docker sandbox for code execution,
+(2) markdown fence stripping, (3) Chen et al. unbiased pass@k estimator
+with per-task sample tracking. `make validate`: all configs pass `bashrs`
+lint. GitHub Pages live at paiml.github.io/apr-leaderboard.
