@@ -231,6 +231,16 @@ fi
 echo "Pipeline stages: ${STAGES[*]}"
 echo ""
 
+# ── Validate ordering (§10 golden ordering: distill→finetune→merge→prune→quantize)
+saw_ft=false prev_stage=""
+for s in "${STAGES[@]}"; do
+    [[ "$s" == "finetune" ]] && saw_ft=true
+    [[ "$s" == "merge" && "$saw_ft" == "false" ]] && echo "WARNING: Merge without finetune: merging untrained variants is suboptimal."
+    [[ "$s" == "finetune" && "$prev_stage" == "prune" ]] && echo "WARNING: Finetune after prune is an anti-pattern."
+    [[ "$s" == "distill" && "$prev_stage" == "finetune" ]] && echo "WARNING: Distill after finetune overwrites fine-tuned specialization."
+    prev_stage="$s"
+done
+
 # ── Read benchmarks ──────────────────────────────────────────────────────────
 
 BENCH_LIST=()
@@ -294,24 +304,14 @@ if $PLAN_MODE; then
                 SCHEME="$(read_yaml quantize.scheme int4)"
                 echo "[quantize] apr quantize ${CURRENT} --scheme ${SCHEME} --output ${OUTPUT_DIR}/${MODEL_NAME}-${SCHEME}.apr"
                 ;;
-            prep-data)
-                echo "[prep-data] apr data audit data/instruct-corpus.jsonl"
-                ;;
-            eval)
-                EVAL_STRATEGY="$(read_yaml eval.prompt_strategy standard)"
-                echo "[eval] ./scripts/eval-pass-at-k.sh <benchmark> ${CURRENT} (strategy=${EVAL_STRATEGY})"
-                echo "       Benchmarks: ${BENCH_LIST[*]}"
-                ;;
-            submit)
-                echo "[submit] ./scripts/submit.sh ${CURRENT} <hf-repo>"
-                ;;
-            compile)
-                echo "[compile] apr compile ${CURRENT} --output ${OUTPUT_DIR}/${MODEL_NAME} --release --strip --lto"
-                ;;
+            prep-data) echo "[prep-data] apr data audit data/instruct-corpus.jsonl" ;;
+            eval)      echo "[eval] ./scripts/eval-pass-at-k.sh <benchmark> ${CURRENT} (strategy=$(read_yaml eval.prompt_strategy standard))" ;;
+            submit)    echo "[submit] ./scripts/submit.sh ${CURRENT} <hf-repo>" ;;
+            compile)   echo "[compile] apr compile ${CURRENT} --release --strip --lto" ;;
         esac
     done
     echo ""
-    echo "=== Plan complete (no changes made) ==="
+    echo "=== Plan complete ==="
     exit 0
 fi
 
