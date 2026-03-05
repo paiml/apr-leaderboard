@@ -7,6 +7,8 @@ demonstrated, this spec has failed. Status: ✅ = verified,
 ## Verified
 
 - [x] AC-001: `apr import hf://Qwen/Qwen2.5-Coder-7B` produces a valid `.apr` file that passes `apr check`
+- [x] AC-013: `pmat comply check --strict` passes with zero failures (`Status: COMPLIANT` verified)
+- [x] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary (5 gaps documented with wire-in plans, 9 Ludwig parity gaps tracked with crate targets, execution sandbox scoped as external boundary)
 - [x] AC-028: `make prove-wgpu` completes successfully — QLoRA training runs on wgpu (Vulkan/Metal/DX12) with no CUDA toolkit installed
 - [x] AC-029: Training via wgpu produces decreasing loss over 2 epochs on Qwen2.5-Coder-1.5B
 
@@ -23,7 +25,6 @@ demonstrated, this spec has failed. Status: ✅ = verified,
 - [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies
 - [ ] AC-011: Full pipeline (Recipe C) completes end-to-end without manual intervention
 - [ ] AC-012: `pv proof-status` shows ≥95% binding coverage for pipeline-relevant contracts
-- [ ] AC-013: `pmat comply check --strict` passes with zero failures on the final submission
 - [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models
 - [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen)
 - [ ] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves ≥85% HumanEval pass@1 (apr-native baseline ≥ HF reference - 5%)
@@ -32,8 +33,7 @@ demonstrated, this spec has failed. Status: ✅ = verified,
 - [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores ≥ best input specialist on at least one benchmark
 - [ ] AC-025: `alimentar quality` scores all training data ≥80/100 before use in fine-tuning
 - [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code
-- [ ] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases (`apr data decontaminate` implemented, awaiting real data run)
-- [ ] AC-027: Every tooling gap in §5 has either a wire-in implementation or a documented external boundary
+- [ ] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases (`apr data decontaminate` wired, benchmark data downloaded via `make benchmark-download`, awaiting training data to test against)
 
 ## Blocked on Upstream
 

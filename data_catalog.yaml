@@ -50,18 +50,24 @@ benchmarks:
     purpose: "OpenAI HumanEval evaluation benchmark"
     provider: "openai/human-eval"
     problems: 164
+    local: data/benchmarks/humaneval.jsonl
+    download: "make benchmark-download"
   mbpp:
     purpose: "Mostly Basic Python Problems benchmark"
     provider: "google-research/mbpp"
-    problems: 500
+    problems: 974
+    local: data/benchmarks/mbpp.jsonl
+    download: "make benchmark-download"
   bigcodebench:
     purpose: "BigCodeBench practical coding evaluation"
     provider: "bigcode/bigcodebench"
     problems: 1140
+    local: data/benchmarks/bigcodebench.jsonl
+    download: "manual from HF datasets"
 
 data_lineage:
   raw_source: "Ground truth corpora (depyler, hf-gtc, jax-gtc, vllm-gtc)"
-  extraction: "alimentar import -> AST parsing -> instruction pairs"
+  extraction: "apr data prep -> Python AST parsing -> instruction/response pairs"
   training: "apr finetune -> LoRA/QLoRA adapters -> .apr checkpoint"
   evaluation: "scripts/eval-pass-at-k.sh -> apr run -> sandbox execution -> scoring"
   submission: "scripts/submit.sh -> apr export -> apr publish -> HuggingFace Hub"
