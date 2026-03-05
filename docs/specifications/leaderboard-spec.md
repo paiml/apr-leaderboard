@@ -38,7 +38,8 @@ updated: "2026-03-05"
 | 19 | [Implementation Status](#19-implementation-status) | [19](components/19-implementation-status.md) | Tracking table for all targets |
 | 20 | [Scientific Foundation](#20-scientific-foundation) | [20](components/20-scientific-foundation.md) | Papers, references |
 | 21 | [Open Questions](#21-open-questions) | [21](components/21-open-questions.md) | Unresolved decisions |
-| 22 | [Dogfooding Findings](#22-dogfooding-findings) | [22](components/22-dogfooding-findings.md) | Real results, GPU proofs, baseline scores |
+| 22 | [Dogfooding Findings](#22-dogfooding-findings) | [22](components/22-dogfooding-findings.md) | Real results, baseline scores, upstream fixes |
+| 23 | [Training Infrastructure](#23-training-infrastructure) | [23](components/23-training-infrastructure.md) | Training bricks, QLoRA, GPU sharing, wgpu proof |
 
 ---
 

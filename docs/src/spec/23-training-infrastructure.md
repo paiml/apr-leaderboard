@@ -1,0 +1,1 @@
+../../specifications/components/23-training-infrastructure.md
