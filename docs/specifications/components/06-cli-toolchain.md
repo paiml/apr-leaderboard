@@ -100,6 +100,7 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make eval-perplexity` | `apr eval --dataset wikitext-2` | Perplexity baseline |
 | `make finetune-instruct` | `apr finetune --task instruct` | Instruction LoRA fine-tuning (GH-371) |
 | `make finetune` | `apr finetune` | Classification LoRA/QLoRA fine-tuning |
+| `make align` | `apr finetune --method dpo/orpo` | DPO/ORPO preference alignment (GH-8) |
 | `make distill` | `apr distill` | Knowledge distillation (teacher → student) |
 | `make merge` | `apr merge` | Model merging (SLERP, TIES, DARE, linear) |
 | `make prune` | `apr prune` | Structured/unstructured pruning |
@@ -114,6 +115,9 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make pipeline-plan` | `scripts/pipeline.sh --plan` | Dry-run: validate config, show commands |
 | `make verify` | smoke-tests all `apr` subcommands | Validate `apr` CLI installation |
 | `make dogfood` | CLI + config validation | End-to-end smoke test |
+| `make book` | `mdbook build` | Build specification book |
+| `make docs` | `mdbook build` | Alias for book |
+| `make docs-serve` | `mdbook serve` | Local book preview |
 
 ## 6.2.1 Import
 

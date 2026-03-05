@@ -31,6 +31,10 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make verify` | Smoke-tests all `apr` subcommands | ✅ Working | 16 subcommands verified |
 | `make dogfood` | End-to-end smoke test | ✅ Working | CLI + configs validated |
 | `make prove-wgpu` | `scripts/prove-wgpu.sh` | ✅ Working | wgpu training proof (§22.14) |
+| `make align` | `apr finetune --method dpo/orpo` | ✅ Wired | DPO/ORPO alignment (GH-8) |
+| `make book` | `mdbook build` | ✅ Working | Build specification book |
+| `make docs` | `mdbook build` | ✅ Working | Alias for book |
+| `make docs-serve` | `mdbook serve` | ✅ Working | Local book preview |
 
 ## 19.2 Shell Scripts
 
@@ -50,7 +54,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Subcommand smoke test | 16/16 OK | 16/16 | `make verify` |
 | YAML configs | 19 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) + legacy TOML (13) |
 | Shell scripts | 5 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 22 | — | `make verify` + `make validate` + `make dogfood` |
+| Makefile targets | 26 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
