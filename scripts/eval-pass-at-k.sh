@@ -217,19 +217,44 @@ while IFS= read -r line; do
         echo "$TEXT" > "$COMPLETION_FILE"
 
         # Assemble test file: prompt + completion + test harness
-        # Extract test cases from the problem JSON and combine with completion
-        TEST_CODE="$(jq -r '.test // .test_list // ""' < "$PROBLEM_FILE" 2>/dev/null)"
+        # HumanEval: .test is a string (check function), .entry_point names the function
+        # MBPP: .test_list is a JSON array of assert strings, .test_setup_code may exist
+        # BigCodeBench: .test is a string
         ENTRY_POINT="$(jq -r '.entry_point // ""' < "$PROBLEM_FILE" 2>/dev/null)"
+        TEST_SETUP="$(jq -r '.test_setup_code // ""' < "$PROBLEM_FILE" 2>/dev/null)"
+        HAS_TEST="$(jq -r 'has("test")' < "$PROBLEM_FILE" 2>/dev/null)"
+        HAS_TEST_LIST="$(jq -r 'has("test_list")' < "$PROBLEM_FILE" 2>/dev/null)"
 
-        if [[ -n "$TEST_CODE" && "$TEST_CODE" != "null" ]]; then
+        if [[ "$HAS_TEST" == "true" ]]; then
+            # HumanEval: prompt is a Python function signature → prepend it
+            # BigCodeBench instruct: prompt is natural language → don't prepend
+            TEST_CODE="$(jq -r '.test' < "$PROBLEM_FILE" 2>/dev/null)"
+            HAS_CODE_PROMPT="$(jq -r 'has("code_prompt")' < "$PROBLEM_FILE" 2>/dev/null)"
             {
-                echo "$PROMPT"
-                cat "$COMPLETION_FILE"
+                if [[ "$HAS_CODE_PROMPT" == "true" ]]; then
+                    # BigCodeBench: completion should be standalone code
+                    cat "$COMPLETION_FILE"
+                else
+                    # HumanEval: prompt is function signature, completion continues it
+                    echo "$PROMPT"
+                    cat "$COMPLETION_FILE"
+                fi
                 echo ""
                 echo "$TEST_CODE"
-                if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" ]]; then
+                if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" && "$HAS_CODE_PROMPT" != "true" ]]; then
                     echo "check(${ENTRY_POINT})"
                 fi
+            } > "$TEST_FILE"
+        elif [[ "$HAS_TEST_LIST" == "true" ]]; then
+            # MBPP: .test_list is a JSON array of assert strings
+            {
+                if [[ -n "$TEST_SETUP" && "$TEST_SETUP" != "null" ]]; then
+                    echo "$TEST_SETUP"
+                    echo ""
+                fi
+                cat "$COMPLETION_FILE"
+                echo ""
+                jq -r '.test_list[]' < "$PROBLEM_FILE" 2>/dev/null
             } > "$TEST_FILE"
         else
             # Fallback: just the completion (no test harness)
