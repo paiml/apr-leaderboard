@@ -204,7 +204,7 @@ stages:
     description: "Run coding benchmark evaluation suite (GPU1 — parallel with training)"
     cmd: >
       DRI_PRIME=1 for bench in {{benchmarks}}; do
-        ./scripts/eval-pass-at-k.sh $bench {{current_checkpoint}} {{params.results_dir}}/ 512 0.0 1;
+        ./scripts/eval-pass-at-k.sh "$bench" {{current_checkpoint}} {{params.results_dir}}/ 512 0.0 1;
       done
     deps:
       - path: "{{current_checkpoint}}"
