@@ -694,11 +694,27 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Implement apr data prep: instruct pair extraction from corpora (GH-7)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-05T17:49:37Z
-  updated: 2026-03-05T17:49:41.046871212+00:00
+  updated: 2026-03-05T18:18:19Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-036
+  github_issue: null
+  item_type: task
+  title: Strengthen verify/dogfood + add missing Makefile targets (qa, compare-hf, benchmark-download)
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-05T18:30:31Z
+  updated: 2026-03-05T18:30:35.596359993+00:00
   spec: null
   acceptance_criteria: []
   phases: []

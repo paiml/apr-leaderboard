@@ -13,12 +13,12 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data prep-data-audit decontaminate \
+        prep-data prep-data-audit decontaminate benchmark-download \
         finetune finetune-instruct align merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity \
         export publish model-card \
         pipeline pipeline-plan \
-        check inspect verify dogfood validate clean \
+        check inspect qa compare-hf verify dogfood validate clean \
         prove-wgpu \
         docs docs-serve book
 
@@ -84,6 +84,11 @@ decontaminate:
 	$(APR) data decontaminate "$(DATA)" \
 		--reference data/benchmarks/humaneval.jsonl data/benchmarks/mbpp.jsonl \
 		--ngram 10 --threshold 0.5 --json
+
+benchmark-download:
+	@echo "=== Downloading benchmark data ==="
+	@mkdir -p data/benchmarks
+	./scripts/download-benchmarks.sh data/benchmarks
 
 # -- Optimization ----------------------------------------------------------------
 
@@ -230,6 +235,14 @@ inspect:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
 	$(APR) inspect "$(CHECKPOINT)"
 
+qa:
+	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
+	$(APR) qa "$(CHECKPOINT)" --verbose
+
+compare-hf:
+	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
+	$(APR) compare-hf "$(CHECKPOINT)" --json
+
 # -- Verification ----------------------------------------------------------------
 
 validate:
@@ -263,7 +276,7 @@ verify:
 	@echo ""
 	@echo "Subcommand smoke test:"
 	@for cmd in import run serve finetune merge prune quantize distill eval \
-	            export publish check compile bench chat inspect; do \
+	            export publish check compile bench chat inspect data qa compare-hf; do \
 		printf "  %-12s" "$$cmd"; \
 		$(APR) $$cmd --help > /dev/null 2>&1 && echo "OK" || echo "FAIL"; \
 	done
@@ -285,17 +298,19 @@ dogfood:
 	@echo "Step 1: Verify apr CLI..."
 	@$(APR) --version
 	@echo ""
-	@echo "Step 2: Check subcommands..."
-	@$(APR) import --help > /dev/null 2>&1 && echo "  import: OK"
-	@$(APR) run --help > /dev/null 2>&1 && echo "  run:    OK"
-	@$(APR) eval --help > /dev/null 2>&1 && echo "  eval:   OK"
-	@$(APR) finetune --help > /dev/null 2>&1 && echo "  finetune: OK"
-	@$(APR) merge --help > /dev/null 2>&1 && echo "  merge:  OK"
-	@$(APR) prune --help > /dev/null 2>&1 && echo "  prune:  OK"
-	@$(APR) quantize --help > /dev/null 2>&1 && echo "  quantize: OK"
-	@$(APR) distill --help > /dev/null 2>&1 && echo "  distill: OK"
-	@$(APR) export --help > /dev/null 2>&1 && echo "  export: OK"
-	@$(APR) publish --help > /dev/null 2>&1 && echo "  publish: OK"
+	@echo "Step 2: Check subcommands (19 expected)..."
+	@passed=0; failed=0; \
+	for cmd in import run serve finetune merge prune quantize distill eval \
+	           export publish check compile bench chat inspect data qa compare-hf; do \
+		if $(APR) $$cmd --help > /dev/null 2>&1; then \
+			printf "  %-12s OK\n" "$$cmd"; \
+			passed=$$((passed + 1)); \
+		else \
+			printf "  %-12s FAIL\n" "$$cmd"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	echo "  $$passed/$$((passed + failed)) subcommands verified"
 	@echo ""
 	@echo "Step 3: Validate YAML configs (bashrs)..."
 	@for f in configs/models/*.yaml configs/recipes/*.yaml configs/eval/*.yaml configs/pipeline/*.yaml data_catalog.yaml; do \

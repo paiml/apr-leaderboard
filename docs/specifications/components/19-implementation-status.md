@@ -41,6 +41,9 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make import-plan` | HF Hub check + dry-run | ✅ Working | Import plan preview |
 | `make clean` | `rm -rf checkpoints/ results/` | ✅ Working | Remove build artifacts |
 | `make decontaminate` | `apr data decontaminate` | ✅ Wired | N-gram overlap gate (AC-016) |
+| `make qa` | `apr qa $(CHECKPOINT) --verbose` | ✅ Wired | Full model QA gate |
+| `make compare-hf` | `apr compare-hf $(CHECKPOINT) --json` | ✅ Wired | HF parity check |
+| `make benchmark-download` | `scripts/download-benchmarks.sh` | ✅ Working | Download HumanEval/MBPP data |
 
 ## 19.2 Shell Scripts
 
@@ -51,16 +54,17 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `scripts/submit.sh` | Export to SafeTensors → generate model card → dry-run → publish to HF Hub | ✅ Working |
 | `scripts/import.sh` | Wrapper around `apr import` with HF Hub reachability check + `apr check` validation | ✅ Working |
 | `scripts/prove-wgpu.sh` | End-to-end wgpu training proof: import → train (QLoRA) → verify → report | ✅ Working |
+| `scripts/download-benchmarks.sh` | Download HumanEval/MBPP benchmark data for eval + decontamination | ✅ Working |
 
 ## 19.3 Quality Metrics
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
 | `apr` CLI version | 0.4.10 | ≥ 0.4.10 | `apr --version` |
-| Subcommand smoke test | 16/16 OK | 16/16 | `make verify` |
+| Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
-| Shell scripts | 5 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 33 | — | `make verify` + `make validate` + `make dogfood` |
+| Shell scripts | 6 | — | All executable, pass `bashrs lint` |
+| Makefile targets | 36 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
@@ -126,6 +130,9 @@ All ML operations are provided by `apr` CLI v0.4.10. Verified via `make verify`:
 | `apr compile` | ✅ OK | `make compile`, `scripts/pipeline.sh` |
 | `apr bench` | ✅ OK | (latency benchmarks — not used by pipeline) |
 | `apr inspect` | ✅ OK | `make inspect` |
+| `apr data` | ✅ OK | `make prep-data`, `make decontaminate`, `make prep-data-audit` |
+| `apr qa` | ✅ OK | `make qa` |
+| `apr compare-hf` | ✅ OK | `make compare-hf` |
 
 ## 19.6 Dogfooding Findings
 
