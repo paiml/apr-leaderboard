@@ -95,8 +95,8 @@ resources:
     state: present
     packages: [bashrs]
 
-  # Data preparation
-  prep-instruct-data:
+  # Data preparation (apr data audit — zero Python)
+  prep-data:
     type: task
     machine: lambda
     command: >
