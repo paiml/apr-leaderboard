@@ -63,7 +63,7 @@ benchmarks:
     provider: "bigcode/bigcodebench"
     problems: 1140
     local: data/benchmarks/bigcodebench.jsonl
-    download: "manual from HF datasets"
+    download: "make benchmark-download"
 
 data_lineage:
   raw_source: "Ground truth corpora (depyler, hf-gtc, jax-gtc, vllm-gtc)"

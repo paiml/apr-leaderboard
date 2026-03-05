@@ -182,3 +182,11 @@ All three phases of the GPU-SHARE specification implemented and tested:
 - **Phase 3:** Cluster config (YAML), job placement (VRAM-aware scoring), SSH transport (real `std::process::Command`, not stubs), checkpoint coordination with leaderboard, health check via SSH.
 
 143 GPU tests pass. Zero SATD. Examples: `gpu_ledger`, `multi_adapter_training`, `cluster_training`.
+
+### 19.6.7 QA Gate (2026-03-05)
+
+`apr qa` on Qwen2.5-Coder-1.5B-Instruct Q4K: 6 PASS (capability, tensor contract, metadata, golden output, throughput, perf regression), 1 FAIL (format parity — GH-13: .apr-wrapped GGUF not recognized), 5 SKIP (no CUDA).
+
+### 19.6.8 Perplexity Baseline (2026-03-05)
+
+`apr eval --dataset wikitext-2`: perplexity 6.63, cross-entropy 1.89. Throughput: 2.5 tok/s on CPU, 385ms TTFT.
