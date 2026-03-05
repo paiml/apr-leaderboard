@@ -18,7 +18,7 @@
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity results-history \
         export publish model-card \
         pipeline pipeline-plan \
-        check inspect qa compare-hf verify dogfood validate clean \
+        check inspect qa compare-hf bench verify dogfood validate clean \
         prove-wgpu \
         docs docs-serve book
 
@@ -267,7 +267,12 @@ qa:
 
 compare-hf:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
-	$(APR) compare-hf "$(CHECKPOINT)" --json
+	@test -n "$(MODEL)" || { echo "ERROR: MODEL required (e.g., make compare-hf MODEL=Qwen/Qwen2.5-Coder-1.5B-Instruct)"; exit 1; }
+	$(APR) compare-hf --hf "$(MODEL)" --json "$(CHECKPOINT)"
+
+bench:
+	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
+	$(APR) bench "$(CHECKPOINT)" --json
 
 # -- Verification ----------------------------------------------------------------
 

@@ -85,7 +85,7 @@ make pipeline-plan RECIPE=recipe-c-full-pipeline
 
 ```
 apr-leaderboard/
-├── Makefile                    # 40 orchestration targets
+├── Makefile                    # 41 orchestration targets
 ├── scripts/
 │   ├── import.sh               # HF model download + convert to .apr
 │   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k
@@ -131,7 +131,7 @@ apr-leaderboard/
 The full specification is published as an [mdBook](https://paiml.github.io/apr-leaderboard/) via GitHub Actions. 23 sections covering:
 
 - **S1-4** Architecture, thesis, target leaderboards, model selection
-- **S5-6** Sovereign tooling map, CLI toolchain (19 subcommands, 40 targets)
+- **S5-6** Sovereign tooling map, CLI toolchain (19 subcommands, 41 targets)
 - **S7-8** Technique playbook, leaderboard-winning techniques
 - **S9-10** 7 composite recipes, technique interaction matrix + golden ordering
 - **S12-14** Data strategy, evaluation protocol (Chen et al. pass@k), submission flow

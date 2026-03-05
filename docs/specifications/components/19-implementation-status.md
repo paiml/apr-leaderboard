@@ -45,7 +45,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make decontaminate` | `apr data decontaminate` | 🔄 PR Open | aprender#415 + alimentar#32 (GH-11) |
 | `make data-quality` | `apr data quality` | 🔧 Blocked | Subcommand not wired yet (GH-11) |
 | `make qa` | `apr qa $(CHECKPOINT) --verbose` | ✅ Wired | Full model QA gate |
-| `make compare-hf` | `apr compare-hf $(CHECKPOINT) --json` | ✅ Wired | HF parity check |
+| `make compare-hf` | `apr compare-hf --hf $(MODEL) --json $(CHECKPOINT)` | ✅ Working | HF parity check (requires MODEL) |
+| `make bench` | `apr bench $(CHECKPOINT) --json` | ✅ Working | Throughput benchmark |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | ✅ Working | Download HumanEval/MBPP data |
 | `make results-history` | `scripts/results-history.sh` | ✅ Working | View and compare eval results |
 
@@ -69,7 +70,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 7 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 40 | — | `make verify` + `make validate` + `make dogfood` |
+| Makefile targets | 41 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 17/17 | 17/17 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
