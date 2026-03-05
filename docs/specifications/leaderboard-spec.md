@@ -261,9 +261,9 @@ Suite config: `configs/eval/coding-benchmarks.yaml`.
 
 ## 16. Provable Contracts
 
-Kani bounded model checking on 5 kernel contracts:
-knowledge-distillation, BPE-tokenizer, gradient-accumulation,
-model-merging, pruning.
+Kani bounded model checking. 8 pipeline-specific proof obligations (PO-LB-001
+through PO-LB-008). `#[contract]` annotations bind every kernel to its YAML spec.
+1 contract file with 3 proof obligations + 3 falsification tests deployed.
 
 -> [Full details](components/16-provable-contracts.md)
 
@@ -283,12 +283,13 @@ make dogfood   # end-to-end smoke test (zero Python)
 
 ## 18. Acceptance Criteria
 
-29 acceptance criteria (AC-001 through AC-029). Key:
+29 falsifiable acceptance criteria (AC-001 through AC-029). Every criterion has
+a concrete command and a pass/fail threshold. Key milestones:
 - AC-001: `apr import` produces valid `.apr` file
-- AC-010: `make pipeline` completes for recipe-a
-- AC-020: HumanEval pass@1 >= 60% for Qwen-7B
-- AC-028: wgpu training proof passes
-- AC-029: wgpu inference produces valid code
+- AC-011: Full pipeline (Recipe C) completes end-to-end
+- AC-021: Qwen-7B imported achieves >= 85% HumanEval pass@1
+- AC-028: `make prove-wgpu` passes — QLoRA training on wgpu
+- AC-029: wgpu training produces decreasing loss over 2 epochs
 
 -> [Full details](components/18-acceptance-criteria.md)
 
@@ -315,8 +316,9 @@ make dogfood   # end-to-end smoke test (zero Python)
 
 ## 20. Scientific Foundation
 
-Key papers: LoRA (Hu et al. 2021), QLoRA (Dettmers et al. 2023),
-SLERP interpolation, Wanda pruning, GPTQ/AWQ quantization.
+19 references grouped by pipeline stage: training (LoRA, QLoRA, DPO, ORPO),
+compression (Wanda, SparseGPT, TIES, DARE), inference (speculative decoding,
+self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 -> [Full details](components/20-scientific-foundation.md)
 
@@ -324,9 +326,10 @@ SLERP interpolation, Wanda pruning, GPTQ/AWQ quantization.
 
 ## 21. Open Questions
 
-- wgpu backward pass performance vs CUDA
-- Optimal distillation temperature for code models
-- FIM training data mix ratio
+23 questions tracked, 5 answered by dogfooding (marked ✅). Key open:
+- Calibration data quality for Wanda pruning (ablation needed)
+- DPO data volume for measurable HumanEval+ improvement
+- CPU-only distillation feasibility within 24h wall-clock
 
 -> [Full details](components/21-open-questions.md)
 
