@@ -41,6 +41,7 @@ HF_REPO       ?=
 MAX_TOKENS    ?= 512
 TEMPERATURE   ?= 0.0
 NUM_SAMPLES   ?= 1
+PROMPT_STRATEGY ?= standard
 CORPUS_DIR    ?=
 CORPUS_NAME   ?= corpus
 MIN_LINES     ?= 3
@@ -169,19 +170,19 @@ eval-humaneval:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
 	@mkdir -p $(RESULTS_DIR)
 	./scripts/eval-pass-at-k.sh humaneval "$(CHECKPOINT)" "$(RESULTS_DIR)" \
-		$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES)
+		$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES) $(PROMPT_STRATEGY)
 
 eval-mbpp:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
 	@mkdir -p $(RESULTS_DIR)
 	./scripts/eval-pass-at-k.sh mbpp "$(CHECKPOINT)" "$(RESULTS_DIR)" \
-		$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES)
+		$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES) $(PROMPT_STRATEGY)
 
 eval-bigcodebench:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
 	@mkdir -p $(RESULTS_DIR)
 	./scripts/eval-pass-at-k.sh bigcodebench "$(CHECKPOINT)" "$(RESULTS_DIR)" \
-		$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES)
+		$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES) $(PROMPT_STRATEGY)
 
 eval-all:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
@@ -189,7 +190,7 @@ eval-all:
 	@for bench in humaneval mbpp bigcodebench; do \
 		echo "=== Evaluating $$bench ==="; \
 		./scripts/eval-pass-at-k.sh $$bench "$(CHECKPOINT)" "$(RESULTS_DIR)" \
-			$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES); \
+			$(MAX_TOKENS) $(TEMPERATURE) $(NUM_SAMPLES) $(PROMPT_STRATEGY); \
 	done
 
 eval-perplexity:

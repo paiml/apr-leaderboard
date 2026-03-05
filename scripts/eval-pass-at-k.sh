@@ -9,14 +9,14 @@
 #   5. Compute pass@k and write result JSON
 #
 # Usage:
-#   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES
+#   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES PROMPT_STRATEGY
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [[ $# -lt 2 ]]; then
-    echo "Usage: eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES"
+    echo "Usage: eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES PROMPT_STRATEGY"
     exit 1
 fi
 
@@ -26,6 +26,7 @@ RESULTS_DIR="${3:-results}"
 MAX_TOKENS="${4:-512}"
 TEMPERATURE="${5:-0.0}"
 NUM_SAMPLES="${6:-1}"
+PROMPT_STRATEGY="${7:-standard}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 RESULT_FILE="${RESULTS_DIR}/${BENCHMARK}_${TIMESTAMP}.json"
@@ -38,6 +39,7 @@ echo "Model:       ${MODEL}"
 echo "Max tokens:  ${MAX_TOKENS}"
 echo "Temperature: ${TEMPERATURE}"
 echo "Samples:     ${NUM_SAMPLES}"
+echo "Strategy:    ${PROMPT_STRATEGY}"
 echo "Output:      ${RESULT_FILE}"
 echo ""
 
@@ -108,22 +110,47 @@ compute_pass_at_k() {
     }'
 }
 
-# ── Build instruction prompt ─────────────────────────────────────────────────
+# ── Prompt strategies (§5.6, §13) ────────────────────────────────────────────
 
 build_instruction() {
     local benchmark="$1"
     local prompt="$2"
+    local strategy="$3"
 
+    local task_desc
     if [[ "$benchmark" == "humaneval" ]]; then
-        # HumanEval: prompt is function signature + docstring, we need the body
-        printf "Complete the following Python function. Return ONLY the function body as Python code. No markdown, no explanation.\n\n%s" "$prompt"
+        task_desc="Complete the following Python function."
     elif [[ "$benchmark" == "bigcodebench" ]]; then
-        # BigCodeBench: instruct_prompt is already a clear instruction
-        printf "Write a Python function to solve this task. Return ONLY the complete Python function with all necessary imports. No markdown, no explanation.\n\n%s" "$prompt"
+        task_desc="Write a Python function to solve this task with all necessary imports."
     else
-        # MBPP / other: prompt is a task description
-        printf "Write a Python function to solve this task. Return ONLY Python code, no explanation.\n\n%s" "$prompt"
+        task_desc="Write a Python function to solve this task."
     fi
+
+    case "$strategy" in
+        standard|default)
+            printf "%s Return ONLY Python code. No markdown, no explanation.\n\n%s" \
+                "$task_desc" "$prompt"
+            ;;
+        scot|structured-cot)
+            # Structured Chain-of-Thought: reason step-by-step before coding
+            printf "Analyze this problem step by step:\n1. Identify the input/output types\n2. Consider edge cases\n3. Design the algorithm\n4. Write the implementation\n\n%s\n\n%s\n\nReturn ONLY the Python code after your analysis. No markdown." \
+                "$task_desc" "$prompt"
+            ;;
+        few-shot|fewshot)
+            # Few-shot: provide example before the task
+            printf "Example:\ndef add(a, b):\n    return a + b\n\nNow solve:\n%s\n\n%s\n\nReturn ONLY Python code. No markdown." \
+                "$task_desc" "$prompt"
+            ;;
+        cgo|code-gen-opt)
+            # Chain of Grounded Objectives: decompose into sub-goals
+            printf "Break down the implementation into clear sub-goals, then implement each one.\n\n%s\n\n%s\n\nReturn ONLY Python code. No markdown." \
+                "$task_desc" "$prompt"
+            ;;
+        *)
+            printf "%s Return ONLY Python code. No markdown, no explanation.\n\n%s" \
+                "$task_desc" "$prompt"
+            ;;
+    esac
 }
 
 # ── Main evaluation loop ─────────────────────────────────────────────────────
@@ -152,7 +179,7 @@ while IFS= read -r line; do
     echo "$line" > "$PROBLEM_FILE"
 
     # Build instruction for the chat model
-    INSTRUCTION="$(build_instruction "$BENCHMARK" "$PROMPT")"
+    INSTRUCTION="$(build_instruction "$BENCHMARK" "$PROMPT" "$PROMPT_STRATEGY")"
 
     # Generate completion(s) and test
     TASK_PASSED=0
@@ -304,7 +331,8 @@ cat > "$RESULT_FILE" << EOF
   "config": {
     "max_tokens": ${MAX_TOKENS},
     "temperature": ${TEMPERATURE},
-    "num_samples": ${NUM_SAMPLES}
+    "num_samples": ${NUM_SAMPLES},
+    "prompt_strategy": "${PROMPT_STRATEGY}"
   },
   "results": {
     "total": ${TOTAL_PROBLEMS},
