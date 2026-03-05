@@ -9,14 +9,14 @@
 #   5. Compute pass@k and write result JSON
 #
 # Usage:
-#   ./scripts/eval-pass-at-k.sh <benchmark> <model-path> [results-dir] [max-tokens] [temperature] [num-samples]
+#   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [[ $# -lt 2 ]]; then
-    echo "Usage: eval-pass-at-k.sh <benchmark> <model-path> [results-dir] [max-tokens] [temperature] [num-samples]"
+    echo "Usage: eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES"
     exit 1
 fi
 
@@ -69,11 +69,13 @@ BENCHMARK_FILE="${BENCHMARK_DATA_DIR}/${BENCHMARK}.jsonl"
 if [[ ! -f "$BENCHMARK_FILE" ]]; then
     URL="$(get_benchmark_url "$BENCHMARK")"
     echo "Downloading ${BENCHMARK} dataset..."
+    TMPFILE="$(mktemp "${BENCHMARK_DATA_DIR}/.dl.XXXXXX")"
     if [[ "$URL" == *.gz ]]; then
-        curl -sfL "$URL" | gunzip > "$BENCHMARK_FILE"
+        curl -sfL "$URL" | gunzip > "$TMPFILE"
     else
-        curl -sfL "$URL" -o "$BENCHMARK_FILE"
+        curl -sfL "$URL" -o "$TMPFILE"
     fi
+    mv "$TMPFILE" "$BENCHMARK_FILE"
     echo "Downloaded: ${BENCHMARK_FILE} ($(wc -l < "$BENCHMARK_FILE") problems)"
 fi
 
@@ -109,10 +111,10 @@ TOTAL_TOKENS=0
 TOTAL_LATENCY=0
 
 while IFS= read -r line; do
-    TASK_ID="$(echo "$line" | jq -r '.task_id // .name // "unknown"' 2>/dev/null)"
+    TASK_ID="$(jq -r '.task_id // .name // "unknown"' <<< "$line" 2>/dev/null)"
 
     # Extract prompt (BigCodeBench uses instruct_prompt for instruction variant)
-    PROMPT="$(echo "$line" | jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' 2>/dev/null)"
+    PROMPT="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' <<< "$line" 2>/dev/null)"
     if [[ -z "$PROMPT" || "$PROMPT" == "null" ]]; then
         continue
     fi
@@ -180,9 +182,9 @@ while IFS= read -r line; do
             } > "$TEST_FILE"
         fi
 
-        # Execute via apr eval sandbox or direct timeout
-        if [[ -f "$TEST_FILE" ]] && [[ -s "$TEST_FILE" ]]; then
-            if timeout 10 apr run "$MODEL" --prompt "$(cat "$TEST_FILE")" --max-tokens 1 --no-gpu > /dev/null 2>&1; then
+        # Run test in sandbox with timeout
+        if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
+            if timeout 10 apr run "$MODEL" --prompt-file "$TEST_FILE" --max-tokens 1 --no-gpu > /dev/null 2>&1; then
                 TASK_PASSED=1
             fi
         fi
@@ -195,7 +197,7 @@ while IFS= read -r line; do
     COMPLETED=$((COMPLETED + 1))
     if (( COMPLETED % 10 == 0 )); then
         PCT="$(awk "BEGIN{printf \"%.1f\", ${PASSED}/${COMPLETED}*100}")"
-        echo "  [${COMPLETED}/${TOTAL_PROBLEMS}] passed=${PASSED} (${PCT}%) errors=${ERRORS}"
+        printf "  %s/%s passed=%s (%s%%) errors=%s\n" "$COMPLETED" "$TOTAL_PROBLEMS" "$PASSED" "$PCT" "$ERRORS"
     fi
 done < "$BENCHMARK_FILE"
 

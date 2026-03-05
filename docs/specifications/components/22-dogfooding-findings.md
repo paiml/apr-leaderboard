@@ -483,4 +483,13 @@ GPU1: /dev/dri/renderD129 — AMD Radeon Pro W5700X (RADV NAVI10)
 
 **Verification:** `make prove-wgpu` runs all checks. See `scripts/prove-wgpu.sh` for details.
 
-**Status:** READY to run. Dual GPU hardware confirmed. Awaiting first execution.
+**Status:** READY to run. Dual GPU hardware confirmed.
+
+## 22.8 Pipeline Verification (2026-03-05)
+
+`make verify`: 16/16 subcommands OK, 17 YAML configs found, 5 scripts
+executable. `make validate`: all 17 YAML configs pass `bashrs` lint.
+Shell scripts trigger bashrs SEC010/DET002 false positives (bracket
+parsing inside strings, intentional `date` usage). Zero functional
+errors. GitHub Pages deploys via `.github/workflows/mdbook.yml`
+(verified live at paiml.github.io/apr-leaderboard).

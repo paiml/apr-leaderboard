@@ -12,13 +12,14 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: import.sh <hf-model-id> <output-path> <--quantize scheme>"
+    echo "Usage: import.sh HF_MODEL_ID OUTPUT_PATH --quantize SCHEME" >&2
     exit 1
 fi
 
 MODEL_ID="$1"
-NAME_LOWER="$(echo "${MODEL_ID}" | tr '/' '_' | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')"
-if [[ $# -ge 2 ]] && [[ "$2" != --* ]]; then
+NAME_LOWER="${MODEL_ID//\//_}"
+NAME_LOWER="${NAME_LOWER,,}"
+if [[ $# -ge 2 && "$2" != --* ]]; then
     OUTPUT="$2"
     shift 2
 else
@@ -44,7 +45,7 @@ mkdir -p "$(dirname "${OUTPUT}")"
 
 # Check HF Hub reachability
 echo -n "Checking HF Hub... "
-if curl -sf "https://huggingface.co/api/models/${MODEL_ID}" > /dev/null 2>&1; then
+if curl -sf "https://huggingface.co/api/models/${MODEL_ID}" -o /dev/null; then
     echo "OK (model exists)"
 else
     echo "WARNING: Could not verify model on HF Hub (may still work with cached data)"
@@ -60,7 +61,7 @@ apr import "hf://${MODEL_ID}" -o "${OUTPUT}" ${QUANTIZE_FLAG} --verbose
 if [[ -f "${OUTPUT}" ]]; then
     echo ""
     echo "Validating..."
-    if apr check "${OUTPUT}" --json 2>/dev/null; then
+    if apr check "${OUTPUT}" --json 2>&1 >/dev/null; then
         echo "Validation: PASS"
     else
         echo "Validation: check returned warnings (model may still be usable)"
