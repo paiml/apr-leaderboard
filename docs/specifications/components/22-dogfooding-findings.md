@@ -487,7 +487,7 @@ GPU1: /dev/dri/renderD129 — AMD Radeon Pro W5700X (RADV NAVI10)
 
 ## 22.8 Pipeline Verification (2026-03-05)
 
-`make verify`: 19/19 subcommands OK, 17 YAML configs, 6 scripts. Eval
+`make verify`: 19/19 subcommands OK, 17 YAML configs, 7 scripts. Eval
 script now implements: (1) python3/Docker sandbox for code execution,
 (2) markdown fence stripping, (3) Chen et al. unbiased pass@k estimator
 with per-task sample tracking. `make validate`: all configs pass `bashrs`

@@ -36,41 +36,44 @@ aprender does not include a code execution sandbox. Generated completions must b
 
 ```bash
 # Step 1: Perplexity baseline (pure inference, no code execution needed)
-apr eval model.apr --dataset wikitext-2 --json > results/perplexity.json
+make eval-perplexity CHECKPOINT=checkpoints/model.apr
 
-# Step 2: Generate completions for code benchmarks
-apr eval model.apr --task classify --data humaneval.jsonl --json > results/humaneval-completions.json
-apr eval model.apr --task classify --data mbpp.jsonl --json > results/mbpp-completions.json
+# Step 2: Code benchmark evaluation (generate + execute + score)
+# Each problem: apr run → strip markdown fences → python3/Docker sandbox → pass@k
+make eval-humaneval CHECKPOINT=checkpoints/model.apr
+make eval-mbpp CHECKPOINT=checkpoints/model.apr
+make eval-bigcodebench CHECKPOINT=checkpoints/model.apr
 
-# Step 3: Execute completions in sandboxed environment (EXTERNAL)
-# Using EvalPlus:
-#   docker run -v ./results:/results evalplus/evalplus:latest \
-#     --dataset humaneval --samples /results/humaneval-completions.json
-# This produces pass@1, pass@10, pass@100 metrics.
+# Step 3: Throughput benchmarking
+apr bench checkpoints/model.apr --json > results/throughput.json
 
-# Step 4: Throughput benchmarking
-apr bench model.apr --json > results/throughput.json
+# Step 4: Cross-reference against HuggingFace
+apr compare-hf checkpoints/model.apr --json > results/parity.json
 
-# Step 5: Cross-reference against HuggingFace
-apr compare-hf model.apr --json > results/parity.json
-
-# Step 6: Full QA gate before submission
-apr qa model.apr --verbose
-apr check model.apr
+# Step 5: Full QA gate before submission
+apr qa checkpoints/model.apr --verbose
+apr check checkpoints/model.apr
 ```
 
-## 13.4 Evaluation Benchmarks (apr-leaderboard)
+**Sandbox boundary (§5.3):** Code execution uses python3 (preferred) or Docker (`--network=none --memory=512m`) as an external dependency. This is the only non-sovereign step in the pipeline.
 
-The `apr-leaderboard eval` command wraps the above steps for supported benchmarks:
+## 13.4 Evaluation via Makefile Targets
+
+The eval pipeline is driven by `scripts/eval-pass-at-k.sh` via Makefile targets:
 
 ```bash
-# Run all HumanEval problems with 20 completions each, using structured CoT
-apr-leaderboard eval --model models/qwen-7b.apr --benchmark humaneval \
-    --samples 0 --n-samples 20 --prompt-strategy scot --output results/
+# Run all HumanEval problems with 1 completion each (default)
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr
 
-# Quick sanity check: 10 problems, 1 completion each
-apr-leaderboard eval --model models/qwen-7b.apr --benchmark humaneval --samples 10
+# 20 completions per problem with structured CoT prompting
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr \
+    NUM_SAMPLES=20 PROMPT_STRATEGY=scot MAX_TOKENS=1024
+
+# Full benchmark suite (HumanEval + MBPP + BigCodeBench)
+make eval-all CHECKPOINT=checkpoints/qwen-7b.apr
 
 # View results history
-apr-leaderboard history --model qwen
+make results-history
 ```
+
+The eval script handles: (1) benchmark download, (2) completion generation via `apr run --json --chat`, (3) markdown fence stripping, (4) python3/Docker sandbox execution with timeout, (5) Chen et al. unbiased pass@k computation, (6) JSON result output.

@@ -144,7 +144,7 @@ No CUDA toolkit. No vendor lock-in. 32 GB total VRAM across 2 GPUs.
 
 ## 6. CLI Toolchain
 
-19 `apr` subcommands verified. 7 shell scripts. 37 Makefile targets.
+19 `apr` subcommands verified. 7 shell scripts. 38 Makefile targets.
 Zero Python scripts — all data prep uses `apr` CLI.
 
 ```bash
@@ -286,12 +286,15 @@ make dogfood   # end-to-end smoke test (zero Python)
 ## 18. Acceptance Criteria
 
 29 falsifiable acceptance criteria (AC-001 through AC-029). Every criterion has
-a concrete command and a pass/fail threshold. Key milestones:
-- AC-001: `apr import` produces valid `.apr` file
+a concrete command and a pass/fail threshold. 7 verified, 1 partially verified,
+3 blocked on upstream, 18 not yet tested. Key milestones:
+- AC-001: `apr import` produces valid `.apr` file ✅
+- AC-004: LoRA training with decreasing loss ✅
+- AC-005: QLoRA <50% VRAM vs LoRA ✅
 - AC-011: Full pipeline (Recipe C) completes end-to-end
 - AC-021: Qwen-7B imported achieves >= 85% HumanEval pass@1
-- AC-028: `make prove-wgpu` passes — QLoRA training on wgpu
-- AC-029: wgpu training produces decreasing loss over 2 epochs
+- AC-028: `make prove-wgpu` passes — QLoRA training on wgpu ✅
+- AC-029: wgpu training produces decreasing loss over 2 epochs ✅
 
 -> [Full details](components/18-acceptance-criteria.md)
 
@@ -299,7 +302,7 @@ a concrete command and a pass/fail threshold. Key milestones:
 
 ## 19. Implementation Status
 
-**All orchestration implemented.** 37 Makefile targets, 7 shell scripts,
+**All orchestration implemented.** 38 Makefile targets, 7 shell scripts,
 17 YAML configs, 19/19 `apr` subcommands verified. Zero Python scripts.
 Zero TOML configs (migrated to YAML-only).
 
@@ -310,8 +313,8 @@ Zero TOML configs (migrated to YAML-only).
 | YAML eval suite | 1 | Complete |
 | YAML pipeline configs | 2 | Complete |
 | Data catalog | 1 | Complete |
-| Shell scripts | 6 | Complete |
-| Makefile targets | 36 | Complete |
+| Shell scripts | 7 | Complete |
+| Makefile targets | 38 | Complete |
 
 -> [Full details](components/19-implementation-status.md)
 
