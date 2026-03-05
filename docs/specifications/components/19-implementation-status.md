@@ -35,13 +35,13 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make book` | `mdbook build` | ✅ Working | Build specification book |
 | `make docs` | `mdbook build` | ✅ Working | Alias for book |
 | `make docs-serve` | `mdbook serve` | ✅ Working | Local book preview |
-| `make prep-data` | `apr data prep` | ✅ Wired | Extract instruction/response pairs (GH-7) |
+| `make prep-data` | `apr data prep` | 🔧 Blocked | Subcommand not wired yet (GH-12) |
 | `make prep-data-audit` | `apr data audit --verbose` | ✅ Working | Detailed corpus audit |
 | `make finetune-instruct` | `apr finetune --task instruct` | ✅ Wired | Instruction LoRA fine-tuning |
 | `make import-plan` | HF Hub check + dry-run | ✅ Working | Import plan preview |
 | `make clean` | `rm -rf checkpoints/ results/` | ✅ Working | Remove build artifacts |
-| `make decontaminate` | `apr data decontaminate` | ✅ Wired | N-gram overlap gate (AC-016) |
-| `make data-quality` | `apr data quality` | ✅ Wired | Quality scoring gate (AC-025) |
+| `make decontaminate` | `apr data decontaminate` | 🔧 Blocked | Subcommand not wired yet (GH-11) |
+| `make data-quality` | `apr data quality` | 🔧 Blocked | Subcommand not wired yet (GH-11) |
 | `make qa` | `apr qa $(CHECKPOINT) --verbose` | ✅ Wired | Full model QA gate |
 | `make compare-hf` | `apr compare-hf $(CHECKPOINT) --json` | ✅ Wired | HF parity check |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | ✅ Working | Download HumanEval/MBPP data |
