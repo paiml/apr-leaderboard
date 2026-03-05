@@ -13,7 +13,7 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data prep-data-audit decontaminate data-quality benchmark-download \
+        prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download \
         finetune finetune-instruct align merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity results-history \
         export publish model-card \
@@ -78,6 +78,23 @@ prep-data:
 
 prep-data-audit:
 	$(APR) data audit data/instruct-corpus.jsonl --verbose
+
+data-split:
+	@test -f "$(DATA)" || { echo "ERROR: DATA file not found: $(DATA)"; exit 1; }
+	@mkdir -p data/splits
+	$(APR) data split "$(DATA)" \
+		--train 0.8 --val 0.1 --test 0.1 \
+		--label-column label --seed 42 \
+		--output data/splits
+	@echo "Split files written to data/splits/"
+
+data-balance:
+	@test -f "$(DATA)" || { echo "ERROR: DATA file not found: $(DATA)"; exit 1; }
+	$(APR) data balance "$(DATA)" \
+		--strategy $(BALANCE_STRATEGY) \
+		--label-column label --seed 42 \
+		--output data/balanced.jsonl
+	@wc -l data/balanced.jsonl | awk '{print "  " $$1 " samples after rebalancing"}'
 
 decontaminate:
 	@echo "=== Decontamination Gate (AC-016) ==="
@@ -383,6 +400,7 @@ TEACHER       ?=
 STUDENT       ?=
 ALIGN_METHOD  ?= dpo
 PREFS_DATA    ?= data/preferences.jsonl
+BALANCE_STRATEGY ?= oversample
 
 # -- Usage -----------------------------------------------------------------------
 #
