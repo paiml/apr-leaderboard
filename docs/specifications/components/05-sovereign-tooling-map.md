@@ -17,19 +17,19 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | Quantization | INT4, INT8, Q4K, Q6K | **aprender** 0.27 | ✅ Complete | `apr quantize` — 4 formats |
 | SIMD tensor ops | AVX2, AVX-512, NEON matmul | **trueno** 0.16 | ✅ Complete | 6% faster than NumPy at 256×256 |
 | GPU compute | wgpu (Vulkan/Metal/DX12) | **trueno** 0.16 | ✅ Complete | Pure Rust, any GPU vendor, no CUDA |
-| Speculative decoding | Draft model + verification | **realizar** 0.8 | ✅ Complete | `apr run --speculative` |
+| Speculative decoding | Draft model + verification | **realizar** 0.8 | ⚠️ Planned | GH-10: `apr run --speculative` not yet implemented |
 | KV cache management | PagedAttention, CoW | **realizar** 0.8 | ✅ Complete | vLLM-style paged KV |
 | Data loading | Parquet, JSONL, Arrow, HF Hub | **alimentar** 0.2 | ✅ Complete | Zero-copy Arrow RecordBatches |
 | Data quality | Null/outlier/drift detection | **alimentar** 0.2 | ✅ Complete | 100-point quality scoring |
-| Data decontamination | N-gram overlap detection | **alimentar** 0.2 | ⚠️ Partial | Doctest extraction exists; need benchmark-specific decontamination |
+| Data decontamination | N-gram overlap detection | **alimentar** 0.2 | ⚠️ Partial | Doctest extraction exists; GH-9: benchmark-specific decontamination needed |
 | HPO | TPE, Hyperband, ASHA | **entrenar** 0.7 | ✅ Complete | `apr tune --strategy tpe` |
 | Compile to binary | Model + runtime → executable | **aprender** 0.27 | ✅ Complete | `apr compile` |
 | Correctness proofs | Kani bounded model checking | **provable-contracts** | ✅ Complete | 262 proof obligations |
 | Quality gates | Compliance enforcement | **pmat** | ✅ Complete | 30+ automated checks |
-| **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ✅ **Wired** | `apr align` wired to `entrenar::train::{BCEWithLogitsLoss, CrossEntropyLoss}` (§5.2) |
+| **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ✅ **Wired** | `make align` → `apr finetune --method dpo` (GH-8: dedicated `apr align` planned) |
 | **Execution sandbox** | Run generated code safely | — | ❌ **Missing** | **External harness** (see §5.3) |
-| **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ✅ **Wired** | `apr-leaderboard eval --n-samples N --rerank strategy` (3 strategies: none, logprob, majority) |
-| **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ✅ **Ready** | `--prompt-strategy` implemented in apr-leaderboard (5 strategies); upstream `--system` available |
+| **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ⚠️ **Partial** | N-sampling via `NUM_SAMPLES` in eval script; reranking strategies not yet implemented |
+| **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ⚠️ **Partial** | `--system` available upstream; prompt strategy engine not yet implemented (PMAT-005) |
 | **Synthetic data gen** | Teacher → training corpus | **alimentar** 0.2 + **aprender** | ⚠️ Partial | Generation via `apr chat --batch`; curation pipeline needed |
 | **Continued pretraining** | Full-weight code corpus training | **entrenar** 0.7 | ⚠️ Partial | Full finetune works; needs large-corpus streaming |
 | **Flash Attention** | Online softmax, tiled attention | **trueno** 0.16 | 🔧 In Progress | Phase 12 planned; tiling infra ready (wgpu compute shaders) |

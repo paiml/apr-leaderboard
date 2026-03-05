@@ -34,7 +34,7 @@ Training data MUST NOT overlap with evaluation benchmarks. This is critical for 
 **n-gram decontamination:** Remove any training sample whose 10-gram overlap with any HumanEval/MBPP/BigCodeBench problem exceeds 50%. This is a hard gate — no exceptions.
 
 ```bash
-# GATE: Decontamination check before training
+# GATE: Decontamination check before training (GH-9: not yet implemented)
 apr validate --data training.jsonl --decontaminate \
     --reference humaneval.jsonl mbpp.jsonl bigcodebench.jsonl \
     --ngram 10 --threshold 0.50 --json > decontamination-report.json
