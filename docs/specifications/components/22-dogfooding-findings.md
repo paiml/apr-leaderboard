@@ -118,7 +118,7 @@ GGUF imports do not have this issue — all metadata is embedded in the GGUF fil
 
 ### 22.5.1 `make verify` Output
 
-All 16 `apr` subcommands respond to `--help`:
+All 19 `apr` subcommands respond to `--help`:
 
 ```
 import       OK      run          OK      serve        OK
@@ -126,14 +126,16 @@ chat         OK      finetune     OK      merge        OK
 prune        OK      quantize     OK      distill      OK
 eval         OK      export       OK      publish      OK
 check        OK      compile      OK      bench        OK
-inspect      OK
+inspect      OK      data         OK      qa           OK
+compare-hf   OK
 ```
 
 ### 22.5.2 `make dogfood` Output
 
-All YAML configs validated:
+All YAML configs and scripts validated:
 - 6 model configs in `configs/models/` (YAML-only, legacy TOML removed)
 - 7 recipe configs in `configs/recipes/` (YAML-only)
+- 7 shell scripts in `scripts/` (all pass `bash -n`)
 
 ### 22.5.3 `make pipeline-plan` Output
 
