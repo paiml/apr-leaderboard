@@ -61,3 +61,14 @@ make verify    # check apr CLI + all subcommands
 make validate  # bashrs lint all YAML configs + shell scripts + Makefile
 make dogfood   # exercise all subcommands + validate configs (zero Python)
 ```
+
+## Code Search
+
+Use `pmat query` for semantic code search with quality annotations and `--faults`
+for fault-pattern detection. NEVER use grep for code exploration — use `pmat query`
+instead, which provides AST-aware results with TDG grades and defect annotations.
+
+```bash
+pmat query "pass@k computation" --faults   # find code with fault annotations
+pmat query "pipeline stages"               # semantic search across codebase
+```

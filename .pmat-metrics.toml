@@ -1,0 +1,19 @@
+# .pmat-metrics.toml — Quality thresholds for pmat comply
+#
+# apr-leaderboard is a shell/YAML orchestration layer (no Rust source).
+# Thresholds are set for shell script and config quality.
+
+[thresholds]
+tdg_minimum_grade = "A"
+muda_waste_max = 10
+file_max_lines = 500
+
+[shell]
+bashrs_lint = true
+shellcheck = false  # bashrs handles this
+
+[markdown]
+max_line_length = 120  # advisory only (CB-904)
+
+[yaml]
+validate_all = true
