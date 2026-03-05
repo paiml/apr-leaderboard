@@ -2,7 +2,7 @@
 
 ## 14.1 Leaderboard Targets
 
-The `apr-leaderboard submit` command formats results for the target leaderboard's submission API:
+The submission script (`scripts/submit.sh`) exports and publishes to HuggingFace Hub:
 
 | Leaderboard | Flag value | Submission method |
 |---|---|---|
@@ -13,21 +13,18 @@ The `apr-leaderboard submit` command formats results for the target leaderboard'
 ## 14.2 Submission Pipeline
 
 ```bash
-# 1. Generate HuggingFace model card
-apr eval final.apr --generate-card
+# One-command submission (preflight checks → export → model card → dry-run → publish)
+make publish CHECKPOINT=checkpoints/final.apr HF_REPO=paiml/qwen-coder-7b-apr
 
-# 2. Export to HuggingFace-compatible format
-apr export final.apr --format safetensors -o submission/
+# Or manually:
+./scripts/submit.sh checkpoints/final.apr paiml/qwen-coder-7b-apr results/
 
-# 3. Publish to HuggingFace Hub
-apr publish submission/ --repo paiml/qwen-coder-7b-apr --private
-
-# 4. Submit results via apr-leaderboard
-apr-leaderboard submit --results results/humaneval_20260228.json \
-    --model-id paiml/qwen-coder-7b-apr --leaderboard open-llm-leaderboard
-
-# 5. Submit to leaderboard evaluation queue (via HF)
-# The leaderboard pulls from your HF repo and runs its own evaluation
+# The script:
+# 1. Runs 4 preflight checks (apr check, pmat comply, results present, repo format)
+# 2. Exports to SafeTensors via apr export
+# 3. Generates model card with benchmark results table
+# 4. Dry-run via apr publish --dry-run
+# 5. Prompts for confirmation → apr publish
 ```
 
 ## 14.3 Model Card Template
@@ -44,13 +41,12 @@ The model card (`README.md` in the HF repo) MUST include:
 
 ## 14.4 Pre-Submission Checklist
 
-Before `apr-leaderboard submit`:
+Automated by `scripts/submit.sh` (4 gates that block on failure):
 
-- [ ] `apr check model.apr` passes (format validation via `aprender::format::v2::AprV2Reader` — **wired**)
-- [ ] `apr compare-hf model.apr` shows <5% parity gap
-- [ ] `pmat comply check --strict` passes
-- [ ] Decontamination report shows <1% n-gram overlap
-- [ ] Model card generated and reviewed
-- [ ] Results JSON includes all required benchmarks
-
-**Implementation note:** The `--pre-submit-check` flag in `apr-leaderboard submit` runs 5 automated checks: APR format validation (via `AprV2Reader::from_reader()`), results JSON parsing, required benchmark presence, model ID format, and model card existence. See §19.6 for wiring status.
+- [x] `apr check model.apr` passes (format validation)
+- [x] `pmat comply check --strict` passes
+- [x] Evaluation results present in `results/` directory
+- [x] HF repo ID matches `org/model` format
+- [ ] `apr compare-hf model.apr` shows <5% parity gap (manual)
+- [ ] Decontamination report shows <1% n-gram overlap (manual)
+- [ ] Model card reviewed (generated automatically, review is manual)

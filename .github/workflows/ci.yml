@@ -45,9 +45,17 @@ jobs:
 
       - name: Validate YAML configs
         run: |
+          pip install pyyaml --quiet
           echo "=== YAML config validation ==="
+          FAIL=0
           for f in configs/models/*.yaml configs/recipes/*.yaml configs/eval/*.yaml configs/pipeline/*.yaml data_catalog.yaml; do
             [ -f "$f" ] || continue
             printf "  %-50s" "$f"
-            python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>/dev/null && echo "valid" || echo "INVALID"
+            if python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>/dev/null; then
+              echo "valid"
+            else
+              echo "INVALID"
+              FAIL=1
+            fi
           done
+          [ "$FAIL" -eq 0 ] || exit 1

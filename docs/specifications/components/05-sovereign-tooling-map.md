@@ -164,17 +164,16 @@ Component: Ground truth corpora
 
 **Why world-class:** SCoT prompting improves HumanEval pass@1 by up to 13.79%. Few-shot exemplars add 3-8%. The prompt template matters as much as the model weights.
 
-**Current state:** `--prompt-strategy` is implemented in `apr-leaderboard eval` with 5 built-in strategies. The upstream `apr chat --system` and `apr run --chat` provide raw system prompt support.
+**Current state:** `PROMPT_STRATEGY` is implemented in `scripts/eval-pass-at-k.sh` with 4 built-in strategies. The upstream `apr run --chat` provides raw chat template support.
 
-**Implemented in apr-leaderboard:**
+**Implemented in eval pipeline:**
 
 ```bash
-# All 5 strategies work via apr-leaderboard eval:
-apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy standard
-apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy scot
-apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy few-shot
-apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy cgo
-apr-leaderboard eval --model m.apr --benchmark humaneval --prompt-strategy reflexion
+# All 4 strategies work via Makefile targets:
+make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=standard
+make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=scot
+make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=few-shot
+make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=cgo
 ```
 
 **Built-in strategies (with aliases):**
