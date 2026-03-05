@@ -4,6 +4,8 @@
 
 # apr-leaderboard
 
+[![CI](https://github.com/paiml/apr-leaderboard/actions/workflows/ci.yml/badge.svg)](https://github.com/paiml/apr-leaderboard/actions/workflows/ci.yml)
+
 HuggingFace leaderboard pipeline for the sovereign Rust AI stack. Proves that a single `apr` binary — with zero Python, zero CUDA toolkit, zero GPU vendor lock-in — can compete on code generation benchmarks (HumanEval, MBPP, BigCodeBench). Dual wgpu GPU by default (2x AMD Radeon Pro W5700X via Vulkan) — runs on any vendor.
 
 **[Read the full specification](https://paiml.github.io/apr-leaderboard/)**
@@ -72,24 +74,21 @@ make pipeline-plan RECIPE=recipe-c-full-pipeline
 
 ```
 apr-leaderboard/
-├── Makefile                    # All orchestration (top-level entry point)
+├── Makefile                    # 38 orchestration targets
 ├── scripts/
 │   ├── import.sh               # HF model download + convert to .apr
-│   ├── eval-pass-at-k.sh       # Generate completions → execute → score
-│   ├── pipeline.sh             # Run a full recipe from TOML config
-│   └── submit.sh               # Export + publish to HF Hub
+│   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k
+│   ├── pipeline.sh             # YAML-driven multi-stage pipeline
+│   ├── submit.sh               # Preflight checks + export + HF Hub publish
+│   ├── prove-wgpu.sh           # Dual GPU wgpu training proof
+│   ├── download-benchmarks.sh  # Download HumanEval/MBPP data
+│   └── results-history.sh      # Eval results viewer
 ├── configs/
-│   ├── models/                 # Per-model configs (5 models)
-│   │   ├── qwen-coder-7b.toml
-│   │   ├── qwen-coder-1.5b.toml
-│   │   ├── qwen-coder-32b.toml
-│   │   ├── deepseek-r1-distill-7b.toml
-│   │   └── phi-4.toml
-│   └── recipes/                # Multi-stage pipeline recipes (4 recipes)
-│       ├── recipe-a-quick-lora.toml
-│       ├── recipe-b-merge-alchemist.toml
-│       ├── recipe-c-full-pipeline.toml
-│       └── recipe-d-sovereign-binary.toml
+│   ├── models/                 # 6 per-model YAML configs
+│   ├── recipes/                # 7 multi-stage pipeline recipes (YAML)
+│   ├── eval/                   # Benchmark suite definitions (YAML)
+│   └── pipeline/               # Forjar manifest + batuta playbook (YAML)
+├── data_catalog.yaml           # Data governance + lineage
 ├── contracts/
 │   └── pass-at-k.yaml          # Formal pass@k metric contract
 ├── checkpoints/                # .apr model files (gitignored)
@@ -102,33 +101,31 @@ apr-leaderboard/
 
 | Target | Description |
 |--------|-------------|
-| `make verify` | Check `apr` CLI available, all subcommands work |
-| `make dogfood` | End-to-end smoke test |
+| `make verify` | Check `apr` CLI + all 19 subcommands |
+| `make validate` | Lint all configs + scripts (bashrs) |
+| `make dogfood` | End-to-end smoke test (zero Python) |
 | `make import MODEL=...` | Download HF model → .apr |
 | `make eval-humaneval CHECKPOINT=...` | HumanEval pass@k evaluation |
 | `make eval-mbpp CHECKPOINT=...` | MBPP pass@k evaluation |
 | `make eval-all CHECKPOINT=...` | All benchmarks |
 | `make finetune CHECKPOINT=...` | LoRA/QLoRA fine-tuning |
-| `make merge MODELS="a.apr b.apr"` | Model merging (SLERP/TIES/DARE) |
-| `make prune CHECKPOINT=...` | Pruning (Wanda/magnitude) |
-| `make quantize CHECKPOINT=...` | Quantization (INT4/INT8/FP16) |
-| `make distill TEACHER=... STUDENT=...` | Knowledge distillation |
 | `make pipeline RECIPE=...` | Run a multi-stage recipe |
 | `make pipeline-plan RECIPE=...` | Dry-run: show commands |
 | `make publish CHECKPOINT=... HF_REPO=...` | Publish to HF Hub |
+| `make prove-wgpu` | Dual GPU wgpu training proof |
+| `make results-history` | View evaluation results |
 
 ## Specification
 
-The full specification is published as an [mdBook](https://paiml.github.io/apr-leaderboard/) via GitHub Actions. It covers:
+The full specification is published as an [mdBook](https://paiml.github.io/apr-leaderboard/) via GitHub Actions. 22 sections covering:
 
-- **§1** What this repo does and how it relates to aprender
-- **§5** Technique playbook (distillation, merging, pruning, LoRA, quantization)
-- **§6** Leaderboard-winning inference techniques (N-sampling, SCoT, speculative decoding, DPO)
-- **§7** Composite recipes (4 end-to-end strategies)
-- **§8** Technique interaction matrix and golden ordering
-- **§14** Provable contracts (design by contract with Kani proofs)
-- **§15** Quality gates (pmat comply enforcement)
-- **§16** 20 falsifiable acceptance criteria
+- **§1-4** Architecture, thesis, target leaderboards, model selection
+- **§5-6** Sovereign tooling map, CLI toolchain (19 subcommands, 38 targets)
+- **§7-8** Technique playbook, leaderboard-winning techniques
+- **§9-10** 7 composite recipes, technique interaction matrix + golden ordering
+- **§12-14** Data strategy, evaluation protocol (Chen et al. pass@k), submission flow
+- **§16-18** Provable contracts, quality gates, 29 acceptance criteria
+- **§22** Dogfooding findings (real model import, inference, eval results)
 
 ## License
 

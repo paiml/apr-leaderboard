@@ -7,7 +7,7 @@ APR Leaderboard is a thin orchestration layer over the `apr` CLI for building, e
 ## Architecture
 
 ```
-Makefile (37 targets)
+Makefile (38 targets)
 ├── scripts/import.sh           → apr import + validation
 ├── scripts/eval-pass-at-k.sh   → apr run + sandbox + Chen et al. pass@k
 ├── scripts/pipeline.sh         → reads recipe YAML, runs stages in order
