@@ -295,6 +295,13 @@ dogfood:
 		bashrs lint "$$f" > /dev/null 2>&1 && echo "valid" || echo "INVALID"; \
 	done
 	@echo ""
+	@echo "Step 5: Build docs/book (mdbook)..."
+	@if command -v mdbook > /dev/null 2>&1; then \
+		cd docs && mdbook build > /dev/null 2>&1 && echo "  mdbook build: OK" || echo "  mdbook build: FAIL"; \
+	else \
+		echo "  mdbook: not installed (skipped)"; \
+	fi
+	@echo ""
 	@echo "=== Dogfood complete (zero Python) ==="
 
 # -- wgpu Proof ------------------------------------------------------------------
