@@ -13,11 +13,12 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data finetune finetune-instruct align merge prune quantize distill compile \
-        eval-humaneval eval-mbpp eval-bigcodebench eval-all \
+        prep-data prep-data-audit \
+        finetune finetune-instruct align merge prune quantize distill compile \
+        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity \
         export publish model-card \
         pipeline pipeline-plan \
-        check verify dogfood validate clean \
+        check inspect verify dogfood validate clean \
         prove-wgpu \
         docs docs-serve book
 
@@ -352,7 +353,7 @@ PREFS_DATA    ?= data/preferences.jsonl
 # Evaluate on HumanEval:
 #   make eval-humaneval CHECKPOINT=checkpoints/qwen-coder-7b.apr
 #
-# Run a recipe pipeline (YAML-first, TOML fallback):
+# Run a recipe pipeline:
 #   make pipeline RECIPE=recipe-a-quick-lora
 #
 # Validate all configs:

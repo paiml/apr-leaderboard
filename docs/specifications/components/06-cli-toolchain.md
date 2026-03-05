@@ -159,11 +159,11 @@ The eval script (`scripts/eval-pass-at-k.sh`) handles the full pipeline:
 ## 6.2.3 Data Preparation
 
 ```bash
-# Extract instruction pairs from all 4 ground truth corpora
+# Audit instruction corpus quality
 make prep-data
 
-# View corpus statistics
-make prep-data-stats
+# Detailed audit output
+make prep-data-audit
 ```
 
 Data preparation uses `apr data prep` (GH-7) to extract function/class

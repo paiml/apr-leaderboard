@@ -1,25 +1,28 @@
 # APR Leaderboard Specification
 
 **Status:** ACTIVE
-**Date:** 2026-03-04
+**Version:** 2.1.0
+**Date:** 2026-03-05
 **Authors:** APR Team
-**Oracle:** `batuta oracle` — entrenar (90% confidence for LoRA), realizar (85% for serving), trueno/wgpu (80% for compute)
 
 ## Quick Status
 
 | Metric | Value |
 |---|---|
-| CLI subcommands | 21 |
-| Wired to real APIs | 21 (all subcommands) |
-| Tests | 368 |
-| Line coverage | 96.2% |
-| Clippy warnings | 0 |
-| Source modules | 13 |
-| Pipeline configs | 13 (6 models + 7 recipes) |
+| `apr` CLI subcommands verified | 16 |
+| Makefile targets | 32 |
+| Shell scripts | 5 |
+| YAML configs | 17 (6 models + 7 recipes + 1 eval + 2 pipeline + 1 data) |
+| Python scripts | 0 (zero-Python constraint) |
+| TOML configs | 0 (YAML-only) |
 | Provable contracts | 1 (pass-at-k, 3 proof obligations) |
 | GPU sharing tests | 143 (entrenar, 9 modules) |
 | HumanEval pass@1 | 68.90% (7B Q4K, pre-EOS-fix) |
 
-See [Implementation Status](./spec/19-implementation-status.md) for detailed tracking.
+See [Implementation Status](./spec/19-implementation-status.md) for
+detailed tracking.
 
-> **Definitive spec:** [`docs/specifications/leaderboard-spec.md`](../specifications/leaderboard-spec.md) — single executive summary with [component files](../specifications/components/).
+> **Definitive spec:**
+> [`docs/specifications/leaderboard-spec.md`](../specifications/leaderboard-spec.md)
+> — single executive summary with
+> [component files](../specifications/components/).
