@@ -85,4 +85,18 @@ for bench in humaneval mbpp bigcodebench; do
         printf "  %-16s %s%%  (%s)\n" "$bench:" "$SCORE" "$MDL"
     fi
 done
+
+# Show throughput results separately
+THROUGHPUT_BEST="$(for f in "${RESULT_FILES[@]}"; do
+    [[ -f "$f" ]] || continue
+    jq -r "select(.benchmark == \"throughput\") | \"\(.results.tokens_per_second)\t\(.results.time_to_first_token_ms)\t\(.backend // \"?\")\t\(.model)\"" < "$f" 2>/dev/null
+done | sort -t$'\t' -k1 -rn | head -1)"
+
+if [[ -n "$THROUGHPUT_BEST" ]]; then
+    TPS="$(cut -f1 <<< "$THROUGHPUT_BEST")"
+    TTFT="$(cut -f2 <<< "$THROUGHPUT_BEST")"
+    BACKEND="$(cut -f3 <<< "$THROUGHPUT_BEST")"
+    MDL="$(basename "$(cut -f4 <<< "$THROUGHPUT_BEST")" .apr)"
+    printf "  %-16s %s tok/s, %sms TTFT [%s]  (%s)\n" "throughput:" "$TPS" "$TTFT" "$BACKEND" "$MDL"
+fi
 echo ""
