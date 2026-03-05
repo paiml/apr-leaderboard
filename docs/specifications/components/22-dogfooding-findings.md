@@ -486,25 +486,6 @@ DRI_PRIME=1 apr run checkpoints/model.apr --gpu --prompt "def fib(n):" --max-tok
 - [ ] No `nvcc`, `libcudart`, or CUDA toolkit referenced in process
 - [ ] `apr run --gpu` produces valid Python code post-training
 
-**Verification commands:**
-```bash
-# Enumerate GPUs
-vulkaninfo --summary 2>&1 | grep -A5 "GPU"
-
-# Verify no CUDA toolkit on system
-! which nvcc 2>/dev/null && echo "PASS: no nvcc found"
-
-# Check render devices
-ls -la /dev/dri/renderD*
-
-# Test inference on each GPU
-DRI_PRIME=0 apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr --gpu --verbose \
-    --prompt "def hello():" --max-tokens 32 2>&1 | grep -i "vulkan\|navi\|wgpu"
-DRI_PRIME=1 apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr --gpu --verbose \
-    --prompt "def hello():" --max-tokens 32 2>&1 | grep -i "vulkan\|navi\|wgpu"
-
-# Check training log for GPU usage
-grep -i "gpu\|device\|vulkan\|navi\|wgpu" results/wgpu-proof-train.log
-```
+**Verification:** `make prove-wgpu` runs all checks. See `scripts/prove-wgpu.sh` for details.
 
 **Status:** READY to run. Dual GPU hardware confirmed. Awaiting first execution.
