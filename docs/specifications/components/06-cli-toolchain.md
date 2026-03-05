@@ -92,7 +92,7 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | Make Target | Calls | Description |
 |---|---|---|
 | `make import` | `apr import` | Download HF model → `.apr` format |
-| `make prep-data` | `scripts/prep-instruct-data.py` | Extract instruct pairs from ground truth corpora |
+| `make prep-data` | `apr data audit` | Validate instruct corpus quality (GH-7) |
 | `make eval-humaneval` | `scripts/eval-pass-at-k.sh` | Generate completions → sandbox execute → pass@k |
 | `make eval-mbpp` | `scripts/eval-pass-at-k.sh` | Same pipeline, MBPP dataset |
 | `make eval-bigcodebench` | `scripts/eval-pass-at-k.sh` | Same pipeline, BigCodeBench dataset |
@@ -162,7 +162,9 @@ make prep-data
 make prep-data-stats
 ```
 
-The data prep script (`scripts/prep-instruct-data.py`) extracts function/class definitions with docstrings from:
+Data preparation uses `apr data prep` (GH-7) to extract function/class
+definitions with docstrings from ground truth corpora via Rust AST parsing
+(tree-sitter). Sources:
 - **depyler** (~11.8K pairs): Python algorithms, data structures, CLI examples
 - **hf-gtc** (~3.5K pairs): HuggingFace production recipes
 - **jax-gtc** (~58 pairs): JAX numerical computing patterns

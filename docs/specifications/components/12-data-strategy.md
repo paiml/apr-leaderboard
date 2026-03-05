@@ -4,7 +4,9 @@ The model is only as good as the fine-tuning data. Our primary data comes from f
 
 ## 12.0 Ground Truth Corpora (Tier 1)
 
-Extracted via `make prep-data` → `scripts/prep-instruct-data.py`. These are high-quality, hand-crafted Python implementations with full type annotations, docstrings, and test coverage.
+Extracted via `make prep-data` → `apr data prep` (GH-7). These are high-quality,
+hand-crafted Python implementations with full type annotations, docstrings,
+and test coverage.
 
 | Corpus | Raw Pairs | Description | Source Repo |
 |--------|-----------|-------------|-------------|

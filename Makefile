@@ -13,13 +13,13 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data finetune finetune-instruct merge prune quantize distill compile \
+        prep-data finetune finetune-instruct align merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all \
         export publish model-card \
         pipeline pipeline-plan \
         check verify dogfood validate clean \
         prove-wgpu \
-        docs docs-serve
+        docs docs-serve book
 
 SHELL := /bin/bash
 APR   := apr
@@ -91,6 +91,15 @@ finetune:
 		--epochs $(EPOCHS) \
 		--data "$(DATA)" \
 		--output "$(OUTPUT_DIR)/$(NAME)-finetuned.apr" \
+		--verbose
+
+align:
+	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
+	@test -f "$(PREFS_DATA)" || { echo "ERROR: Preference data not found at $(PREFS_DATA)"; exit 1; }
+	$(APR) finetune "$(CHECKPOINT)" \
+		--method $(ALIGN_METHOD) \
+		--data "$(PREFS_DATA)" \
+		--output "$(OUTPUT_DIR)/$(NAME)-aligned.apr" \
 		--verbose
 
 merge:
@@ -319,6 +328,9 @@ docs:
 docs-serve:
 	cd docs && mdbook serve
 
+book:
+	cd docs && mdbook build
+
 # -- Distill variables (with defaults) --
 DIST_STRATEGY ?= standard
 DIST_TEMP     ?= 3.0
@@ -332,6 +344,8 @@ DATA          ?= data/instruct-corpus.jsonl
 MODEL_SIZE    ?= 7B
 TEACHER       ?=
 STUDENT       ?=
+ALIGN_METHOD  ?= dpo
+PREFS_DATA    ?= data/preferences.jsonl
 
 # -- Usage -----------------------------------------------------------------------
 #
