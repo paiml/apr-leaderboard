@@ -28,12 +28,23 @@ apr import → apr distill → apr finetune → apr merge → apr prune → apr 
 
 Every command is provided by the `apr` CLI (aprender). This repo provides the pipeline config, benchmark metadata, result persistence, and the strategy spec.
 
-## Quick Start
+## Installation
 
 ```bash
-# Verify apr CLI is available
-make verify
+# Install the apr CLI (requires Rust toolchain)
+cargo install apr-cli
 
+# Clone this repo
+git clone https://github.com/paiml/apr-leaderboard.git
+cd apr-leaderboard
+
+# Verify everything works
+make verify
+```
+
+## Usage
+
+```bash
 # Import a model from HuggingFace
 make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
 
@@ -126,6 +137,15 @@ The full specification is published as an [mdBook](https://paiml.github.io/apr-l
 - **S12-14** Data strategy, evaluation protocol (Chen et al. pass@k), submission flow
 - **S16-18** Provable contracts, quality gates, 29 acceptance criteria
 - **S22-23** Dogfooding findings, training infrastructure (QLoRA, GPU sharing, wgpu proof)
+
+## Contributing
+
+1. Fork the repo and create a feature branch
+2. Ensure `make verify && make validate && make dogfood` all pass
+3. Keep `pmat check` clean (zero violations)
+4. Submit a PR against `main`
+
+All ML operations live in [aprender](https://github.com/paiml/aprender) — this repo is orchestration only.
 
 ## License
 

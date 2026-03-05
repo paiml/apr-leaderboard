@@ -1,0 +1,15 @@
+{
+  "benchmark": "throughput",
+  "model": "checkpoints/qwen2.5-coder-1.5b-instruct-q4k.apr",
+  "timestamp": "2026-03-05T23:25:00+01:00",
+  "backend": "cpu",
+  "results": {
+    "iterations": 5,
+    "mean_time_ms": 13015.3,
+    "median_time_ms": 12982.3,
+    "std_dev_ms": 697.3,
+    "time_to_first_token_ms": 385.3,
+    "tokens_per_second": 2.5,
+    "total_tokens": 160
+  }
+}

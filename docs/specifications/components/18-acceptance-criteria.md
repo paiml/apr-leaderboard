@@ -18,15 +18,15 @@ demonstrated, this spec has failed. Status: [x] = verified,
 
 - [x] AC-017: N-sampling generates distinct completions per problem -- eval script supports `NUM_SAMPLES`, tracks per-task n,c counts, computes Chen et al. unbiased pass@k estimator in log-space. Uses `apr run` for generation. Full 20-sample verification pending GPU eval run.
 - [x] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases -- benchmark data downloaded via `make benchmark-download` (HumanEval 164, MBPP 974, BigCodeBench 1140). `apr data decontaminate` not yet wired (GH-11). Gate ready to enforce once upstream lands.
+- [x] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference -- perplexity = 6.63 on WikiText-2 (§22.0). Non-zero confirmed. HF parity check returns 0 comparisons on GGUF imports (different dtype); 10% threshold pending SafeTensors import path fix.
 
 ## Not Yet Tested
 
-- [ ] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference
 - [ ] AC-003: `apr distill` with progressive strategy produces a student model that outperforms the untrained student on perplexity
 - [ ] AC-006: `apr merge --strategy slerp` preserves weight norms (L2 norm within 5% of inputs)
 - [ ] AC-007: `apr merge --strategy ties` resolves sign conflicts (merged model has fewer conflicting task vectors than input sum)
 - [ ] AC-008: `apr prune --method wanda` at conservative ratio degrades perplexity by <5%
-- [ ] AC-009: `apr quantize --scheme int4` produces model <50% size of FP16 original
+- [ ] AC-009: `apr quantize --scheme int4` produces model <50% size of FP16 original -- GGUF Q4K import: 1.04 GiB vs ~3.0 GiB FP16 (34.7%); `apr quantize` itself not tested (SafeTensors path broken §22.1)
 - [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies
 - [ ] AC-011: Full pipeline (Recipe C) completes end-to-end without manual intervention
 - [ ] AC-012: `pv proof-status` shows >=95% binding coverage for pipeline-relevant contracts
@@ -50,7 +50,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 | Category | Count |
 |---|---|
 | Verified | 7 |
-| Partially Verified | 2 |
-| Not Yet Tested | 17 |
+| Partially Verified | 3 |
+| Not Yet Tested | 16 |
 | Blocked on Upstream | 3 |
 | **Total** | **29** |

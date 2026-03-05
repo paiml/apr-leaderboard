@@ -9,12 +9,19 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 | Qwen2.5-Coder-1.5B Q4K | Q4_K_M (GGUF) | 59.15% | 97/164 | 59.5 | 3,642ms | CPU |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K (SafeTensors) | **68.90%** | 113/164 | 128.0 | 102,715ms | CPU |
 
+**Perplexity baseline (WikiText-2):**
+
+| Model | Perplexity | Cross-Entropy | Tokens | Eval Time |
+|-------|-----------|---------------|--------|-----------|
+| Qwen2.5-Coder-1.5B-Instruct Q4K | 6.63 | 1.89 | 164 | 75.8s |
+
 **Notes:**
 - 7B model shows +9.75pp improvement over 1.5B
 - 7B 68.90% result was with 128-token cap (GH-372) and broken EOS termination (GH-373)
 - Both issues fixed; re-evaluation with max-tokens=512 + EOS in progress (2026-03-02)
 - 7B official score is ~88% — gap attributed to: (1) ~~128-token cap~~ fixed, (2) ~~EOS broken~~ fixed, (3) Q4K quantization loss, (4) greedy decoding
 - GPU inference via wgpu (Vulkan/Metal/DX12) — no CUDA dependency
+- Perplexity = 6.63 on WikiText-2 confirms non-degenerate model quality (AC-002 partial)
 
 ## 22.1 Model Import: GGUF vs SafeTensors
 
@@ -302,7 +309,38 @@ optimizations.
 
 Training bricks, QLoRA readiness, GPU sharing (multi-adapter), and dual wgpu training proof are documented in [Training Infrastructure (S23)](23-training-infrastructure.md).
 
-## 22.14 Pipeline Verification (2026-03-05)
+## 22.14 QA Gate Results
+
+`apr qa checkpoints/qwen2.5-coder-1.5b-instruct-q4k.apr --verbose` results:
+
+| Check | Status | Details |
+|-------|--------|---------|
+| Capability Match | PASS | Non-GGUF format check N/A |
+| Tensor Contract | PASS | 339 tensors passed PMAT-235 gates |
+| Metadata Plausibility | PASS | arch=qwen2, rope_theta=1M, max_pos=32768 |
+| Golden Output | PASS | 2 golden test cases passed |
+| Throughput | PASS | 2.0 tok/s >= 1 tok/s threshold |
+| Perf Regression | PASS | Baseline established |
+| Format Parity | FAIL | Expects GGUF format for cross-format parity |
+| GPU Speedup | SKIP | CUDA not available |
+| Ollama Parity | SKIP | Non-GGUF format |
+| PTX Parity | SKIP | Non-GGUF format |
+| GPU State Isolation | SKIP | CUDA not available |
+| Classifier Head | SKIP | Not requested |
+
+6 PASS, 1 FAIL, 5 SKIP. The Format Parity failure is because .apr wraps GGUF internally but `apr qa` doesn't recognize it as GGUF for the cross-format test. All functional checks pass.
+
+## 22.15 Throughput Benchmarks
+
+`apr bench` results on CPU (no GPU):
+
+| Model | Backend | Tok/s | TTFT | Median Latency | Iterations |
+|-------|---------|-------|------|----------------|------------|
+| Qwen2.5-Coder-1.5B-Instruct Q4K | CPU | 2.5 | 385ms | 12,982ms | 5 |
+
+TTFT = time to first token. CPU throughput is expected to be low — wgpu GPU inference would significantly improve these numbers.
+
+## 22.15 Pipeline Verification (2026-03-05)
 
 `make verify`: 19/19 subcommands OK, 17 YAML configs, 7 scripts. Eval
 script handles HumanEval (function completion), MBPP (assert-based test_list),
