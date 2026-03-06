@@ -97,3 +97,16 @@ jobs:
             fi
           done
           [ "$FAIL" -eq 0 ] || exit 1
+
+      - name: Check spec component coverage
+        run: |
+          echo "=== Spec component coverage ==="
+          FAIL=0
+          for f in docs/specifications/components/*.md; do
+            base=$(basename "$f" .md)
+            if ! grep -q "$base" docs/src/SUMMARY.md; then
+              echo "MISSING from SUMMARY.md: $base"
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" -eq 0 ] && echo "All spec components referenced in SUMMARY.md" || exit 1

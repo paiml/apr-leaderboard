@@ -128,5 +128,6 @@ apr_baselines:
     humaneval: 0.689
     notes: "Q4K SafeTensors import, CPU, 128-token cap + broken EOS (pre-fix)"
   "qwen2.5-coder-1.5b-instruct-q4k":
-    humaneval: null   # eval in progress (70% at 20/164)
-    notes: "Q4K GGUF import, CPU, greedy, max_tokens=512, chat mode"
+    humaneval: null   # eval in progress (~70% at 60/164)
+    mbpp: null        # eval in progress (~50% at 10/974, with function name fix)
+    notes: "Q4K GGUF import, CPU, greedy, max_tokens=512, chat mode + extract_python_code()"
