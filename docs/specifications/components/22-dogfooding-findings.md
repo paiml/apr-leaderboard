@@ -404,7 +404,20 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 
 **AC-014 status:** Cannot verify <5% parity gap via `compare-hf` on GGUF imports. Parity must be verified indirectly via benchmark scores (HumanEval pass@1 gap) or perplexity comparison. This is a tooling limitation, not a model quality issue.
 
-## 22.20 Wanda Pruning on GGUF Models (AC-008)
+## 22.20 MBPP Function Name Extraction
+
+**Problem:** MBPP eval showed 5% pass rate (1/20) despite the model generating correct code. Root cause: MBPP tests use specific function names (e.g., `min_cost`, `similar_elements`) but the prompt didn't tell the model what name to use.
+
+**Five Whys:**
+1. Why 5% pass rate? Tests fail with `NameError: name 'min_cost' is not defined`
+2. Why NameError? Model defines `solve()` or `find_min_cost()` but test asserts `min_cost(...)`
+3. Why wrong function name? Prompt says "Write a Python function" without specifying the name
+4. Why no name in prompt? `build_instruction()` didn't extract function names from MBPP test_list
+5. Why not? MBPP format was only partially understood — test_list contains the expected name
+
+**Fix:** Extract function name from first test assertion via `grep -oP '(?<=assert )\w+'` and include it in the prompt: "Write a Python function called \`min_cost\` to solve this task."
+
+## 22.22 Wanda Pruning on GGUF Models (AC-008)
 
 `apr prune --method wanda --target-ratio 0.1` on Qwen2.5-Coder-1.5B-Instruct Q4K:
 
@@ -424,7 +437,7 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 
 **AC-008 status:** Pruning mechanics work correctly (target sparsity achieved). Perplexity degradation cannot be measured until the prune → quantize → package pipeline is end-to-end.
 
-## 22.21 Submit Script Preflight Fix
+## 22.23 Submit Script Preflight Fix
 
 **Problem:** `scripts/submit.sh` preflight check 2 (`pmat comply check --strict`) always failed even when pmat reported COMPLIANT.
 
@@ -437,7 +450,7 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 
 **Fix:** Accept both exit 0 (clean) and exit 2 (advisories-only) as PASS.
 
-## 22.21 Pipeline Verification (2026-03-05)
+## 22.24 Pipeline Verification (2026-03-05)
 
 `make verify`: 19/19 subcommands OK, 17 YAML configs, 7 scripts. Eval
 script handles HumanEval (function completion), MBPP (assert-based test_list),

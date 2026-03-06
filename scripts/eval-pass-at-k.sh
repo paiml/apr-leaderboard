@@ -129,12 +129,22 @@ build_instruction() {
     local benchmark="$1"
     local prompt="$2"
     local strategy="$3"
+    local problem_json="${4:-}"
 
     local task_desc
     if [[ "$benchmark" == "humaneval" ]]; then
         task_desc="Complete the following Python function."
     elif [[ "$benchmark" == "bigcodebench" ]]; then
         task_desc="Write a Python function to solve this task with all necessary imports."
+    elif [[ "$benchmark" == "mbpp" && -n "$problem_json" ]]; then
+        # Extract function name from first test assertion for MBPP
+        local func_name
+        func_name="$(jq -r '.test_list[0] // ""' <<< "$problem_json" 2>/dev/null | grep -oP '(?<=assert )\w+' | head -1)"
+        if [[ -n "$func_name" ]]; then
+            task_desc="Write a Python function called \`${func_name}\` to solve this task."
+        else
+            task_desc="Write a Python function to solve this task."
+        fi
     else
         task_desc="Write a Python function to solve this task."
     fi
@@ -191,8 +201,8 @@ while IFS= read -r line; do
     PROBLEM_FILE="${WORK_DIR}/problem_${COMPLETED}.json"
     echo "$line" > "$PROBLEM_FILE"
 
-    # Build instruction for the chat model
-    INSTRUCTION="$(build_instruction "$BENCHMARK" "$PROMPT" "$PROMPT_STRATEGY")"
+    # Build instruction for the chat model (pass problem JSON for MBPP function name extraction)
+    INSTRUCTION="$(build_instruction "$BENCHMARK" "$PROMPT" "$PROMPT_STRATEGY" "$line")"
 
     # Generate completion(s) and test
     TASK_PASSED=0
