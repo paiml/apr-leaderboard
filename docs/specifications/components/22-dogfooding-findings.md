@@ -237,6 +237,9 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | InstructPipeline lacks QLoRA/NF4 | entrenar | High | **Fixed** — wgpu NF4 support |
 | InstructPipeline can't load .apr weights | entrenar/aprender | High | **Fixed** — `from_apr()` loading |
 | Chat mode trailing text breaks eval | eval script | High | **Fixed** — `extract_python_code()` strips non-Python |
+| Prune/merge lose tokenizer and config on GGUF models | aprender | High | **Open** (GH-14) |
+| `apr compare-hf` returns 0 comparisons on Q4K vs FP16 | aprender | Medium | Expected — dtype mismatch |
+| `apr qa` format parity on .apr-wrapped GGUF | aprender | Medium | **Open** (GH-13) |
 
 ## 22.12 BPE Tokenizer Performance (GH-378)
 
