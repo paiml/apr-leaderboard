@@ -71,7 +71,7 @@ Python ecosystem:      apr ecosystem:
   + safetensors
   + ...
 
-  Total: ~6 GB runtime    Total: ~4 MB binary + model weights
+  Total: ~6 GB runtime    Total: ~671 KiB binary + model weights
 ```
 
 A compiled `apr` model is a single file. No Docker. No Python runtime. No CUDA
