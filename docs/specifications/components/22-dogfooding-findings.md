@@ -344,6 +344,19 @@ Training bricks, QLoRA readiness, GPU sharing (multi-adapter), and dual wgpu tra
 
 **Impact:** Without fix: 0% pass rate. With fix: expected to match or exceed the 1.5B base model's 59.15%.
 
-## 22.16 AC Verification Results
+## 22.16 MBPP Function Name Fix Impact
+
+**Before fix:** MBPP pass rate 5% (1/20). Model generated correct code but used wrong function names (e.g., `solve()` instead of `min_cost()`), causing all `assert min_cost(...)` tests to fail with `NameError`.
+
+**After fix:** MBPP pass rate ~50% at 10/974 (eval in progress on CPU). 10x improvement from extracting the expected function name from `test_list[0]` and including it in the prompt.
+
+**Five Whys:**
+1. Why 5% pass rate? → Tests fail with `NameError`
+2. Why NameError? → Model uses wrong function name
+3. Why wrong name? → Prompt doesn't specify the expected name
+4. Why no name in prompt? → `build_instruction()` didn't parse MBPP `test_list`
+5. Why not? → MBPP format was only partially understood (§24.5)
+
+## 22.17 AC Verification Results
 
 Detailed AC verification findings (compile, throughput, SCoT, HF parity, pruning, MBPP function names, submit fix) have been moved to [AC Verification (S24)](24-ac-verification.md) for file size compliance.
