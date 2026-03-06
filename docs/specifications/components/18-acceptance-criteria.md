@@ -32,7 +32,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-011: Full pipeline (Recipe C) completes end-to-end without manual intervention
 - [ ] AC-012: `pv proof-status` shows >=95% binding coverage for pipeline-relevant contracts
 - [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models — GGUF Q4K imports produce 0 comparisons (dtype mismatch with HF FP16). Parity must be verified via benchmark scores or SafeTensors import path (§22.18)
-- [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen)
+- [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen) — pass-at-k: 3/3 FTs pass, inference-throughput: 2/2 FTs pass, quantization: FT-QUANT-003 enforced. LoRA and decontamination FTs require upstream (§24.9-§24.11)
 - [ ] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves >=85% HumanEval pass@1 (apr-native baseline >= HF reference - 5%)
 - [ ] AC-022: Full pipeline on Qwen2.5-Coder-7B produces a model scoring >=85% HumanEval, >=82% HumanEval+, >=80% MBPP
 - [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval

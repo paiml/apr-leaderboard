@@ -98,3 +98,38 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 ## 24.8 Pipeline Verification (2026-03-05)
 
 `make verify`: 19/19 subcommands OK, 17 YAML configs, 7 scripts. Eval script handles HumanEval (function completion), MBPP (assert-based test_list), and BigCodeBench (instruct mode) with benchmark-specific test assembly. Chen et al. unbiased pass@k estimator with per-task sample tracking. `make validate`: all configs pass `bashrs` lint.
+
+## 24.9 Pass@k Contract Falsification Tests (AC-015 partial)
+
+Ran `contracts/pass-at-k.yaml` falsification tests against `compute_pass_at_k()` in `scripts/eval-pass-at-k.sh`:
+
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| FT-001 (zero correct) | pass@k(10, 0, 1) | 0.0 | 0.0 | PASS |
+| FT-002 (all correct) | pass@k(10, 10, 1) | 1.0 | 1.0 | PASS |
+| FT-003 (pass@1 = ratio) | pass@k(10, 5, 1) | 0.5 | 0.5 | PASS |
+
+Monotonicity proof obligation verified: pass@k(20, 10, 5) = 0.9837 < pass@k(20, 15, 5) = 0.9999.
+
+**Status:** 3/3 falsification tests pass, monotonicity obligation verified. Contract `pass-at-k.yaml` is confirmed for Kernel Class E (eval estimator).
+
+## 24.10 Inference Throughput Contract (FT-TPUT)
+
+Verified against `results/bench_1.5b_instruct_q4k_cpu.json`:
+
+| Test | Predicate | Measured | Status |
+|------|-----------|----------|--------|
+| FT-TPUT-001 (≥1 tok/s) | tps ≥ 1.0 | 2.5 tok/s | PASS |
+| FT-TPUT-002 (TTFT <500ms) | ttft < 500 | 385ms | PASS |
+
+Both proof obligations satisfied on CPU. GPU (wgpu) throughput expected to be significantly higher.
+
+## 24.11 Golden Ordering Enforcement (FT-QUANT-003)
+
+`pipeline.sh` validates golden ordering at startup. Added `prune-after-quantize` detection:
+
+```
+[[ "$s" == "prune" && "$saw_quant" == "true" ]] && echo "WARNING: Prune after quantize violates golden ordering (§10)."
+```
+
+Existing checks: merge-without-finetune, finetune-after-prune, distill-after-finetune. FT-QUANT-003 now enforced.

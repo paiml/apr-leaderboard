@@ -232,12 +232,14 @@ echo "Pipeline stages: ${STAGES[*]}"
 echo ""
 
 # ── Validate ordering (§10 golden ordering: distill→finetune→merge→prune→quantize)
-saw_ft=false prev_stage=""
+saw_ft=false saw_quant=false prev_stage=""
 for s in "${STAGES[@]}"; do
     [[ "$s" == "finetune" ]] && saw_ft=true
-    [[ "$s" == "merge" && "$saw_ft" == "false" ]] && echo "WARNING: Merge without finetune: merging untrained variants is suboptimal."
-    [[ "$s" == "finetune" && "$prev_stage" == "prune" ]] && echo "WARNING: Finetune after prune is an anti-pattern."
-    [[ "$s" == "distill" && "$prev_stage" == "finetune" ]] && echo "WARNING: Distill after finetune overwrites fine-tuned specialization."
+    [[ "$s" == "quantize" ]] && saw_quant=true
+    [[ "$s" == "merge" && "$saw_ft" == "false" ]] && echo "WARNING: Merge without finetune."
+    [[ "$s" == "finetune" && "$prev_stage" == "prune" ]] && echo "WARNING: Finetune after prune."
+    [[ "$s" == "distill" && "$prev_stage" == "finetune" ]] && echo "WARNING: Distill after finetune."
+    [[ "$s" == "prune" && "$saw_quant" == "true" ]] && echo "WARNING: Prune after quantize violates golden ordering (§10)."
     prev_stage="$s"
 done
 
@@ -493,7 +495,5 @@ for stage in "${STAGES[@]}"; do
 
     echo "  Stage ${stage}: DONE (current model: ${CURRENT})"
 done
-
 echo ""
-echo "=== Pipeline complete ==="
-echo "Final model: ${CURRENT}"
+echo "=== Pipeline complete: ${CURRENT} ==="
