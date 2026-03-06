@@ -335,7 +335,7 @@ self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 ## 21. Open Questions
 
-28 questions tracked, 9 answered by dogfooding (marked ✅). Key open:
+28 questions tracked, 13 answered by dogfooding (marked ✅). Key open:
 - Calibration data quality for Wanda pruning (ablation needed)
 - DPO data volume for measurable HumanEval+ improvement
 - CPU-only distillation feasibility within 24h wall-clock
