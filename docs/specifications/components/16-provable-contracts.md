@@ -98,3 +98,15 @@ pub fn lora_forward(base: &Tensor, a: &Tensor, b: &Tensor, scale: f32) -> Tensor
 ```
 
 If the binding is missing from `contracts/aprender/binding.yaml`, the build fails. Zero tolerance for unbound kernels.
+
+## 16.5 Falsification Test Results
+
+Tests run against actual implementation (§24.9-§24.11):
+
+| Contract | FTs | Status | Notes |
+|---|---|---|---|
+| `pass-at-k.yaml` | 3/3 | ✅ All pass | Monotonicity also verified |
+| `inference-throughput.yaml` | 2/2 | ✅ All pass | 2.5 tok/s, 385ms TTFT |
+| `quantization.yaml` | 1/3 | ⚠️ Partial | FT-QUANT-003 enforced; FT-001/002 need model ops |
+| `lora-algebra.yaml` | 0/3 | ⏳ Pending | Requires LoRA tensor operations |
+| `decontamination.yaml` | 0/3 | ⏳ Pending | Requires `apr data decontaminate` (GH-11) |
