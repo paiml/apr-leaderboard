@@ -47,10 +47,10 @@ tasks:
   mbpp:
     type: code_generation
     metric: pass@1
-    n_samples: 500
+    n_samples: 974                                   # Full dataset (test split: task_ids 11-510 = 500)
     temperature: 0.0
     max_tokens: 512
-    description: "Mostly Basic Python Problems — 500 problems"
+    description: "Mostly Basic Python Problems — 974 problems (full dataset)"
 
   mbpp-plus:
     type: code_generation

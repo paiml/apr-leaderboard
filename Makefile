@@ -364,6 +364,9 @@ dogfood:
 		echo "  mdbook: not installed (skipped)"; \
 	fi
 	@echo ""
+	@echo "Step 6: Contract falsification tests..."
+	@$(MAKE) --no-print-directory check-contracts
+	@echo ""
 	@echo "=== Dogfood complete (zero Python) ==="
 
 # -- wgpu Proof ------------------------------------------------------------------
