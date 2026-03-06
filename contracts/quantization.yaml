@@ -1,0 +1,66 @@
+metadata:
+  version: "1.0.0"
+  description: "Quantization correctness and ordering contracts"
+  author: "apr-leaderboard"
+  references:
+    - "APR Leaderboard Spec S10 (Golden Ordering)"
+    - "Q4K super-block format specification"
+
+equations:
+  quantize_dequantize:
+    formula: "dequantize(quantize(x)) ~= x"
+    domain: "x: float tensor, scheme in {int4, int8, q4k, q5k, q6k}"
+    codomain: "float tensor, same shape as x"
+    invariants:
+      - "shape(dequantize(quantize(x))) == shape(x)"
+      - "MSE(x, dequantize(quantize(x))) < epsilon(scheme)"
+
+  size_reduction:
+    formula: "ratio = quantized_size / original_size"
+    domain: "original_size > 0, quantized_size > 0"
+    codomain: "(0, 1)"
+    invariants:
+      - "ratio(int4) <= 0.30"
+      - "ratio(int8) <= 0.55"
+      - "ratio(q4k) <= 0.35"
+
+  ordering_constraint:
+    formula: "quantize must be the final operation before eval/deploy"
+    domain: "pipeline stages"
+    codomain: "boolean"
+    invariants:
+      - "no operation except eval/compile follows quantize"
+      - "quantize(prune(x)) is valid"
+      - "prune(quantize(x)) is invalid (lossy compound)"
+
+proof_obligations:
+  - type: equivalence
+    property: "Quantize-dequantize is approximately identity"
+    formal: "MSE(x, dequant(quant(x))) < 0.001 for x in [-1, 1]"
+    tolerance: 0.001
+
+  - type: bound
+    property: "INT4 quantization achieves at least 50% size reduction from FP16"
+    formal: "size(quantize_int4(model)) < 0.50 * size(model_fp16)"
+    tolerance: 0.0
+
+  - type: ordering
+    property: "Golden ordering: quantize is always the last optimization step"
+    formal: "stage_index(quantize) > stage_index(prune) AND stage_index(quantize) > stage_index(merge)"
+    tolerance: 0
+
+falsification_tests:
+  - id: FT-QUANT-001
+    rule: "Q4K dequantize(quantize(x)) preserves tensor shape"
+    prediction: "shape(output) == shape(input)"
+    if_fails: "Quantization implementation corrupts tensor metadata"
+
+  - id: FT-QUANT-002
+    rule: "INT4 model is less than 50% the size of FP16 original"
+    prediction: "ls -la shows quantized file < 0.5 * fp16 file"
+    if_fails: "Quantization not achieving target compression ratio"
+
+  - id: FT-QUANT-003
+    rule: "Pipeline rejects quantize before prune ordering"
+    prediction: "pipeline.sh warns when quantize precedes prune in stage list"
+    if_fails: "Golden ordering enforcement is missing"

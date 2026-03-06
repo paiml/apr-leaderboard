@@ -32,6 +32,7 @@ apr-leaderboard acceptance --verify
 | `decontamination.yaml` | 2 (ngram_overlap, contamination_rate) | 3 (bound, gate, monotonicity) | 3 (FT-DECON-001..003) |
 | `inference-throughput.yaml` | 2 (tokens_per_second, time_to_first_token) | 2 (CPU tps >= 1.0, TTFT < 5s) | 2 (FT-TPUT-001..002) |
 | `lora-algebra.yaml` | 3 (lora_forward, lora_merge, adapter_params) | 3 (rank bound, merge equivalence, param compression) | 3 (FT-LORA-001..003) |
+| `quantization.yaml` | 3 (quantize_dequantize, size_reduction, ordering) | 3 (identity approx, size <50%, golden ordering) | 3 (FT-QUANT-001..003) |
 
 ## 16.1 Contract Coverage Requirements
 
