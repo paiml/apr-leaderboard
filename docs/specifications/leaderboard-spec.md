@@ -3,7 +3,7 @@ title: "APR Leaderboard Specification"
 version: "2.1.0"
 status: "Active"
 created: "2026-02-28"
-updated: "2026-03-05"
+updated: "2026-03-06"
 ---
 
 # APR Leaderboard Specification
@@ -145,7 +145,7 @@ No CUDA toolkit. No vendor lock-in. 32 GB total VRAM across 2 GPUs.
 
 ## 6. CLI Toolchain
 
-19 `apr` subcommands verified. 7 shell scripts. 38 Makefile targets.
+19 `apr` subcommands verified. 7 shell scripts. 41 Makefile targets.
 Zero Python scripts — all data prep uses `apr` CLI.
 
 ```bash
@@ -266,7 +266,7 @@ Suite config: `configs/eval/coding-benchmarks.yaml`.
 
 Kani bounded model checking. 8 pipeline-specific proof obligations (PO-LB-001
 through PO-LB-008). `#[contract]` annotations bind every kernel to its YAML spec.
-1 contract file with 3 proof obligations + 3 falsification tests deployed.
+5 contract files with 14 proof obligations + 14 falsification tests deployed.
 
 -> [Full details](components/16-provable-contracts.md)
 
@@ -287,8 +287,8 @@ make dogfood   # end-to-end smoke test (zero Python)
 ## 18. Acceptance Criteria
 
 29 falsifiable acceptance criteria (AC-001 through AC-029). Every criterion has
-a concrete command and a pass/fail threshold. 7 verified, 1 partially verified,
-3 blocked on upstream, 18 not yet tested. Key milestones:
+a concrete command and a pass/fail threshold. 7 verified, 4 partially verified,
+2 blocked on upstream, 16 not yet tested. Key milestones:
 - AC-001: `apr import` produces valid `.apr` file ✅
 - AC-004: LoRA training with decreasing loss ✅
 - AC-005: QLoRA <50% VRAM vs LoRA ✅
@@ -303,7 +303,7 @@ a concrete command and a pass/fail threshold. 7 verified, 1 partially verified,
 
 ## 19. Implementation Status
 
-**All orchestration implemented.** 38 Makefile targets, 7 shell scripts,
+**All orchestration implemented.** 41 Makefile targets, 7 shell scripts,
 17 YAML configs, 19/19 `apr` subcommands verified. Zero Python scripts.
 Zero TOML configs (migrated to YAML-only).
 
@@ -315,7 +315,8 @@ Zero TOML configs (migrated to YAML-only).
 | YAML pipeline configs | 2 | Complete |
 | Data catalog | 1 | Complete |
 | Shell scripts | 7 | Complete |
-| Makefile targets | 38 | Complete |
+| Makefile targets | 41 | Complete |
+| Provable contracts | 5 | Complete |
 
 -> [Full details](components/19-implementation-status.md)
 
@@ -333,7 +334,7 @@ self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 ## 21. Open Questions
 
-23 questions tracked, 5 answered by dogfooding (marked ✅). Key open:
+28 questions tracked, 9 answered by dogfooding (marked ✅). Key open:
 - Calibration data quality for Wanda pruning (ablation needed)
 - DPO data volume for measurable HumanEval+ improvement
 - CPU-only distillation feasibility within 24h wall-clock
