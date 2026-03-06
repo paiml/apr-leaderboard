@@ -39,3 +39,4 @@
 - [Open Questions](./spec/21-open-questions.md)
 - [Dogfooding Findings](./spec/22-dogfooding-findings.md)
 - [Training Infrastructure](./spec/23-training-infrastructure.md)
+- [AC Verification](./spec/24-ac-verification.md)

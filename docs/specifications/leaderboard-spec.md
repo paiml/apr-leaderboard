@@ -40,6 +40,7 @@ updated: "2026-03-06"
 | 21 | [Open Questions](#21-open-questions) | [21](components/21-open-questions.md) | Unresolved decisions |
 | 22 | [Dogfooding Findings](#22-dogfooding-findings) | [22](components/22-dogfooding-findings.md) | Real results, baseline scores, upstream fixes |
 | 23 | [Training Infrastructure](#23-training-infrastructure) | [23](components/23-training-infrastructure.md) | Training bricks, QLoRA, GPU sharing, wgpu proof |
+| 24 | [AC Verification](#24-ac-verification) | [24](components/24-ac-verification.md) | Detailed acceptance criteria verification findings |
 
 ---
 
