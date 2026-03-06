@@ -360,6 +360,27 @@ self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 ---
 
+## 23. Training Infrastructure
+
+GPU sharing (VRAM guard, ledger, wait queue, MPS), multi-adapter pipeline,
+cluster config with SSH transport, checkpoint coordination. 143 tests across
+all GPU modules. QLoRA NF4 verified on wgpu.
+
+-> [Full details](components/23-training-infrastructure.md)
+
+---
+
+## 24. AC Verification
+
+Detailed acceptance criteria verification findings split from §22:
+compile binary (AC-026), throughput benchmarks, SCoT prompting (AC-019),
+HF parity (AC-014), MBPP function names, Wanda pruning (AC-008),
+pass@k falsification tests (3/3 pass), golden ordering enforcement.
+
+-> [Full details](components/24-ac-verification.md)
+
+---
+
 ## Infrastructure Summary
 
 ```
@@ -398,4 +419,6 @@ docs/specifications/
     +-- 20-scientific-foundation.md <- Papers
     +-- 21-open-questions.md       <- Unresolved
     +-- 22-dogfooding-findings.md  <- Real results, GPU proofs
+    +-- 23-training-infrastructure.md <- GPU sharing, QLoRA, wgpu
+    +-- 24-ac-verification.md     <- AC verification findings
 ```
