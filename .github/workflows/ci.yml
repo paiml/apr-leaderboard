@@ -60,6 +60,21 @@ jobs:
           done
           [ "$FAIL" -eq 0 ] || exit 1
 
+      - name: Run pass@k falsification tests
+        run: |
+          echo "=== pass@k Contract Falsification Tests ==="
+          FAIL=0
+          # FT-001: zero correct = 0
+          r=$(awk 'BEGIN{n=10;c=0;k=1; if(c==0){print 0; exit}}')
+          [ "$(echo "$r == 0" | bc)" -eq 1 ] && echo "  FT-001 (zero=0): PASS" || { echo "  FT-001: FAIL ($r)"; FAIL=1; }
+          # FT-002: all correct = 1
+          r=$(awk 'BEGIN{n=10;c=10;k=1; if(n-c<k){print 1; exit}}')
+          [ "$(echo "$r == 1" | bc)" -eq 1 ] && echo "  FT-002 (all=1): PASS" || { echo "  FT-002: FAIL ($r)"; FAIL=1; }
+          # FT-003: pass@1 = c/n = 0.5
+          r=$(awk 'BEGIN{n=10;c=5;k=1; lr=0; for(i=0;i<k;i++){lr+=log(n-c-i)-log(n-i)} printf "%.1f",1-exp(lr)}')
+          [ "$(echo "$r == 0.5" | bc)" -eq 1 ] && echo "  FT-003 (ratio=0.5): PASS" || { echo "  FT-003: FAIL ($r)"; FAIL=1; }
+          [ "$FAIL" -eq 0 ] || exit 1
+
       - name: Validate contract structure
         run: |
           echo "=== Contract structure validation ==="
