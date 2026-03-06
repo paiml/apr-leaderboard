@@ -1,0 +1,64 @@
+metadata:
+  version: "1.0.0"
+  description: "LoRA (Low-Rank Adaptation) algebraic contracts"
+  author: "apr-leaderboard"
+  references:
+    - "Hu et al., LoRA: Low-Rank Adaptation of Large Language Models, ICLR 2022"
+    - "APR Leaderboard Spec S7.4 (LoRA Fine-tuning)"
+
+equations:
+  lora_forward:
+    formula: "output = W @ x + (scale / rank) * (B @ (A @ x))"
+    domain: "W: [d_out, d_in], A: [rank, d_in], B: [d_out, rank], x: [d_in, seq], scale > 0, rank > 0"
+    codomain: "[d_out, seq]"
+    invariants:
+      - "rank <= min(d_in, d_out)"
+      - "scale > 0"
+      - "output shape == W @ x shape"
+
+  lora_merge:
+    formula: "W_merged = W + (scale / rank) * (B @ A)"
+    domain: "W: [d_out, d_in], A: [rank, d_in], B: [d_out, rank]"
+    codomain: "[d_out, d_in]"
+    invariants:
+      - "W_merged shape == W shape"
+      - "rank(B @ A) <= rank"
+
+  adapter_parameter_count:
+    formula: "params = num_target_modules * rank * (d_in + d_out)"
+    domain: "num_target_modules > 0, rank > 0, d_in > 0, d_out > 0"
+    codomain: "[1, +inf)"
+    invariants:
+      - "params << d_in * d_out * num_target_modules (compression)"
+
+proof_obligations:
+  - type: bound
+    property: "LoRA rank does not exceed hidden dimension"
+    formal: "rank <= min(d_in, d_out)"
+    tolerance: 0
+
+  - type: equivalence
+    property: "Merged weight produces same output as forward with adapters"
+    formal: "W_merged @ x == W @ x + (scale/rank) * B @ A @ x"
+    tolerance: 1e-6
+
+  - type: bound
+    property: "LoRA parameter count is strictly less than full fine-tuning"
+    formal: "adapter_params < d_in * d_out * num_modules"
+    tolerance: 0
+
+falsification_tests:
+  - id: FT-LORA-001
+    rule: "LoRA forward with zero adapters equals base model output"
+    prediction: "A=0, B=0 => output == W @ x"
+    if_fails: "LoRA forward has a bias term or implementation error"
+
+  - id: FT-LORA-002
+    rule: "LoRA merge followed by forward equals LoRA forward"
+    prediction: "W_merged @ x == lora_forward(W, A, B, x)"
+    if_fails: "Merge equation does not match forward equation"
+
+  - id: FT-LORA-003
+    rule: "Rank-1 LoRA uses exactly 2 * (d_in + d_out) parameters per module"
+    prediction: "params(rank=1) == num_modules * (d_in + d_out)"
+    if_fails: "Parameter counting formula is wrong"

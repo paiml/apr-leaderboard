@@ -15,7 +15,7 @@
 | YAML configs | 17 (6 models + 7 recipes + 1 eval + 2 pipeline + 1 data) |
 | Python scripts | 0 (zero-Python constraint) |
 | TOML configs | 0 (YAML-only) |
-| Provable contracts | 3 (pass-at-k, decontamination, throughput) |
+| Provable contracts | 4 (pass-at-k, decontamination, throughput, lora-algebra) |
 | GPU sharing tests | 143 (entrenar, 9 modules) |
 | HumanEval pass@1 (best) | 68.90% (7B Q4K, pre-EOS-fix) |
 | HumanEval pass@1 (1.5B instruct) | ~70% (eval in progress) |
