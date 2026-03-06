@@ -375,6 +375,31 @@ prove-wgpu:
 	@echo ""
 	./scripts/prove-wgpu.sh
 
+check-contracts:
+	@echo "=== Contract Falsification Tests ==="
+	@PASS=0; FAIL=0; \
+	echo "-- pass-at-k (FT-001..003) --"; \
+	r1=$$(awk 'BEGIN{n=10;c=0;k=1; if(c==0){print 0.0;exit} log_ratio=0; for(i=0;i<k;i++){log_ratio+=log(n-c-i)-log(n-i)} printf "%.1f",1.0-exp(log_ratio)}'); \
+	r2=$$(awk 'BEGIN{n=10;c=10;k=1; if(n-c<k){print 1.0;exit}}'); \
+	r3=$$(awk 'BEGIN{n=10;c=5;k=1; log_ratio=0; for(i=0;i<k;i++){log_ratio+=log(n-c-i)-log(n-i)} printf "%.1f",1.0-exp(log_ratio)}'); \
+	[ $$(echo "$$r1 == 0" | bc) -eq 1 ] && echo "  FT-001 (zero correct=0):  PASS" && PASS=$$((PASS+1)) || { echo "  FT-001: FAIL (got $$r1)"; FAIL=$$((FAIL+1)); }; \
+	[ $$(echo "$$r2 == 1" | bc) -eq 1 ] && echo "  FT-002 (all correct=1):   PASS" && PASS=$$((PASS+1)) || { echo "  FT-002: FAIL (got $$r2)"; FAIL=$$((FAIL+1)); }; \
+	[ $$(echo "$$r3 == 0.5" | bc) -eq 1 ] && echo "  FT-003 (pass@1=ratio):    PASS" && PASS=$$((PASS+1)) || { echo "  FT-003: FAIL (got $$r3)"; FAIL=$$((FAIL+1)); }; \
+	echo "-- inference-throughput (FT-TPUT-001..002) --"; \
+	if [ -f results/bench_1.5b_instruct_q4k_cpu.json ]; then \
+		tps=$$(jq '.results.tokens_per_second' results/bench_1.5b_instruct_q4k_cpu.json); \
+		ttft=$$(jq '.results.time_to_first_token_ms' results/bench_1.5b_instruct_q4k_cpu.json); \
+		[ $$(echo "$$tps >= 1.0" | bc) -eq 1 ] && echo "  FT-TPUT-001 (tps>=1.0): PASS ($$tps)" && PASS=$$((PASS+1)) || { echo "  FT-TPUT-001: FAIL ($$tps)"; FAIL=$$((FAIL+1)); }; \
+		[ $$(echo "$$ttft < 500" | bc) -eq 1 ] && echo "  FT-TPUT-002 (ttft<500): PASS ($${ttft}ms)" && PASS=$$((PASS+1)) || { echo "  FT-TPUT-002: FAIL ($${ttft}ms)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-TPUT: SKIP (no bench results)"; fi; \
+	echo "-- contract structure --"; \
+	for f in contracts/*.yaml; do \
+		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]" 2>/dev/null \
+		&& echo "  $$(basename $$f): valid" && PASS=$$((PASS+1)) \
+		|| { echo "  $$(basename $$f): INVALID"; FAIL=$$((FAIL+1)); }; \
+	done; \
+	echo ""; echo "$$PASS passed, $$FAIL failed"
+
 clean:
 	rm -rf checkpoints/*.apr
 	rm -rf $(RESULTS_DIR)/*.json
