@@ -1,0 +1,56 @@
+metadata:
+  version: "1.0.0"
+  description: "N-gram decontamination gate for training data"
+  author: "apr-leaderboard"
+  references:
+    - "Evaluating Large Language Models Trained on Code, arXiv:2107.03374 (Section 5)"
+    - "Decontaminating training data to avoid evaluation set leakage"
+
+equations:
+  ngram_overlap:
+    formula: "overlap(doc, ref, n) = |ngrams(doc, n) ∩ ngrams(ref, n)| / |ngrams(doc, n)|"
+    domain: "n >= 1, len(doc) >= n, len(ref) >= n"
+    codomain: "[0, 1]"
+    invariants:
+      - "overlap(doc, doc, n) == 1.0 for all valid doc, n"
+      - "overlap(doc, ref, n) >= 0.0 for all valid inputs"
+      - "overlap(doc, ref, n) <= 1.0 for all valid inputs"
+
+  contamination_rate:
+    formula: "rate(corpus, refs, n, threshold) = |{d in corpus : max_r(overlap(d, r, n)) >= threshold}| / |corpus|"
+    domain: "|corpus| >= 1, threshold in (0, 1]"
+    codomain: "[0, 1]"
+    invariants:
+      - "rate(corpus, [], n, threshold) == 0.0 (empty reference set)"
+      - "rate(corpus, refs, n, 0.0) == 1.0 (zero threshold flags everything)"
+
+proof_obligations:
+  - type: bound
+    property: "Overlap ratio is bounded in [0, 1]"
+    formal: "0.0 <= overlap(doc, ref, n) <= 1.0"
+    tolerance: 1e-10
+
+  - type: gate
+    property: "Contamination rate below 1% passes AC-016"
+    formal: "rate(corpus, benchmarks, 10, 0.5) < 0.01"
+    tolerance: 0.0
+
+  - type: monotonicity
+    property: "Higher threshold means fewer contaminated documents"
+    formal: "t1 < t2 implies rate(corpus, refs, n, t1) >= rate(corpus, refs, n, t2)"
+
+falsification_tests:
+  - id: FT-DECON-001
+    rule: "Self-overlap is always 1.0"
+    prediction: "overlap(doc, doc, 10) == 1.0"
+    if_fails: "N-gram extraction or intersection is broken"
+
+  - id: FT-DECON-002
+    rule: "No overlap with empty reference"
+    prediction: "overlap(doc, '', 10) == 0.0"
+    if_fails: "Edge case handling for empty reference is broken"
+
+  - id: FT-DECON-003
+    rule: "Gate rejects corpus that is its own benchmark"
+    prediction: "rate(humaneval, humaneval, 10, 0.5) >= 0.9"
+    if_fails: "Decontamination gate too lenient"

@@ -29,6 +29,8 @@ apr-leaderboard acceptance --verify
 | Contract | Equations | Proof Obligations | Falsification Tests |
 |---|---|---|---|
 | `pass-at-k.yaml` | 1 (`pass_at_k = 1 - C(n-c,k)/C(n,k)`) | 3 (bound, monotonicity, equivalence) | 3 (FT-001, FT-002, FT-003) |
+| `decontamination.yaml` | 2 (ngram_overlap, contamination_rate) | 3 (bound, gate, monotonicity) | 3 (FT-DECON-001..003) |
+| `inference-throughput.yaml` | 2 (tokens_per_second, time_to_first_token) | 2 (CPU tps >= 1.0, TTFT < 5s) | 2 (FT-TPUT-001..002) |
 
 ## 16.1 Contract Coverage Requirements
 

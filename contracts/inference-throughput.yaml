@@ -1,0 +1,44 @@
+metadata:
+  version: "1.0.0"
+  description: "Inference throughput and latency contracts"
+  author: "apr-leaderboard"
+  references:
+    - "APR Leaderboard Spec S15 (Success Criteria)"
+
+equations:
+  tokens_per_second:
+    formula: "tps = total_tokens / total_time_sec"
+    domain: "total_time_sec > 0, total_tokens >= 0"
+    codomain: "[0, +inf)"
+    invariants:
+      - "tps >= 0"
+
+  time_to_first_token:
+    formula: "ttft = time_from_prompt_to_first_output_token"
+    domain: "model loaded, prompt provided"
+    codomain: "[0, +inf) milliseconds"
+    invariants:
+      - "ttft > 0 (always nonzero due to computation)"
+      - "ttft < total_time (first token before all tokens)"
+
+proof_obligations:
+  - type: bound
+    property: "CPU throughput exceeds minimum viable threshold"
+    formal: "tps(1.5B_Q4K, cpu) >= 1.0"
+    tolerance: 0.1
+
+  - type: bound
+    property: "Time to first token under 5 seconds on CPU"
+    formal: "ttft(1.5B_Q4K, cpu) < 5000"
+    tolerance: 0.0
+
+falsification_tests:
+  - id: FT-TPUT-001
+    rule: "1.5B Q4K model on CPU generates at least 1 tok/s"
+    prediction: "apr bench model.apr --json | jq '.results.tokens_per_second >= 1.0'"
+    if_fails: "CPU inference too slow for batch eval"
+
+  - id: FT-TPUT-002
+    rule: "TTFT under 500ms (model already loaded)"
+    prediction: "apr bench model.apr --json | jq '.results.time_to_first_token_ms < 500'"
+    if_fails: "Model loading or prompt processing bottleneck"
