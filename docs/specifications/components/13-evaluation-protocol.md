@@ -76,4 +76,15 @@ make eval-all CHECKPOINT=checkpoints/qwen-7b.apr
 make results-history
 ```
 
-The eval script handles: (1) benchmark download, (2) completion generation via `apr run --json --chat`, (3) markdown fence stripping, (4) python3/Docker sandbox execution with timeout, (5) Chen et al. unbiased pass@k computation, (6) JSON result output.
+The eval script handles: (1) benchmark download, (2) completion generation via `apr run --json --chat`, (3) markdown fence stripping + trailing text extraction, (4) python3/Docker sandbox execution with timeout, (5) Chen et al. unbiased pass@k computation, (6) JSON result output.
+
+## 13.5 Instruct Model Post-Processing
+
+Instruct models (via `--chat`) often append conversational text after generating correct Python code — e.g., "Human\n...", "**Explanation**:...", or markdown headers. This trailing text causes Python syntax errors in the sandbox.
+
+The eval script applies two post-processing steps to all completions:
+
+1. **`strip_markdown_fences()`** — Removes ` ```python ` / ` ``` ` wrappers
+2. **`extract_python_code()`** — Stops at lines that are clearly not Python: `Human`, `Assistant`, `User`, `**...`, `###`, `---`
+
+This is critical for instruct model evaluation. Without it, valid completions fail due to trailing conversational text (observed: 0% → ~70% pass rate on Qwen2.5-Coder-1.5B-Instruct).

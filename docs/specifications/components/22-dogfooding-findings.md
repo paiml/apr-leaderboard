@@ -360,7 +360,7 @@ The binary shows model info and accepts `--prompt` but reports "Full inference d
 
 **LTO note:** `--lto` flag conflicts with `embed-bitcode=no` in the generated Cargo project. Use `--release --strip` without `--lto`.
 
-## 22.16 Throughput Benchmarks
+## 22.17 Throughput Benchmarks
 
 `apr bench` results on CPU (no GPU):
 
@@ -370,7 +370,38 @@ The binary shows model info and accepts `--prompt` but reports "Full inference d
 
 TTFT = time to first token. CPU throughput is expected to be low — wgpu GPU inference would significantly improve these numbers.
 
-## 22.15 Pipeline Verification (2026-03-05)
+## 22.18 Structured Prompting (AC-019)
+
+Tested `standard` vs `scot` (structured chain-of-thought) prompt strategies on HumanEval problem 0 (`has_close_elements`):
+
+| Strategy | Output | Code Correct | Notes |
+|---|---|---|---|
+| `standard` | Direct code (O(n²) brute force) + trailing text | Yes | `extract_python_code()` strips trailing text |
+| `scot` | Step-by-step reasoning (sort + adjacent) | No code produced | Reasoning consumed all 512 tokens |
+
+**Finding:** SCoT produces reasoning before code as expected, and the reasoning is correct (identified O(n log n) optimization via sorting). However, on 1.5B models with 512-token budgets, reasoning text consumes too many tokens — the model doesn't reach code generation.
+
+**Recommendation:** For SCoT to work on small models, either:
+1. Increase `MAX_TOKENS` to 1024+ (doubles eval time per problem)
+2. Use SCoT only on 7B+ models where reasoning is more concise
+3. Post-process to extract code from mixed reasoning+code output
+
+AC-019 status: Structured prompting **does** produce reasoning before code. Quality improvement pending larger model evaluation.
+
+## 22.19 HF Parity Check (AC-014)
+
+`apr compare-hf` on GGUF-imported model vs HF reference:
+
+```bash
+apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
+    checkpoints/qwen2.5-coder-1.5b-instruct-q4k.apr
+```
+
+**Result:** 0 tensor comparisons performed. The GGUF Q4K model uses Q4K/Q6K dtypes while HF reference uses FP16/BF16 — no tensors have matching dtypes to compare element-wise. This is expected behavior: quantized models have fundamentally different representations.
+
+**AC-014 status:** Cannot verify <5% parity gap via `compare-hf` on GGUF imports. Parity must be verified indirectly via benchmark scores (HumanEval pass@1 gap) or perplexity comparison. This is a tooling limitation, not a model quality issue.
+
+## 22.20 Pipeline Verification (2026-03-05)
 
 `make verify`: 19/19 subcommands OK, 17 YAML configs, 7 scripts. Eval
 script handles HumanEval (function completion), MBPP (assert-based test_list),

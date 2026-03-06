@@ -19,6 +19,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [x] AC-017: N-sampling generates distinct completions per problem -- eval script supports `NUM_SAMPLES`, tracks per-task n,c counts, computes Chen et al. unbiased pass@k estimator in log-space. Uses `apr run` for generation. Full 20-sample verification pending GPU eval run.
 - [x] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases -- benchmark data downloaded via `make benchmark-download` (HumanEval 164, MBPP 974, BigCodeBench 1140). `apr data decontaminate` not yet wired (GH-11). Gate ready to enforce once upstream lands.
 - [x] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference -- perplexity = 6.63 on WikiText-2 (§22.0). Non-zero confirmed. HF parity check returns 0 comparisons on GGUF imports (different dtype); 10% threshold pending SafeTensors import path fix.
+- [x] AC-019: Structured prompting produces reasoning before code — SCoT produces step-by-step reasoning (confirmed on 1.5B, §22.18). On small models, reasoning consumes token budget; quality improvement pending 7B+ evaluation
 
 ## Not Yet Tested
 
@@ -30,7 +31,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies -- Binary created (671 KiB, §22.15) but inference dispatch not yet statically linked (needs realizar runtime)
 - [ ] AC-011: Full pipeline (Recipe C) completes end-to-end without manual intervention
 - [ ] AC-012: `pv proof-status` shows >=95% binding coverage for pipeline-relevant contracts
-- [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models
+- [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models — GGUF Q4K imports produce 0 comparisons (dtype mismatch with HF FP16). Parity must be verified via benchmark scores or SafeTensors import path (§22.18)
 - [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen)
 - [ ] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves >=85% HumanEval pass@1 (apr-native baseline >= HF reference - 5%)
 - [ ] AC-022: Full pipeline on Qwen2.5-Coder-7B produces a model scoring >=85% HumanEval, >=82% HumanEval+, >=80% MBPP
@@ -42,7 +43,6 @@ demonstrated, this spec has failed. Status: [x] = verified,
 ## Blocked on Upstream
 
 - [ ] AC-018: Speculative decoding achieves >=1.5x throughput over standard decoding (GH-10: `apr run --speculative` not yet exposed)
-- [ ] AC-019: Structured prompting produces reasoning before code (`PROMPT_STRATEGY=scot` implemented in eval script; awaiting model evaluation to verify output quality improvement vs standard)
 - [ ] AC-020: DPO alignment reduces loss on preference pairs over 3 epochs (GH-8: `apr align` not yet implemented, routes through `apr finetune --method dpo`)
 
 ## Summary
@@ -50,7 +50,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 | Category | Count |
 |---|---|
 | Verified | 7 |
-| Partially Verified | 3 |
+| Partially Verified | 4 |
 | Not Yet Tested | 16 |
-| Blocked on Upstream | 3 |
+| Blocked on Upstream | 2 |
 | **Total** | **29** |

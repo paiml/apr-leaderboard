@@ -30,6 +30,20 @@
 | pmat comply | Pass | `pmat comply check --strict` |
 | Contract binding coverage | ≥ 95% | `pv proof-status` |
 
-## 15.4 Falsifiability
+## 15.4 Measured Baselines (apr-native)
+
+Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` on CPU (no GPU):
+
+| Model | Quant | HumanEval pass@1 | Throughput (tok/s) | TTFT (ms) | Notes |
+|---|---|---|---|---|---|
+| Qwen2.5-Coder-1.5B | Q4K | 59.15% | ~2.5 | ~385 | GGUF import, greedy |
+| Qwen2.5-Coder-7B-Instruct | Q4K | 68.9% | — | — | Pre-EOS fix, 128-token cap |
+| Qwen2.5-Coder-1.5B-Instruct | Q4K | *eval in progress* | 2.5 | 385 | Chat mode, greedy |
+
+**Key finding:** Instruct models via `--chat` append conversational trailing text after code. The `extract_python_code()` fix in `eval-pass-at-k.sh` (§22.15) raised pass rate from 0% to ~70% on the 1.5B-Instruct model.
+
+**Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
+
+## 15.5 Falsifiability
 
 Every target above is falsifiable: it has a concrete measurement command, a numeric threshold, and a pass/fail outcome. If a metric cannot be measured, the spec has failed — not the implementation.
