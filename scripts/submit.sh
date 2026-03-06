@@ -46,9 +46,11 @@ else
     PREFLIGHT_PASS=false
 fi
 
-# Check 2: pmat compliance
+# Check 2: pmat compliance (exit 0=clean, 2=advisories-only — both are COMPLIANT)
 printf "  %-40s" "pmat comply check --strict"
-if pmat comply check --strict > /dev/null 2>&1; then
+pmat comply check --strict > /dev/null 2>&1
+PMAT_EXIT=$?
+if [ "$PMAT_EXIT" -eq 0 ] || [ "$PMAT_EXIT" -eq 2 ]; then
     echo "PASS"
 else
     echo "FAIL"

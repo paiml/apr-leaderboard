@@ -401,7 +401,20 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 
 **AC-014 status:** Cannot verify <5% parity gap via `compare-hf` on GGUF imports. Parity must be verified indirectly via benchmark scores (HumanEval pass@1 gap) or perplexity comparison. This is a tooling limitation, not a model quality issue.
 
-## 22.20 Pipeline Verification (2026-03-05)
+## 22.20 Submit Script Preflight Fix
+
+**Problem:** `scripts/submit.sh` preflight check 2 (`pmat comply check --strict`) always failed even when pmat reported COMPLIANT.
+
+**Root cause (Five Whys):**
+1. Submit script uses `if pmat comply check --strict` which treats any non-zero exit as failure
+2. pmat returns exit code 2 for "COMPLIANT with advisories"
+3. Advisories are non-blocking (CB-904 line lengths, CB-1000 model card)
+4. Exit code 2 ≠ 0, so bash `if` treats it as failure
+5. Script didn't distinguish between advisory (exit 2) and real failure (exit 1)
+
+**Fix:** Accept both exit 0 (clean) and exit 2 (advisories-only) as PASS.
+
+## 22.21 Pipeline Verification (2026-03-05)
 
 `make verify`: 19/19 subcommands OK, 17 YAML configs, 7 scripts. Eval
 script handles HumanEval (function completion), MBPP (assert-based test_list),
