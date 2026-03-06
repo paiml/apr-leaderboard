@@ -26,7 +26,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-003: `apr distill` with progressive strategy produces a student model that outperforms the untrained student on perplexity
 - [ ] AC-006: `apr merge --strategy slerp` preserves weight norms (L2 norm within 5% of inputs)
 - [ ] AC-007: `apr merge --strategy ties` resolves sign conflicts (merged model has fewer conflicting task vectors than input sum)
-- [ ] AC-008: `apr prune --method wanda` at conservative ratio degrades perplexity by <5%
+- [ ] AC-008: `apr prune --method wanda` at conservative ratio degrades perplexity by <5% — pruning achieves target sparsity (10.0%) but dequantizes Q4K→FP32, losing tokenizer/config. Perplexity comparison blocked until prune→quantize pipeline is end-to-end (§22.20)
 - [ ] AC-009: `apr quantize --scheme int4` produces model <50% size of FP16 original -- GGUF Q4K import: 1.04 GiB vs ~3.0 GiB FP16 (34.7%); `apr quantize` itself not tested (SafeTensors path broken §22.1)
 - [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies -- Binary created (671 KiB, §22.15) but inference dispatch not yet statically linked (needs realizar runtime)
 - [ ] AC-011: Full pipeline (Recipe C) completes end-to-end without manual intervention

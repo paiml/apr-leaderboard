@@ -401,7 +401,27 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 
 **AC-014 status:** Cannot verify <5% parity gap via `compare-hf` on GGUF imports. Parity must be verified indirectly via benchmark scores (HumanEval pass@1 gap) or perplexity comparison. This is a tooling limitation, not a model quality issue.
 
-## 22.20 Submit Script Preflight Fix
+## 22.20 Wanda Pruning on GGUF Models (AC-008)
+
+`apr prune --method wanda --target-ratio 0.1` on Qwen2.5-Coder-1.5B-Instruct Q4K:
+
+| Metric | Value |
+|--------|-------|
+| Input size | 1.04 GiB (Q4K) |
+| Output size | 6.62 GiB (FP32, dequantized) |
+| Parameters | 1,777,088,000 (unchanged) |
+| Zeros | 177,695,662 (10.0%) |
+| Sparsity | 10.0% (matches target) |
+
+**Findings:**
+1. Wanda pruning dequantizes Q4K → FP32, inflating output 6.4x
+2. Pruned model loses embedded tokenizer and transformer config
+3. Cannot run inference or perplexity eval on pruned output directly
+4. Intended workflow: prune → re-quantize → re-package (golden ordering §10)
+
+**AC-008 status:** Pruning mechanics work correctly (target sparsity achieved). Perplexity degradation cannot be measured until the prune → quantize → package pipeline is end-to-end.
+
+## 22.21 Submit Script Preflight Fix
 
 **Problem:** `scripts/submit.sh` preflight check 2 (`pmat comply check --strict`) always failed even when pmat reported COMPLIANT.
 
