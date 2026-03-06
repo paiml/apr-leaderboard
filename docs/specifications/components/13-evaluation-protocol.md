@@ -88,3 +88,17 @@ The eval script applies two post-processing steps to all completions:
 2. **`extract_python_code()`** — Stops at lines that are clearly not Python: `Human`, `Assistant`, `User`, `**...`, `###`, `---`
 
 This is critical for instruct model evaluation. Without it, valid completions fail due to trailing conversational text (observed: 0% → ~70% pass rate on Qwen2.5-Coder-1.5B-Instruct).
+
+## 13.6 MBPP Function Name Extraction
+
+MBPP test assertions reference specific function names (e.g., `assert min_cost(...) == 42`). If the model generates a function with a different name, all tests fail even if the logic is correct.
+
+The eval script extracts the expected function name from the first test assertion:
+
+```bash
+func_name="$(jq -r '.test_list[0]' <<< "$problem_json" | grep -oP '(?<=assert )\w+')"
+```
+
+This is included in the prompt: *"Write a Python function called \`min_cost\` to solve this task."*
+
+**Impact:** Without function name extraction, MBPP pass rate was 5% (1/20). With it, the model generates correctly-named functions (eval in progress, §24.5).
