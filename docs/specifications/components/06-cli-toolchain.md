@@ -122,7 +122,10 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make decontaminate` | `apr data decontaminate` | N-gram overlap gate (AC-016) |
 | `make data-quality` | `apr data quality` | Quality scoring gate (AC-025) |
 | `make qa` | `apr qa --verbose` | Full model QA gate |
-| `make compare-hf` | `apr compare-hf --json` | HF parity check |
+| `make compare-hf` | `apr compare-hf --hf MODEL --json` | HF parity check |
+| `make bench` | `apr bench --json` | Throughput benchmark (tok/s, TTFT) |
+| `make data-split` | `apr data split` | Stratified train/val/test split |
+| `make data-balance` | `apr data balance` | Resample for class balance |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | Download HumanEval/MBPP data |
 | `make results-history` | `scripts/results-history.sh` | View and compare eval results |
 | `make clean` | `rm -rf checkpoints/ results/` | Remove build artifacts |
