@@ -59,3 +59,26 @@ jobs:
             fi
           done
           [ "$FAIL" -eq 0 ] || exit 1
+
+      - name: Validate contract structure
+        run: |
+          echo "=== Contract structure validation ==="
+          FAIL=0
+          for f in contracts/*.yaml; do
+            [ -f "$f" ] || continue
+            printf "  %-50s" "$f"
+            # Every contract must have metadata, equations, proof_obligations, falsification_tests
+            MISSING=""
+            for key in metadata equations proof_obligations falsification_tests; do
+              if ! python3 -c "import yaml; d=yaml.safe_load(open('$f')); assert '$key' in d" 2>/dev/null; then
+                MISSING="$MISSING $key"
+              fi
+            done
+            if [ -z "$MISSING" ]; then
+              echo "valid"
+            else
+              echo "MISSING:$MISSING"
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" -eq 0 ] || exit 1
