@@ -40,7 +40,7 @@ Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` on CPU (no GPU):
 | Qwen2.5-Coder-7B-Instruct | Q4K | 68.9% | — | — | Pre-EOS fix, 128-token cap |
 | Qwen2.5-Coder-1.5B-Instruct | Q4K | *eval in progress* | 2.5 | 385 | Chat mode, greedy |
 
-**Key finding:** Instruct models via `--chat` append conversational trailing text after code. The `extract_python_code()` fix in `eval-pass-at-k.sh` (§22.15) raised pass rate from 0% to ~70% on the 1.5B-Instruct model.
+**Key finding:** Instruct models via `--chat` append conversational trailing text after code. The `extract_python_code()` fix in `eval-pass-at-k.sh` (§22.15/§24.1) raised pass rate from 0% to ~70% on the 1.5B-Instruct model.
 
 **Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
 
