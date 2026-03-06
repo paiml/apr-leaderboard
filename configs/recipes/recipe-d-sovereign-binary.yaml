@@ -40,7 +40,8 @@ quantize:
 
 compile:
   release: true
-  lto: true
+  lto: false   # --lto conflicts with embed-bitcode=no (§22.16)
+  strip: true
   output: "qwen-coder"
 
 eval:

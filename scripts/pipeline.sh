@@ -307,7 +307,7 @@ if $PLAN_MODE; then
             prep-data) echo "[prep-data] apr data audit data/instruct-corpus.jsonl" ;;
             eval)      echo "[eval] ./scripts/eval-pass-at-k.sh <benchmark> ${CURRENT} (strategy=$(read_yaml eval.prompt_strategy standard))" ;;
             submit)    echo "[submit] ./scripts/submit.sh ${CURRENT} <hf-repo>" ;;
-            compile)   echo "[compile] apr compile ${CURRENT} --release --strip --lto" ;;
+            compile)  PLAN_FLAGS="--release --strip"; [[ "$(read_yaml compile.lto true)" == "true" ]] && PLAN_FLAGS+=" --lto"; echo "[compile] apr compile ${CURRENT} ${PLAN_FLAGS}" ;;
         esac
     done
     echo ""
