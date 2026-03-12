@@ -92,6 +92,37 @@ strip_markdown_fences() {
     sed -E '/^```(python|py)?[[:space:]]*$/d' <<< "$1"
 }
 
+strip_thinking_tokens() {
+    # Qwen3 thinking mode: raw token IDs [151667]=<think>, [151668]=</think>
+    # Format: [151667]\nreasoning...\n[151668]\nactual_answer
+    # Strip everything up to and including [151668], keep only the answer
+    local text="$1"
+
+    # If [151668] (</think>) present, keep only text after it
+    if grep -qF '[151668]' <<< "$text"; then
+        text="$(awk '/\[151668\]/{found=1; next} found{print}' <<< "$text")"
+    # If </think> present (decoded form), keep only text after it
+    elif grep -q '</think>' <<< "$text"; then
+        text="$(awk '/<\/think>/{found=1; next} found{print}' <<< "$text")"
+    # If only [151667] (no end-think), the model ran out of tokens during thinking
+    # Try to extract code from within the reasoning text
+    elif grep -qF '[151667]' <<< "$text"; then
+        # Strip the token ID line
+        text="$(sed '/^\[151667\]/d' <<< "$text")"
+        # Try extracting code from ```python blocks within reasoning
+        local extracted
+        extracted="$(awk '/^```python/,/^```/ { if (!/^```/) print }' <<< "$text")"
+        if [[ -n "$extracted" ]]; then
+            text="$extracted"
+        fi
+    fi
+
+    # Strip any remaining raw token IDs
+    text="$(sed -E 's/\[1516[0-9]{2}\]//g' <<< "$text")"
+
+    echo "$text"
+}
+
 extract_python_code() {
     # Strip trailing non-Python text from instruct model output.
     # Models often append "Human\n..." conversational turns or markdown explanations.
@@ -204,6 +235,13 @@ while IFS= read -r line; do
     # Build instruction for the chat model (pass problem JSON for MBPP function name extraction)
     INSTRUCTION="$(build_instruction "$BENCHMARK" "$PROMPT" "$PROMPT_STRATEGY" "$line")"
 
+    # Qwen3 thinking models: thinking phase consumes 1000-3000+ tokens
+    # Override max_tokens to ensure model finishes thinking AND produces code
+    EFFECTIVE_MAX_TOKENS="$MAX_TOKENS"
+    if [[ "$MODEL" == *qwen3* && "$MAX_TOKENS" -lt 4096 ]]; then
+        EFFECTIVE_MAX_TOKENS=4096
+    fi
+
     # Generate completion(s) and test
     TASK_PASSED=0
     TASK_GENERATED=0
@@ -215,7 +253,7 @@ while IFS= read -r line; do
         # Generate via apr run --json --chat
         if ! apr run "$MODEL" \
                 --prompt "$INSTRUCTION" \
-                --max-tokens "$MAX_TOKENS" \
+                --max-tokens "$EFFECTIVE_MAX_TOKENS" \
                 --json --chat \
                 2>/dev/null > "$RAW_FILE"; then
             ERRORS=$((ERRORS + 1))
@@ -235,7 +273,8 @@ while IFS= read -r line; do
             continue
         fi
 
-        # Strip markdown fences and trailing non-code text from model output
+        # Strip thinking tokens (Qwen3), markdown fences, and trailing non-code text
+        TEXT="$(strip_thinking_tokens "$TEXT")"
         TEXT="$(strip_markdown_fences "$TEXT")"
         TEXT="$(extract_python_code "$TEXT")"
         echo "$TEXT" > "$COMPLETION_FILE"
