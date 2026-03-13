@@ -253,7 +253,9 @@ while IFS= read -r line; do
         TEST_FILE="${WORK_DIR}/test_${COMPLETED}_${sample_idx}.py"
 
         # Generate via apr run --json --chat
-        if ! apr run "$MODEL" \
+        # 10-minute timeout: kills pathological thinking spirals (e.g. Qwen3
+        # spending 8192 tokens reasoning about parentheses without producing code)
+        if ! timeout 600 apr run "$MODEL" \
                 --prompt "$INSTRUCTION" \
                 --max-tokens "$EFFECTIVE_MAX_TOKENS" \
                 --json --chat \
