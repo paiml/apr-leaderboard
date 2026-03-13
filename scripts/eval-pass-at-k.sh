@@ -235,13 +235,13 @@ while IFS= read -r line; do
     # Build instruction for the chat model (pass problem JSON for MBPP function name extraction)
     INSTRUCTION="$(build_instruction "$BENCHMARK" "$PROMPT" "$PROMPT_STRATEGY" "$line")"
 
-    # Qwen3 thinking models: disable thinking mode with /no_think prefix
-    # Thinking phase consumes 1000-4000+ tokens and often overflows,
-    # producing reasoning text instead of code. /no_think makes the model
-    # respond directly like a standard instruct model.
-    if [[ "$MODEL" == *qwen3* ]]; then
-        INSTRUCTION="/no_think
-${INSTRUCTION}"
+    # Qwen3 thinking models: thinking phase consumes 1000-4000+ tokens
+    # Override max_tokens to 8192 to avoid overflow (model produces garbage
+    # without thinking — 5% vs 86% pass@1). strip_thinking_tokens() extracts
+    # only the post-thinking code answer.
+    EFFECTIVE_MAX_TOKENS="$MAX_TOKENS"
+    if [[ "$MODEL" == *qwen3* && "$MAX_TOKENS" -lt 8192 ]]; then
+        EFFECTIVE_MAX_TOKENS=8192
     fi
 
     # Generate completion(s) and test
@@ -255,7 +255,7 @@ ${INSTRUCTION}"
         # Generate via apr run --json --chat
         if ! apr run "$MODEL" \
                 --prompt "$INSTRUCTION" \
-                --max-tokens "$MAX_TOKENS" \
+                --max-tokens "$EFFECTIVE_MAX_TOKENS" \
                 --json --chat \
                 2>/dev/null > "$RAW_FILE"; then
             ERRORS=$((ERRORS + 1))
