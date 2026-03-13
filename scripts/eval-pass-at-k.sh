@@ -36,15 +36,21 @@ trap 'rm -rf "${WORK_DIR:?}"' EXIT
 # Model produces garbage without thinking (5% vs 86% pass@1).
 # Override max_tokens to give thinking room; strip_thinking_tokens()
 # extracts only the post-thinking code answer.
+# Qwen3 thinking: 1000-3000 tokens of reasoning before code.
+# 4096 is enough for ~90% of problems (validated: 86% pass@1 at 4096).
+# Higher budgets cause timeout issues with parallel workers.
 EFFECTIVE_MAX_TOKENS="$MAX_TOKENS"
-if [[ "$MODEL" == *qwen3* && "$MAX_TOKENS" -lt 8192 ]]; then
-    EFFECTIVE_MAX_TOKENS=8192
+if [[ "$MODEL" == *qwen3* && "$MAX_TOKENS" -lt 4096 ]]; then
+    EFFECTIVE_MAX_TOKENS=4096
 fi
+
+# Timeout scales with token budget: ~3 tok/s on CPU, add margin for model load
+GENERATION_TIMEOUT=$(( EFFECTIVE_MAX_TOKENS / 2 + 60 ))  # ~25 min for 4096 tokens
 
 echo "=== Pass@k Evaluation ==="
 echo "Benchmark:   ${BENCHMARK}"
 echo "Model:       ${MODEL}"
-echo "Max tokens:  ${MAX_TOKENS} (effective: ${EFFECTIVE_MAX_TOKENS})"
+echo "Max tokens:  ${MAX_TOKENS} (effective: ${EFFECTIVE_MAX_TOKENS}, timeout: ${GENERATION_TIMEOUT}s)"
 echo "Temperature: ${TEMPERATURE}"
 echo "Samples:     ${NUM_SAMPLES}"
 echo "Strategy:    ${PROMPT_STRATEGY}"
@@ -253,13 +259,15 @@ generate_worker() {
 
         instruction="$(build_instruction "$BENCHMARK" "$prompt" "$PROMPT_STRATEGY" "$(cat "$problem_file")")"
 
-        # Generate with 5-minute timeout
-        if ! timeout 300 apr run "$MODEL" \
+        # Generate with scaled timeout
+        local stderr_file="${WORK_DIR}/raw/${problem_idx}.stderr"
+        if ! timeout "$GENERATION_TIMEOUT" apr run "$MODEL" \
                 --prompt "$instruction" \
                 --max-tokens "$EFFECTIVE_MAX_TOKENS" \
                 --json --chat \
-                2>/dev/null > "$raw_file"; then
+                2>"$stderr_file" > "$raw_file"; then
             echo "ERROR" > "$completion_file"
+            echo "  [worker ${worker_id}] problem ${problem_idx} FAILED: $(head -1 "$stderr_file" 2>/dev/null)" >&2
             flock "$PROGRESS_LOCK" bash -c 'echo "$(( $(cat "$1") + 1 ))" > "$1"' -- "$PROGRESS_FILE"
             continue
         fi
@@ -287,12 +295,12 @@ generate_worker() {
     done
 }
 
-echo "Phase 2: Generating completions (${NUM_WORKERS} workers, ${EFFECTIVE_MAX_TOKENS} max tokens, 5m timeout)..."
+echo "Phase 2: Generating completions (${NUM_WORKERS} workers, ${EFFECTIVE_MAX_TOKENS} max tokens, ${GENERATION_TIMEOUT}s timeout)..."
 
 # Export functions and variables for subshells
 export -f generate_worker build_instruction strip_thinking_tokens strip_markdown_fences extract_python_code
 export WORK_DIR QUEUE_FILE QUEUE_LOCK PROGRESS_FILE PROGRESS_LOCK
-export MODEL BENCHMARK PROMPT_STRATEGY EFFECTIVE_MAX_TOKENS TOTAL_PROBLEMS
+export MODEL BENCHMARK PROMPT_STRATEGY EFFECTIVE_MAX_TOKENS GENERATION_TIMEOUT TOTAL_PROBLEMS
 
 # Launch workers
 WORKER_PIDS=()
@@ -468,7 +476,7 @@ cat > "$RESULT_FILE" << EOF
     "num_samples": ${NUM_SAMPLES},
     "prompt_strategy": "${PROMPT_STRATEGY}",
     "workers": ${NUM_WORKERS},
-    "timeout_seconds": 300
+    "timeout_seconds": ${GENERATION_TIMEOUT}
   },
   "results": {
     "total": ${TOTAL_PROBLEMS},
