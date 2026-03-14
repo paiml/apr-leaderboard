@@ -4,10 +4,14 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 
 ## 22.0 HumanEval Baseline Results
 
-| Model | Quantization | pass@1 | Passed | Avg Tokens | Avg Latency | Backend |
-|-------|-------------|--------|--------|------------|-------------|---------|
-| Qwen2.5-Coder-1.5B Q4K | Q4_K_M (GGUF) | 59.15% | 97/164 | 59.5 | 3,642ms | CPU |
-| Qwen2.5-Coder-7B-Instruct Q4K | Q4K (SafeTensors) | **68.90%** | 113/164 | 128.0 | 102,715ms | CPU |
+| Model | Quantization | pass@1 | Passed | Avg Tokens | Avg Latency | Backend | Notes |
+|-------|-------------|--------|--------|------------|-------------|---------|-------|
+| Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 113s | CPU (gx10) | EOS fix + 512 tokens |
+| Qwen3-4B Q4K | Q4K | **78.05%** | 128/164 | ~3000† | ~280s | CPU (gx10) | Thinking mode, 4096 tokens |
+| Qwen2.5-Coder-7B-Instruct Q4K | Q4K | 68.90% | 113/164 | 128.0 | 102s | CPU | Pre-EOS-fix, 128 cap |
+| Qwen2.5-Coder-1.5B Q4K | Q4_K_M (GGUF) | 59.15% | 97/164 | 59.5 | 3.6s | CPU | 128 token cap |
+
+†Qwen3 avg tokens includes ~2500 thinking tokens (discarded) + ~500 code tokens.
 
 **Perplexity baseline (WikiText-2):**
 
@@ -375,7 +379,7 @@ Qwen3 models use a "thinking" mode where the model generates reasoning tokens be
 
 | Mode | pass@1 | Notes |
 |------|--------|-------|
-| With thinking (4096 tokens) | **~86%** | 37/43 passed (partial run) |
+| With thinking (4096 tokens) | **78.05%** | 128/164 passed (full run), 4 timeouts |
 | Without thinking (`/no_think`) | **5%** | 8/164 passed — model produces garbage |
 | Without thinking (disabled in prompt) | **5%** | `/no_think` not respected by Q4K model |
 
@@ -422,7 +426,7 @@ Qwen3 uses `head_dim=128` with `hidden_dim=2560` and `num_heads=32`, making `hid
 ### 22.17.7 Key Insights
 
 1. **Thinking models need different eval infrastructure** — timeout, token budget, and post-processing all require thinking-aware logic
-2. **Model size ≠ capability with thinking** — 4B thinking model achieves ~86% pass@1, competitive with 7B non-thinking (85.37%)
+2. **Model size ≠ capability with thinking** — 4B thinking model achieves 78.05% pass@1, below 7B non-thinking (85.37%) but strong for its size
 3. **Q4K quantization doesn't break thinking** — the model still produces structured `[151667]...[151668]` reasoning despite 4-bit quantization
 4. **Token efficiency is terrible** — 80-95% of generated tokens are thinking (discarded). A 4096-token generation yields ~200 tokens of actual code
 5. **CPU > GPU for this model** — GPU inference 2.5x slower than CPU, likely due to Q4K kernel overhead or PCIe transfer costs

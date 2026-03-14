@@ -1,0 +1,22 @@
+{
+  "benchmark": "humaneval",
+  "model": "checkpoints/qwen3-4b-q4k.apr",
+  "timestamp": "2026-03-14T06:51:58+00:00",
+  "config": {
+    "max_tokens": 512,
+    "effective_max_tokens": 4096,
+    "temperature": 0.0,
+    "num_samples": 1,
+    "prompt_strategy": "standard",
+    "workers": 2,
+    "timeout_seconds": 2108
+  },
+  "results": {
+    "total": 164,
+    "completed": 164,
+    "passed": 128,
+    "errors": 4,
+    "pass_at_1": 78.05,
+    "pass_at_10": null
+  }
+}
