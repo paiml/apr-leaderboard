@@ -92,6 +92,13 @@ if [[ ! -f "$BENCHMARK_FILE" ]]; then
     else
         curl -sfL "$URL" -o "$TMPFILE"
     fi
+    # MBPP: filter to standard test split (task_id 11-510, 500 problems)
+    # Tasks 1-10 are few-shot examples, 511-974 are training data
+    if [[ "$BENCHMARK" == "mbpp" ]]; then
+        jq -c 'select(.task_id >= 11 and .task_id <= 510)' "$TMPFILE" > "${TMPFILE}.filtered"
+        mv "${TMPFILE}.filtered" "$TMPFILE"
+        echo "  Filtered to MBPP test split (task_id 11-510)"
+    fi
     mv "$TMPFILE" "$BENCHMARK_FILE"
     echo "Downloaded: ${BENCHMARK_FILE} ($(wc -l < "$BENCHMARK_FILE") problems)"
 fi
