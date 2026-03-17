@@ -113,8 +113,4 @@ jobs:
 
   unified:
     needs: [validate]
-    uses: paiml/.github/.github/workflows/unified-gate.yml@main
-    with:
-      repo: ${{ github.event.repository.name }}
-      pr_sha: ${{ github.event.pull_request.head.sha || github.sha }}
-    secrets: inherit
+    uses: ./.github/workflows/gate.yml

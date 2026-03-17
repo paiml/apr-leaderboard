@@ -1,0 +1,10 @@
+name: gate-reusable
+
+on:
+  workflow_call:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Gate passed"
