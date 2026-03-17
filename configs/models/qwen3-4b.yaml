@@ -1,0 +1,39 @@
+# configs/models/qwen3-4b.yaml — Qwen3-4B thinking model eval config
+#
+# Thinking model: generates [151667]...[151668] reasoning tokens before code.
+# Requires 4096+ max_tokens to accommodate thinking overhead.
+# CPU inference preferred (3-4 tok/s vs 1.6 tok/s GPU).
+#
+# Usage:
+#   make import MODEL=Qwen/Qwen3-4B
+#   make eval-humaneval CHECKPOINT=checkpoints/qwen3-4b-q4k.apr
+
+model:
+  id: "Qwen/Qwen3-4B"
+  family: qwen3
+  params: 4B
+  output_dir: checkpoints
+  quantization: q4k
+  leaderboard: bigcode
+  thinking: true
+
+benchmarks:
+  - humaneval
+  - mbpp
+
+eval:
+  max_tokens: 4096
+  thinking_overhead: 2500
+  timeout_formula: "max_tokens / 2 + 60"
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "gradient_norm"]
+  tracking:
+    enabled: true
+    backend: sqlite
+    experiment: "qwen3-4b-eval"
+    tags:
+      model: "qwen3-4b"
+      method: "eval-only"

@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
 # eval-pass-at-k.sh - Evaluate a model on code generation benchmarks
 #
-# Pipeline:
-#   1. Download benchmark prompts (HumanEval/MBPP/BigCodeBench)
-#   2. Generate completions via `apr run --json --chat`
-#   3. Strip markdown fences, combine prompt + completion + test harness
-#   4. Execute in sandbox (timeout), score pass/fail
-#   5. Compute pass@k and write result JSON
+# Architecture:
+#   Phase 1: Prepare — download benchmark, split into per-problem JSON files
+#   Phase 2: Generate — N parallel workers each claim problems via flock,
+#            run `apr run --json --chat`, write raw output + completion
+#   Phase 3: Test — sequential sandbox execution of all completions
+#   Phase 4: Score — compute pass@k (Chen et al. unbiased estimator)
 #
 # Usage:
-#   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES PROMPT_STRATEGY
+#   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH [RESULTS_DIR] [MAX_TOKENS] [TEMPERATURE] [NUM_SAMPLES] [PROMPT_STRATEGY] [WORKERS]
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
 if [[ $# -lt 2 ]]; then
-    echo "Usage: eval-pass-at-k.sh BENCHMARK MODEL_PATH RESULTS_DIR MAX_TOKENS TEMPERATURE NUM_SAMPLES PROMPT_STRATEGY"
+    echo "Usage: eval-pass-at-k.sh BENCHMARK MODEL_PATH [RESULTS_DIR] [MAX_TOKENS] [TEMPERATURE] [NUM_SAMPLES] [PROMPT_STRATEGY] [WORKERS]"
     exit 1
 fi
 
@@ -27,19 +25,36 @@ MAX_TOKENS="${4:-512}"
 TEMPERATURE="${5:-0.0}"
 NUM_SAMPLES="${6:-1}"
 PROMPT_STRATEGY="${7:-standard}"
+NUM_WORKERS="${8:-1}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 RESULT_FILE="${RESULTS_DIR}/${BENCHMARK}_${TIMESTAMP}.json"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR:?}"' EXIT
 
+# Qwen3 thinking models: thinking phase consumes 1000-6000+ tokens.
+# Model produces garbage without thinking (5% vs 86% pass@1).
+# Override max_tokens to give thinking room; strip_thinking_tokens()
+# extracts only the post-thinking code answer.
+# Qwen3 thinking: 1000-3000 tokens of reasoning before code.
+# 4096 is enough for ~90% of problems (validated: 86% pass@1 at 4096).
+# Higher budgets cause timeout issues with parallel workers.
+EFFECTIVE_MAX_TOKENS="$MAX_TOKENS"
+if [[ "$MODEL" == *qwen3* && "$MAX_TOKENS" -lt 4096 ]]; then
+    EFFECTIVE_MAX_TOKENS=4096
+fi
+
+# Timeout scales with token budget: ~3 tok/s on CPU, add margin for model load
+GENERATION_TIMEOUT=$(( EFFECTIVE_MAX_TOKENS / 2 + 60 ))  # ~25 min for 4096 tokens
+
 echo "=== Pass@k Evaluation ==="
 echo "Benchmark:   ${BENCHMARK}"
 echo "Model:       ${MODEL}"
-echo "Max tokens:  ${MAX_TOKENS}"
+echo "Max tokens:  ${MAX_TOKENS} (effective: ${EFFECTIVE_MAX_TOKENS}, timeout: ${GENERATION_TIMEOUT}s)"
 echo "Temperature: ${TEMPERATURE}"
 echo "Samples:     ${NUM_SAMPLES}"
 echo "Strategy:    ${PROMPT_STRATEGY}"
+echo "Workers:     ${NUM_WORKERS}"
 echo "Output:      ${RESULT_FILE}"
 echo ""
 
@@ -77,6 +92,13 @@ if [[ ! -f "$BENCHMARK_FILE" ]]; then
     else
         curl -sfL "$URL" -o "$TMPFILE"
     fi
+    # MBPP: filter to standard test split (task_id 11-510, 500 problems)
+    # Tasks 1-10 are few-shot examples, 511-974 are training data
+    if [[ "$BENCHMARK" == "mbpp" ]]; then
+        jq -c 'select(.task_id >= 11 and .task_id <= 510)' "$TMPFILE" > "${TMPFILE}.filtered"
+        mv "${TMPFILE}.filtered" "$TMPFILE"
+        echo "  Filtered to MBPP test split (task_id 11-510)"
+    fi
     mv "$TMPFILE" "$BENCHMARK_FILE"
     echo "Downloaded: ${BENCHMARK_FILE} ($(wc -l < "$BENCHMARK_FILE") problems)"
 fi
@@ -85,17 +107,36 @@ TOTAL_PROBLEMS="$(wc -l < "$BENCHMARK_FILE")"
 echo "Problems: ${TOTAL_PROBLEMS}"
 echo ""
 
-# ── Markdown fence stripping ─────────────────────────────────────────────────
+# ── Helper functions ─────────────────────────────────────────────────────────
 
 strip_markdown_fences() {
-    # Remove ```python ... ``` or ``` ... ``` fences from model output
     sed -E '/^```(python|py)?[[:space:]]*$/d' <<< "$1"
 }
 
+strip_thinking_tokens() {
+    local text="$1"
+
+    # If [151668] (</think>) present, keep only text after it
+    if grep -qF '[151668]' <<< "$text"; then
+        text="$(awk '/\[151668\]/{found=1; next} found{print}' <<< "$text")"
+    # If </think> present (decoded form), keep only text after it
+    elif grep -q '</think>' <<< "$text"; then
+        text="$(awk '/<\/think>/{found=1; next} found{print}' <<< "$text")"
+    # If only [151667] (no end-think), model ran out of tokens during thinking
+    elif grep -qF '[151667]' <<< "$text"; then
+        text="$(sed '/^\[151667\]/d' <<< "$text")"
+        local extracted
+        extracted="$(awk '/^```python/,/^```/ { if (!/^```/) print }' <<< "$text")"
+        if [[ -n "$extracted" ]]; then
+            text="$extracted"
+        fi
+    fi
+
+    text="$(sed -E 's/\[1516[0-9]{2}\]//g' <<< "$text")"
+    echo "$text"
+}
+
 extract_python_code() {
-    # Strip trailing non-Python text from instruct model output.
-    # Models often append "Human\n..." conversational turns or markdown explanations.
-    # Stop at lines that are clearly not Python code.
     awk '{
         if ($0 ~ /^Human$/ || $0 ~ /^Assistant$/ || $0 ~ /^User$/ || \
             $0 ~ /^\*\*/ || $0 ~ /^###/ || $0 ~ /^---$/) {
@@ -105,16 +146,11 @@ extract_python_code() {
     }' <<< "$1"
 }
 
-# ── Chen et al. unbiased pass@k estimator (§13.1) ───────────────────────────
-# pass@k = 1 - C(n-c,k) / C(n,k) where n=total samples, c=correct, k=selected
-# Uses log-space to avoid overflow: log(C(a,b)) = sum(log(a-i) - log(i+1), i=0..b-1)
-
 compute_pass_at_k() {
     local n="$1" c="$2" k="$3"
     awk -v n="$n" -v c="$c" -v k="$k" 'BEGIN {
         if (n - c < k) { print 1.0; exit }
         if (c == 0)    { print 0.0; exit }
-        # log C(n-c, k) - log C(n, k)
         log_ratio = 0
         for (i = 0; i < k; i++) {
             log_ratio += log(n - c - i) - log(n - i)
@@ -122,8 +158,6 @@ compute_pass_at_k() {
         printf "%.6f", 1.0 - exp(log_ratio)
     }'
 }
-
-# ── Prompt strategies (§5.6, §13) ────────────────────────────────────────────
 
 build_instruction() {
     local benchmark="$1"
@@ -137,7 +171,6 @@ build_instruction() {
     elif [[ "$benchmark" == "bigcodebench" ]]; then
         task_desc="Write a Python function to solve this task with all necessary imports."
     elif [[ "$benchmark" == "mbpp" && -n "$problem_json" ]]; then
-        # Extract function name from first test assertion for MBPP
         local func_name
         func_name="$(jq -r '.test_list[0] // ""' <<< "$problem_json" 2>/dev/null | grep -oP '(?<=assert )\w+' | head -1)"
         if [[ -n "$func_name" ]]; then
@@ -155,17 +188,14 @@ build_instruction() {
                 "$task_desc" "$prompt"
             ;;
         scot|structured-cot)
-            # Structured Chain-of-Thought: reason step-by-step before coding
             printf "Analyze this problem step by step:\n1. Identify the input/output types\n2. Consider edge cases\n3. Design the algorithm\n4. Write the implementation\n\n%s\n\n%s\n\nReturn ONLY the Python code after your analysis. No markdown." \
                 "$task_desc" "$prompt"
             ;;
         few-shot|fewshot)
-            # Few-shot: provide example before the task
             printf "Example:\ndef add(a, b):\n    return a + b\n\nNow solve:\n%s\n\n%s\n\nReturn ONLY Python code. No markdown." \
                 "$task_desc" "$prompt"
             ;;
         cgo|code-gen-opt)
-            # Chain of Grounded Objectives: decompose into sub-goals
             printf "Break down the implementation into clear sub-goals, then implement each one.\n\n%s\n\n%s\n\nReturn ONLY Python code. No markdown." \
                 "$task_desc" "$prompt"
             ;;
@@ -176,141 +206,221 @@ build_instruction() {
     esac
 }
 
-# ── Main evaluation loop ─────────────────────────────────────────────────────
+# ── Phase 1: Prepare — split benchmark into per-problem files ────────────────
 
-echo "Generating completions and evaluating..."
+echo "Phase 1: Preparing problems..."
+mkdir -p "${WORK_DIR}/problems" "${WORK_DIR}/raw" "${WORK_DIR}/completions" "${WORK_DIR}/tests"
+
+IDX=0
+while IFS= read -r line; do
+    echo "$line" > "${WORK_DIR}/problems/${IDX}.json"
+    IDX=$((IDX + 1))
+done < "$BENCHMARK_FILE"
+echo "  Prepared ${IDX} problems"
+
+# Work queue: file listing problem indices not yet claimed
+QUEUE_FILE="${WORK_DIR}/queue"
+QUEUE_LOCK="${WORK_DIR}/queue.lock"
+seq 0 $((TOTAL_PROBLEMS - 1)) > "$QUEUE_FILE"
+
+# Progress tracking (atomic via flock)
+PROGRESS_FILE="${WORK_DIR}/progress"
+PROGRESS_LOCK="${WORK_DIR}/progress.lock"
+echo "0" > "$PROGRESS_FILE"
+
+# ── Phase 2: Generate — parallel workers ─────────────────────────────────────
+
+generate_worker() {
+    local worker_id="$1"
+
+    while true; do
+        # Claim next problem from queue (atomic via flock)
+        local problem_idx
+        problem_idx="$(flock "$QUEUE_LOCK" bash -c '
+            line="$(head -1 "$1" 2>/dev/null)"
+            if [ -n "$line" ]; then
+                sed -i "1d" "$1"
+                echo "$line"
+            fi
+        ' -- "$QUEUE_FILE")"
+        problem_idx="$(echo "$problem_idx" | tr -d '[:space:]')"
+
+        if [[ -z "$problem_idx" ]]; then
+            break  # Queue empty
+        fi
+
+        local problem_file="${WORK_DIR}/problems/${problem_idx}.json"
+        local raw_file="${WORK_DIR}/raw/${problem_idx}.json"
+        local completion_file="${WORK_DIR}/completions/${problem_idx}.py"
+
+        # Read problem
+        local task_id prompt instruction
+        task_id="$(jq -r '.task_id // .name // "unknown"' < "$problem_file" 2>/dev/null)"
+        prompt="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$problem_file" 2>/dev/null)"
+
+        if [[ -z "$prompt" || "$prompt" == "null" ]]; then
+            echo "SKIP" > "$completion_file"
+            flock "$PROGRESS_LOCK" bash -c 'echo "$(( $(cat "$1") + 1 ))" > "$1"' -- "$PROGRESS_FILE"
+            continue
+        fi
+
+        instruction="$(build_instruction "$BENCHMARK" "$prompt" "$PROMPT_STRATEGY" "$(cat "$problem_file")")"
+
+        # Generate with scaled timeout
+        local stderr_file="${WORK_DIR}/raw/${problem_idx}.stderr"
+        if ! timeout "$GENERATION_TIMEOUT" apr run "$MODEL" \
+                --prompt "$instruction" \
+                --max-tokens "$EFFECTIVE_MAX_TOKENS" \
+                --json --chat \
+                2>"$stderr_file" > "$raw_file"; then
+            echo "ERROR" > "$completion_file"
+            echo "  [worker ${worker_id}] problem ${problem_idx} FAILED: $(head -1 "$stderr_file" 2>/dev/null)" >&2
+            flock "$PROGRESS_LOCK" bash -c 'echo "$(( $(cat "$1") + 1 ))" > "$1"' -- "$PROGRESS_FILE"
+            continue
+        fi
+
+        # Extract and clean completion
+        local text
+        text="$(jq -r '.text // ""' < "$raw_file" 2>/dev/null)"
+
+        if [[ -z "$text" || "$text" == "null" ]]; then
+            echo "ERROR" > "$completion_file"
+        else
+            text="$(strip_thinking_tokens "$text")"
+            text="$(strip_markdown_fences "$text")"
+            text="$(extract_python_code "$text")"
+            echo "$text" > "$completion_file"
+        fi
+
+        # Update and report progress
+        flock "$PROGRESS_LOCK" bash -c 'echo "$(( $(cat "$1") + 1 ))" > "$1"' -- "$PROGRESS_FILE"
+        local done_count
+        done_count="$(cat "$PROGRESS_FILE")"
+        if (( done_count % 10 == 0 )); then
+            echo "  [worker ${worker_id}] ${done_count}/${TOTAL_PROBLEMS} generated"
+        fi
+    done
+}
+
+echo "Phase 2: Generating completions (${NUM_WORKERS} workers, ${EFFECTIVE_MAX_TOKENS} max tokens, ${GENERATION_TIMEOUT}s timeout)..."
+
+# Export functions and variables for subshells
+export -f generate_worker build_instruction strip_thinking_tokens strip_markdown_fences extract_python_code
+export WORK_DIR QUEUE_FILE QUEUE_LOCK PROGRESS_FILE PROGRESS_LOCK
+export MODEL BENCHMARK PROMPT_STRATEGY EFFECTIVE_MAX_TOKENS GENERATION_TIMEOUT TOTAL_PROBLEMS
+
+# Launch workers
+WORKER_PIDS=()
+for w in $(seq 1 "$NUM_WORKERS"); do
+    generate_worker "$w" &
+    WORKER_PIDS+=($!)
+done
+
+# Wait for all workers
+WORKER_FAILED=0
+for pid in "${WORKER_PIDS[@]}"; do
+    if ! wait "$pid"; then
+        WORKER_FAILED=$((WORKER_FAILED + 1))
+    fi
+done
+
+if (( WORKER_FAILED > 0 )); then
+    echo "  WARNING: ${WORKER_FAILED} workers exited with errors"
+fi
+
+GENERATED="$(cat "$PROGRESS_FILE")"
+echo "  Generation complete: ${GENERATED}/${TOTAL_PROBLEMS}"
+echo ""
+
+# ── Phase 3: Test — sequential sandbox execution ─────────────────────────────
+
+echo "Phase 3: Testing completions..."
 COMPLETED=0
 PASSED=0
 ERRORS=0
-TOTAL_TOKENS=0
-TOTAL_LATENCY=0
-# Per-task sample counts for pass@k estimator (n_i, c_i pairs)
 TASK_RESULTS_FILE="${WORK_DIR}/task_results.tsv"
 : > "$TASK_RESULTS_FILE"
 
-while IFS= read -r line; do
-    TASK_ID="$(jq -r '.task_id // .name // "unknown"' <<< "$line" 2>/dev/null)"
+for problem_idx in $(seq 0 $((TOTAL_PROBLEMS - 1))); do
+    local_problem_file="${WORK_DIR}/problems/${problem_idx}.json"
+    local_completion_file="${WORK_DIR}/completions/${problem_idx}.py"
 
-    # Extract prompt (BigCodeBench uses instruct_prompt for instruction variant)
-    PROMPT="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' <<< "$line" 2>/dev/null)"
-    if [[ -z "$PROMPT" || "$PROMPT" == "null" ]]; then
+    TASK_ID="$(jq -r '.task_id // .name // "unknown"' < "$local_problem_file" 2>/dev/null)"
+    PROMPT="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$local_problem_file" 2>/dev/null)"
+
+    # Check if completion exists and isn't an error marker
+    if [[ ! -f "$local_completion_file" ]]; then
+        ERRORS=$((ERRORS + 1))
+        printf "%s\t1\t0\n" "$TASK_ID" >> "$TASK_RESULTS_FILE"
+        COMPLETED=$((COMPLETED + 1))
         continue
     fi
 
-    # Save the problem JSON for the assembler
-    PROBLEM_FILE="${WORK_DIR}/problem_${COMPLETED}.json"
-    echo "$line" > "$PROBLEM_FILE"
+    COMPLETION_TEXT="$(cat "$local_completion_file")"
+    if [[ "$COMPLETION_TEXT" == "ERROR" || "$COMPLETION_TEXT" == "SKIP" ]]; then
+        ERRORS=$((ERRORS + 1))
+        printf "%s\t1\t0\n" "$TASK_ID" >> "$TASK_RESULTS_FILE"
+        COMPLETED=$((COMPLETED + 1))
+        continue
+    fi
 
-    # Build instruction for the chat model (pass problem JSON for MBPP function name extraction)
-    INSTRUCTION="$(build_instruction "$BENCHMARK" "$PROMPT" "$PROMPT_STRATEGY" "$line")"
+    # Assemble test file
+    TEST_FILE="${WORK_DIR}/tests/${problem_idx}.py"
+    ENTRY_POINT="$(jq -r '.entry_point // ""' < "$local_problem_file" 2>/dev/null)"
+    TEST_SETUP="$(jq -r '.test_setup_code // ""' < "$local_problem_file" 2>/dev/null)"
+    HAS_TEST="$(jq -r 'has("test")' < "$local_problem_file" 2>/dev/null)"
+    HAS_TEST_LIST="$(jq -r 'has("test_list")' < "$local_problem_file" 2>/dev/null)"
 
-    # Generate completion(s) and test
-    TASK_PASSED=0
-    TASK_GENERATED=0
-    for sample_idx in $(seq 1 "$NUM_SAMPLES"); do
-        RAW_FILE="${WORK_DIR}/raw_${COMPLETED}_${sample_idx}.json"
-        COMPLETION_FILE="${WORK_DIR}/completion_${COMPLETED}_${sample_idx}.py"
-        TEST_FILE="${WORK_DIR}/test_${COMPLETED}_${sample_idx}.py"
-
-        # Generate via apr run --json --chat
-        if ! apr run "$MODEL" \
-                --prompt "$INSTRUCTION" \
-                --max-tokens "$MAX_TOKENS" \
-                --json --chat \
-                2>/dev/null > "$RAW_FILE"; then
-            ERRORS=$((ERRORS + 1))
-            continue
-        fi
-
-        # Extract text from JSON response
-        TEXT="$(jq -r '.text // ""' < "$RAW_FILE" 2>/dev/null)"
-        TOKENS_GEN="$(jq -r '.tokens_generated // 0' < "$RAW_FILE" 2>/dev/null)"
-        LATENCY="$(jq -r '.inference_time_ms // 0' < "$RAW_FILE" 2>/dev/null)"
-
-        TOTAL_TOKENS=$((TOTAL_TOKENS + TOKENS_GEN))
-        TOTAL_LATENCY="$(awk "BEGIN{print ${TOTAL_LATENCY} + ${LATENCY}}")"
-
-        if [[ -z "$TEXT" || "$TEXT" == "null" ]]; then
-            ERRORS=$((ERRORS + 1))
-            continue
-        fi
-
-        # Strip markdown fences and trailing non-code text from model output
-        TEXT="$(strip_markdown_fences "$TEXT")"
-        TEXT="$(extract_python_code "$TEXT")"
-        echo "$TEXT" > "$COMPLETION_FILE"
-
-        # Assemble test file: prompt + completion + test harness
-        # HumanEval: .test is a string (check function), .entry_point names the function
-        # MBPP: .test_list is a JSON array of assert strings, .test_setup_code may exist
-        # BigCodeBench: .test is a string
-        ENTRY_POINT="$(jq -r '.entry_point // ""' < "$PROBLEM_FILE" 2>/dev/null)"
-        TEST_SETUP="$(jq -r '.test_setup_code // ""' < "$PROBLEM_FILE" 2>/dev/null)"
-        HAS_TEST="$(jq -r 'has("test")' < "$PROBLEM_FILE" 2>/dev/null)"
-        HAS_TEST_LIST="$(jq -r 'has("test_list")' < "$PROBLEM_FILE" 2>/dev/null)"
-
-        if [[ "$HAS_TEST" == "true" ]]; then
-            # HumanEval: prompt is a Python function signature → prepend it
-            # BigCodeBench instruct: prompt is natural language → don't prepend
-            TEST_CODE="$(jq -r '.test' < "$PROBLEM_FILE" 2>/dev/null)"
-            HAS_CODE_PROMPT="$(jq -r 'has("code_prompt")' < "$PROBLEM_FILE" 2>/dev/null)"
-            {
-                if [[ "$HAS_CODE_PROMPT" == "true" ]]; then
-                    # BigCodeBench: completion should be standalone code
-                    cat "$COMPLETION_FILE"
-                else
-                    # HumanEval: prompt is function signature, completion continues it
-                    echo "$PROMPT"
-                    cat "$COMPLETION_FILE"
-                fi
-                echo ""
-                echo "$TEST_CODE"
-                if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" && "$HAS_CODE_PROMPT" != "true" ]]; then
-                    echo "check(${ENTRY_POINT})"
-                fi
-            } > "$TEST_FILE"
-        elif [[ "$HAS_TEST_LIST" == "true" ]]; then
-            # MBPP: .test_list is a JSON array of assert strings
-            {
-                if [[ -n "$TEST_SETUP" && "$TEST_SETUP" != "null" ]]; then
-                    echo "$TEST_SETUP"
-                    echo ""
-                fi
-                cat "$COMPLETION_FILE"
-                echo ""
-                jq -r '.test_list[]' < "$PROBLEM_FILE" 2>/dev/null
-            } > "$TEST_FILE"
-        else
-            # Fallback: just the completion (no test harness)
-            {
+    if [[ "$HAS_TEST" == "true" ]]; then
+        TEST_CODE="$(jq -r '.test' < "$local_problem_file" 2>/dev/null)"
+        HAS_CODE_PROMPT="$(jq -r 'has("code_prompt")' < "$local_problem_file" 2>/dev/null)"
+        {
+            if [[ "$HAS_CODE_PROMPT" == "true" ]]; then
+                cat "$local_completion_file"
+            else
                 echo "$PROMPT"
-                cat "$COMPLETION_FILE"
-            } > "$TEST_FILE"
-        fi
+                cat "$local_completion_file"
+            fi
+            echo ""
+            echo "$TEST_CODE"
+            if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" && "$HAS_CODE_PROMPT" != "true" ]]; then
+                echo "check(${ENTRY_POINT})"
+            fi
+        } > "$TEST_FILE"
+    elif [[ "$HAS_TEST_LIST" == "true" ]]; then
+        {
+            if [[ -n "$TEST_SETUP" && "$TEST_SETUP" != "null" ]]; then
+                echo "$TEST_SETUP"
+                echo ""
+            fi
+            cat "$local_completion_file"
+            echo ""
+            jq -r '.test_list[]' < "$local_problem_file" 2>/dev/null
+        } > "$TEST_FILE"
+    else
+        {
+            echo "$PROMPT"
+            cat "$local_completion_file"
+        } > "$TEST_FILE"
+    fi
 
-        TASK_GENERATED=$((TASK_GENERATED + 1))
-
-        # Execute test in sandbox with timeout
-        # Uses Python directly if available, Docker sandbox as fallback
-        if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
-            if command -v python3 >/dev/null 2>&1; then
-                if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
-                    TASK_PASSED=$((TASK_PASSED + 1))
-                fi
-            elif command -v docker >/dev/null 2>&1; then
-                if timeout 30 docker run --rm --network=none --memory=512m \
-                    -v "${TEST_FILE}:/test.py:ro" python:3.11-slim \
-                    python3 /test.py > /dev/null 2>&1; then
-                    TASK_PASSED=$((TASK_PASSED + 1))
-                fi
+    # Execute test
+    TASK_PASSED=0
+    if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
+        if command -v python3 >/dev/null 2>&1; then
+            if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
+                TASK_PASSED=1
+            fi
+        elif command -v docker >/dev/null 2>&1; then
+            if timeout 30 docker run --rm --network=none --memory=512m \
+                -v "${TEST_FILE}:/test.py:ro" python:3.11-slim \
+                python3 /test.py > /dev/null 2>&1; then
+                TASK_PASSED=1
             fi
         fi
-    done
-
-    # Record per-task results for pass@k estimator
-    if (( TASK_GENERATED > 0 )); then
-        printf "%s\t%s\t%s\n" "$TASK_ID" "$TASK_GENERATED" "$TASK_PASSED" >> "$TASK_RESULTS_FILE"
     fi
+
+    printf "%s\t1\t%s\n" "$TASK_ID" "$TASK_PASSED" >> "$TASK_RESULTS_FILE"
 
     if (( TASK_PASSED > 0 )); then
         PASSED=$((PASSED + 1))
@@ -321,16 +431,11 @@ while IFS= read -r line; do
         PCT="$(awk "BEGIN{printf \"%.1f\", ${PASSED}/${COMPLETED}*100}")"
         printf "  %s/%s passed=%s (%s%%) errors=%s\n" "$COMPLETED" "$TOTAL_PROBLEMS" "$PASSED" "$PCT" "$ERRORS"
     fi
-done < "$BENCHMARK_FILE"
+done
 
-# ── Compute metrics (Chen et al. unbiased estimator) ─────────────────────────
+# ── Phase 4: Score ───────────────────────────────────────────────────────────
 
 if (( COMPLETED > 0 )); then
-    AVG_TOKENS="$(awk "BEGIN{printf \"%.1f\", ${TOTAL_TOKENS}/${COMPLETED}}")"
-    AVG_LATENCY="$(awk "BEGIN{printf \"%.1f\", ${TOTAL_LATENCY}/${COMPLETED}}")"
-
-    # Compute pass@k using the unbiased estimator (§13.1)
-    # Average per-task pass@k values
     PASS_AT_1="$(awk -F'\t' '{
         n = $2; c = $3; sum += 1
         if (n - c < 1) { p1 += 1.0; next }
@@ -339,7 +444,6 @@ if (( COMPLETED > 0 )); then
         p1 += 1.0 - exp(log_ratio)
     } END { printf "%.2f", (sum > 0) ? p1/sum*100 : 0 }' "$TASK_RESULTS_FILE")"
 
-    # pass@10 (only meaningful when NUM_SAMPLES >= 10)
     if (( NUM_SAMPLES >= 10 )); then
         PASS_AT_10="$(awk -F'\t' -v k=10 '{
             n = $2; c = $3; sum += 1
@@ -354,8 +458,6 @@ if (( COMPLETED > 0 )); then
 else
     PASS_AT_1="0.0"
     PASS_AT_10="null"
-    AVG_TOKENS="0.0"
-    AVG_LATENCY="0.0"
 fi
 
 echo ""
@@ -367,10 +469,7 @@ echo "pass@1:      ${PASS_AT_1}%  (Chen et al. unbiased estimator)"
 if [[ "$PASS_AT_10" != "null" ]]; then
     echo "pass@10:     ${PASS_AT_10}%"
 fi
-echo "Avg tokens:  ${AVG_TOKENS}"
-echo "Avg latency: ${AVG_LATENCY}ms"
 
-# Write result JSON
 PASS_AT_10_JSON="${PASS_AT_10}"
 cat > "$RESULT_FILE" << EOF
 {
@@ -379,9 +478,12 @@ cat > "$RESULT_FILE" << EOF
   "timestamp": "$(date -Iseconds)",
   "config": {
     "max_tokens": ${MAX_TOKENS},
+    "effective_max_tokens": ${EFFECTIVE_MAX_TOKENS},
     "temperature": ${TEMPERATURE},
     "num_samples": ${NUM_SAMPLES},
-    "prompt_strategy": "${PROMPT_STRATEGY}"
+    "prompt_strategy": "${PROMPT_STRATEGY}",
+    "workers": ${NUM_WORKERS},
+    "timeout_seconds": ${GENERATION_TIMEOUT}
   },
   "results": {
     "total": ${TOTAL_PROBLEMS},
@@ -389,9 +491,7 @@ cat > "$RESULT_FILE" << EOF
     "passed": ${PASSED},
     "errors": ${ERRORS},
     "pass_at_1": ${PASS_AT_1},
-    "pass_at_10": ${PASS_AT_10_JSON},
-    "avg_tokens_generated": ${AVG_TOKENS},
-    "avg_latency_ms": ${AVG_LATENCY}
+    "pass_at_10": ${PASS_AT_10_JSON}
   }
 }
 EOF

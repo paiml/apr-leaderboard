@@ -110,3 +110,7 @@ jobs:
             fi
           done
           [ "$FAIL" -eq 0 ] && echo "All spec components referenced in SUMMARY.md" || exit 1
+
+  unified:
+    needs: [validate]
+    uses: ./.github/workflows/gate.yml
