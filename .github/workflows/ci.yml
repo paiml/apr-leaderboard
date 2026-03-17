@@ -1,4 +1,4 @@
-name: CI
+name: unified
 
 on:
   push:
@@ -110,3 +110,16 @@ jobs:
             fi
           done
           [ "$FAIL" -eq 0 ] && echo "All spec components referenced in SUMMARY.md" || exit 1
+
+  gate:
+    needs: [validate]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check required jobs
+        run: |
+          if [ "${{ needs.validate.result }}" != "success" ]; then
+            echo "validate failed"
+            exit 1
+          fi
+          echo "All gates passed"
