@@ -1,4 +1,4 @@
-name: unified
+name: CI
 
 on:
   push:
@@ -111,15 +111,10 @@ jobs:
           done
           [ "$FAIL" -eq 0 ] && echo "All spec components referenced in SUMMARY.md" || exit 1
 
-  gate:
+  unified:
     needs: [validate]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Check required jobs
-        run: |
-          if [ "${{ needs.validate.result }}" != "success" ]; then
-            echo "validate failed"
-            exit 1
-          fi
-          echo "All gates passed"
+    uses: paiml/.github/.github/workflows/unified-gate.yml@main
+    with:
+      repo: ${{ github.event.repository.name }}
+      pr_sha: ${{ github.event.pull_request.head.sha || github.sha }}
+    secrets: inherit
