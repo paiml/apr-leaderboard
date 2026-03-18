@@ -471,6 +471,16 @@ if [[ "$PASS_AT_10" != "null" ]]; then
 fi
 
 PASS_AT_10_JSON="${PASS_AT_10}"
+
+# Build per-problem JSON array from task_results.tsv
+PROBLEMS_JSON="["
+FIRST=1
+while IFS=$'\t' read -r tid nsamples npassed; do
+    if (( FIRST )); then FIRST=0; else PROBLEMS_JSON+=","; fi
+    PROBLEMS_JSON+="{\"task_id\":\"${tid}\",\"n\":${nsamples},\"passed\":${npassed}}"
+done < "$TASK_RESULTS_FILE"
+PROBLEMS_JSON+="]"
+
 cat > "$RESULT_FILE" << EOF
 {
   "benchmark": "${BENCHMARK}",
@@ -492,7 +502,8 @@ cat > "$RESULT_FILE" << EOF
     "errors": ${ERRORS},
     "pass_at_1": ${PASS_AT_1},
     "pass_at_10": ${PASS_AT_10_JSON}
-  }
+  },
+  "problems": ${PROBLEMS_JSON}
 }
 EOF
 
