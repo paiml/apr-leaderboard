@@ -109,12 +109,15 @@ apr-leaderboard/
 ├── Makefile                    # 41 orchestration targets
 ├── scripts/
 │   ├── import.sh               # HF model download + convert to .apr
-│   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k
+│   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k (batch mode)
+│   ├── eval-sweep.sh           # Run eval across multiple prompt strategies
 │   ├── pipeline.sh             # YAML-driven multi-stage pipeline
 │   ├── submit.sh               # Preflight checks + export + HF Hub publish
 │   ├── prove-wgpu.sh           # Dual GPU wgpu training proof
 │   ├── download-benchmarks.sh  # Download HumanEval/MBPP data
-│   └── results-history.sh      # Eval results viewer
+│   ├── results-history.sh      # Eval results viewer
+│   ├── compare-results.sh      # Per-problem delta analysis between runs
+│   └── leaderboard-summary.sh  # Generate ranked markdown leaderboard
 ├── configs/
 │   ├── models/                 # 6 per-model YAML configs
 │   ├── recipes/                # 8 multi-stage pipeline recipes (YAML)
