@@ -546,3 +546,41 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 - 974 MBPP problems checked, 0 contaminated
 - 164 HumanEval problems checked, 0 contaminated
 - Report: `clean.jsonl`
+
+## 22.21 Recommendations: Next Best Options (2026-03-18)
+
+Based on dogfooding results, the following actions have the highest expected ROI:
+
+### 22.21.1 Immediate (No GPU Required)
+
+1. **Complete MBPP baseline** — First MBPP score fills a major gap in the leaderboard. HF reference 83.5%, expected apr-native ~81% (based on 2.43pp HumanEval gap). In progress via batch mode on gx10 CPU.
+
+2. **Few-shot with improved exemplars** — Current few-shot eval uses trivial `add(a,b)` exemplar. Updated script has 3 concrete exemplars (max_element, count_vowels, flatten). Re-run after current eval completes. Expected: +1-3pp over standard on 7B.
+
+3. **Strategy sweep** — Run `make eval-sweep` to compare all 4 strategies (standard, scot, few-shot, cgo) on the same model. Will identify which strategy maximizes pass@1 for each benchmark. Use batch mode for 4x JIT savings.
+
+### 22.21.2 GPU-Dependent (After Training Finishes)
+
+4. **32B MBPP eval** — 32B at 89.63% HumanEval likely achieves 85%+ MBPP. Requires GPU (33 GB model). Single batch run ~2h on GPU with JIT amortization.
+
+5. **Batch GPU eval** — Compare GPU vs CPU batch performance. GPU should be ~5x faster per prompt (excluding first-problem JIT). Will establish production eval throughput baseline.
+
+6. **N-sampling with temperature** — Run N=5 samples at temperature 0.2 to estimate pass@5 and best-of-5 reranking potential. The `--temperature` and `--top-k` flags are now wired through batch mode.
+
+### 22.21.3 Pipeline Experiments (Require Upstream)
+
+7. **32B→7B distillation** — Recipe H ready (`configs/recipes/recipe-h-32b-distill.yaml`). Progressive distillation at temperature 4.0 with alpha 0.8. Expected: bridge 7B gap (85.37% → 88%+). Requires `apr distill` progressive mode + GPU.
+
+8. **DPO with execution feedback** — Generate N completions per HumanEval problem, use pass/fail as preference signal. Expected: +2-4pp on HumanEval+. Requires `apr align --method dpo`.
+
+### 22.21.4 ROI Priority Ranking
+
+| Priority | Action | Expected Gain | Effort | Dependency |
+|----------|--------|---------------|--------|------------|
+| 1 | MBPP baseline | First MBPP score | **Low** (running) | None |
+| 2 | Strategy sweep | Identify best strategy | Low | CPU only |
+| 3 | 32B MBPP | ~85%+ MBPP | Low | GPU free |
+| 4 | Few-shot re-eval | +1-3pp HumanEval | Low | After current eval |
+| 5 | N-sampling | pass@5 data | Medium | CPU or GPU |
+| 6 | 32B→7B distill | +3-5pp on 7B | High | `apr distill` + GPU |
+| 7 | DPO alignment | +2-4pp on HE+ | High | `apr align` + data |
