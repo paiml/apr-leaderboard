@@ -338,3 +338,39 @@ apr quantize checkpoints/qwen3-8b-qlora.apr \
 | **Recommended for** | Final submission | Development + ablation |
 
 **Strategy:** Use Recipe F for rapid iteration and hyperparameter search (fast, cheap). Once optimal hyperparameters are found, run Recipe E on a server GPU for the final submission model.
+
+## 9.8 Recipe H: "Reasoning Distillation" (32B → 7B)
+
+**Target:** Transfer 32B teacher's 89.63% HumanEval score into 7B student while preserving fast inference.
+
+**Teacher:** Qwen2.5-Coder-32B-Instruct Q4K_M (89.63% HumanEval, 294s/problem GPU)
+**Student:** Qwen2.5-Coder-7B-Instruct Q4K (85.37% HumanEval, 112s/problem GPU)
+
+```bash
+# Prerequisites: both checkpoints must exist
+ls checkpoints/qwen2.5-coder-32b-instruct-q4km.apr  # 19 GB
+ls checkpoints/qwen2.5-coder-7b-instruct-q4k.apr     # 7.48 GB
+
+# 1. Progressive distillation (high temperature for soft labels)
+apr distill checkpoints/qwen2.5-coder-32b-instruct-q4km.apr \
+    --student checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
+    --strategy progressive \
+    --temperature 4.0 \
+    --alpha 0.8 \
+    --epochs 3 \
+    -o checkpoints/qwen-7b-distilled.apr
+
+# 2. Evaluate distilled student
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b-distilled.apr
+
+# 3. Compare with baseline
+make compare-results \
+    BASE=results/humaneval_7b_standard.json \
+    NEW=results/humaneval_7b_distilled.json
+```
+
+**Config:** `configs/recipes/recipe-h-32b-distill.yaml`
+
+**Expected:** Close the 4.3pp gap (89.63% → 85.37%). Progressive distillation with temperature 4.0 provides soft probability distributions that transfer the teacher's reasoning patterns into the smaller student network.
+
+**Why not just use 32B?** The 32B model runs at ~14 tok/s (294s/problem) vs 7B at ~85 tok/s (112s/problem). For production inference, 7B is 2.6x faster. Distillation aims to get 32B quality at 7B speed.
