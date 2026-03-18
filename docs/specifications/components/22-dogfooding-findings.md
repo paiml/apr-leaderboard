@@ -507,3 +507,42 @@ Environment variables: `APR_BATCH_MODE=auto|on|off`, `APR_NO_GPU=0|1`.
 - **Temperature/top-k passthrough:** CLI flags `--temperature` and `--top-k` pass through to `BatchInferenceConfig` for non-greedy sampling
 - **Streaming output:** Results flushed after each prompt for pipeline consumption
 - **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models
+
+## 22.20 MBPP Evaluation (2026-03-18)
+
+First full MBPP evaluation using batch mode on gx10 CPU.
+
+### 22.20.1 Data Format
+
+MBPP uses `text` for the problem description and `test_list` for assertions:
+```json
+{
+  "text": "Write a python function to remove first and last occurrence of a given character from the string.",
+  "task_id": 11,
+  "test_list": ["assert remove_Occ(\"hello\",\"l\") == \"heo\"", ...],
+  "code": "def remove_Occ(s,ch): ..."
+}
+```
+
+The eval script extracts the function name from the first assertion (`remove_Occ`) and includes it in the prompt. Without this (§22.16), pass rate was 5% due to NameError.
+
+### 22.20.2 Batch Mode on CPU
+
+```bash
+CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
+  ./scripts/eval-pass-at-k.sh mbpp checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
+  results 512 0.0 1 standard
+```
+
+- **Model load:** 5.2s (single load, batch mode)
+- **Per-prompt inference:** ~45-70s on CPU (competing with concurrent HumanEval eval)
+- **Batch output quality:** Correct function names, markdown fences (stripped by eval script)
+- **Total prompts:** 500 (MBPP test split, task_id 11-510)
+- **Estimated wall-clock:** ~8h CPU (single model load)
+
+### 22.20.3 Decontamination
+
+`apr data decontaminate` confirms 0% overlap between training data and MBPP benchmark:
+- 974 MBPP problems checked, 0 contaminated
+- 164 HumanEval problems checked, 0 contaminated
+- Report: `clean.jsonl`
