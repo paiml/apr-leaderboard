@@ -6,12 +6,20 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 
 | Model | Quantization | pass@1 | Passed | Avg Tokens | Avg Latency | Backend | Notes |
 |-------|-------------|--------|--------|------------|-------------|---------|-------|
+| Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | **89.63%** | 147/164 | 73.9 | 294s | GPU (gx10) | 32B model, CUDA sm_121 |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 113s | CPU (gx10) | EOS fix + 512 tokens |
+| Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 112s | GPU (gx10) | GPU/CPU parity confirmed |
+| Qwen2.5-Coder-7B-Instruct Q4K (SCoT) | Q4K | **82.32%** | 135/164 | — | — | CPU (gx10) | Structured CoT prompting |
 | Qwen3-4B Q4K | Q4K | **78.05%** | 128/164 | ~3000† | ~280s | CPU (gx10) | Thinking mode, 4096 tokens |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | 68.90% | 113/164 | 128.0 | 102s | CPU | Pre-EOS-fix, 128 cap |
 | Qwen2.5-Coder-1.5B Q4K | Q4_K_M (GGUF) | 59.15% | 97/164 | 59.5 | 3.6s | CPU | 128 token cap |
 
 †Qwen3 avg tokens includes ~2500 thinking tokens (discarded) + ~500 code tokens.
+
+**Key findings:**
+- 85.37% → 89.63% from 7B → 32B model (+7 problems solved)
+- GPU/CPU parity confirmed: 7B produces identical 85.37% on both backends
+- SCoT prompting slightly hurts 7B (82.32% vs 85.37% standard) — model already strong without CoT
 
 **Perplexity baseline (WikiText-2):**
 
@@ -236,7 +244,7 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | Hardcoded .min(128) token cap | realizar | High | **Fixed** (GH-372) |
 | APR EOS termination broken | realizar | Critical | **Fixed** (GH-373) |
 | GPU backend migration | realizar | Medium | Migrated from CUDA to wgpu |
-| `apr serve` doesn't bind HTTP for .apr | aprender | Medium | Use `apr run` for batch inference |
+| `apr serve` doesn't bind HTTP for .apr | aprender | Medium | Use `apr run --batch-jsonl` for batch inference |
 | O(n^2) BPE merge bottleneck | aprender | High | **Fixed** (GH-378) |
 | InstructPipeline lacks QLoRA/NF4 | entrenar | High | **Fixed** — wgpu NF4 support |
 | InstructPipeline can't load .apr weights | entrenar/aprender | High | **Fixed** — `from_apr()` loading |
@@ -434,3 +442,54 @@ Qwen3 uses `head_dim=128` with `hidden_dim=2560` and `num_heads=32`, making `hid
 ## 22.18 AC Verification Results
 
 Detailed AC verification findings (compile, throughput, SCoT, HF parity, pruning, MBPP function names, submit fix) have been moved to [AC Verification (S24)](24-ac-verification.md) for file size compliance.
+
+## 22.19 Batch Inference Mode (GH-batch)
+
+**Problem:** Each `apr run` invocation on gx10 (Blackwell sm_121) incurs ~80s of CUDA JIT compilation overhead. For 164 HumanEval problems, this means ~3.6 hours of JIT alone, dominating eval wall-clock time.
+
+**Solution:** `apr run --batch-jsonl` loads the model and CUDA kernels once, then processes all prompts sequentially. Implemented in realizar (`batch.rs`) and wired through aprender CLI.
+
+### 22.19.1 Architecture
+
+```
+BatchInferenceConfig → run_batch_inference()
+    ├── detect_format() (8-byte magic: APR\0 vs GGUF)
+    ├── run_batch_gguf() → MappedGGUFModel → OwnedQuantizedModel
+    └── run_batch_apr()  → MappedAprModel  → OwnedQuantizedModel
+        └── init_batch_model()
+            ├── OwnedQuantizedModelCuda (GPU, validated with 1-token probe)
+            └── OwnedQuantizedModel (CPU fallback)
+        └── run_batch_loop()
+            ├── Read JSONL prompts (BufRead)
+            ├── Encode with ChatML template
+            ├── BatchModel::generate() → GPU or CPU dispatch
+            ├── Write JSONL results (flushed per prompt)
+            └── Aggregate BatchStats
+```
+
+### 22.19.2 Testing Results
+
+| Test | Prompts | Backend | Result |
+|------|---------|---------|--------|
+| Local 1.5B | 7 | CPU | 7/7 OK (2 code + 5 factorial) |
+| gx10 7B | 2 | CPU | 2/2 OK (clean output) |
+| gx10 7B | 2 | GPU | JIT compiled OK, output garbled (training contention) |
+
+GPU batch garbage is caused by concurrent training process (entrenar PID 3811) consuming 85 GB GPU memory — same issue as non-batch GPU inference. CPU fallback via `CUDA_VISIBLE_DEVICES=""` produces clean output.
+
+### 22.19.3 Performance Projection
+
+| Scenario | JIT Overhead | Total Wall-Clock |
+|----------|-------------|-----------------|
+| Sequential (164 problems) | 80s × 164 = 3.6h | 3.6h + inference |
+| Batch (164 problems) | 80s × 1 = 80s | 80s + inference |
+| Speedup | — | **~160x JIT reduction** |
+
+### 22.19.4 Key Implementation Details
+
+- **Format auto-detection:** 8-byte magic read distinguishes APR (`APR\0`) from GGUF
+- **APR tokenization:** Uses `AprV2Model::encode_text()` / `decode_apr_tokens()` (separate from GGUF path)
+- **Stop tokens:** `resolve_apr_stop_tokens()` merges EOS from model config + sibling tokenizer.json
+- **GPU ownership transfer:** If `OwnedQuantizedModelCuda::with_max_seq_len()` consumes the model by value, the CPU fallback path reloads from mapped data
+- **Streaming output:** Results flushed after each prompt for pipeline consumption
+- **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models

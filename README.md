@@ -51,6 +51,13 @@ make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
 # Evaluate on HumanEval
 make eval-humaneval CHECKPOINT=checkpoints/qwen_qwen2.5-coder-7b-instruct.apr
 
+# Batch inference (load model once, process all prompts — eliminates ~80s/problem JIT overhead)
+apr run checkpoints/model.apr --batch-jsonl prompts.jsonl --max-tokens 512
+
+# Sweep all eval results and compare
+make eval-sweep
+make compare-results BASE=results/humaneval_baseline.json NEW=results/humaneval_latest.json
+
 # Run a full recipe pipeline
 make pipeline RECIPE=recipe-a-quick-lora
 
@@ -62,9 +69,9 @@ make pipeline-plan RECIPE=recipe-c-full-pipeline
 
 | Crate | Role | Version |
 |-------|------|---------|
-| [aprender](https://crates.io/crates/aprender) | .apr format, inference, distillation, merging, pruning, quantization | 0.27 |
+| [aprender](https://crates.io/crates/aprender) | .apr format, inference, batch inference, distillation, merging, pruning, quantization | 0.4.11 |
 | [entrenar](https://crates.io/crates/entrenar) | LoRA/QLoRA training, autograd, AdamW, gradient checkpointing | 0.7 |
-| [trueno](https://crates.io/crates/trueno) | SIMD tensor ops (AVX2/NEON), wgpu GPU (Vulkan/Metal/DX12) | 0.16 |
+| [trueno](https://crates.io/crates/trueno) | SIMD tensor ops (AVX2/NEON), wgpu GPU (Vulkan/Metal/DX12) | 0.16.3 |
 
 ## Benchmarks Supported
 
@@ -124,6 +131,8 @@ apr-leaderboard/
 | `make pipeline-plan RECIPE=...` | Dry-run: show commands |
 | `make publish CHECKPOINT=... HF_REPO=...` | Publish to HF Hub |
 | `make prove-wgpu` | Dual GPU wgpu training proof |
+| `make eval-sweep` | Sweep all result JSONs, tabulate pass@k |
+| `make compare-results BASE=... NEW=...` | Delta analysis between two result files |
 | `make results-history` | View evaluation results |
 
 ## Specification

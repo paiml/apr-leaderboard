@@ -15,7 +15,7 @@
 .PHONY: import import-plan \
         prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download \
         finetune finetune-instruct align merge prune quantize distill compile \
-        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep results-history \
+        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history \
         export publish model-card \
         pipeline pipeline-plan \
         check inspect qa compare-hf bench verify dogfood validate clean \
@@ -225,6 +225,11 @@ results-history:
 eval-sweep:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
 	./scripts/eval-sweep.sh humaneval "$(CHECKPOINT)" "standard scot few-shot cgo" $(MAX_TOKENS)
+
+compare-results:
+	@test -n "$(BASE)" || { echo "ERROR: BASE required (e.g., make compare-results BASE=results/a.json NEW=results/b.json)"; exit 1; }
+	@test -n "$(NEW)" || { echo "ERROR: NEW required (e.g., make compare-results BASE=results/a.json NEW=results/b.json)"; exit 1; }
+	./scripts/compare-results.sh "$(BASE)" "$(NEW)"
 
 # -- Submission ------------------------------------------------------------------
 

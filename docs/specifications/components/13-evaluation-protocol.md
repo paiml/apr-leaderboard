@@ -89,7 +89,32 @@ The eval script applies two post-processing steps to all completions:
 
 This is critical for instruct model evaluation. Without it, valid completions fail due to trailing conversational text (observed: 0% → ~70% pass rate on Qwen2.5-Coder-1.5B-Instruct).
 
-## 13.6 MBPP Function Name Extraction
+## 13.6 Batch Inference Mode
+
+For large eval suites (164 HumanEval + 974 MBPP problems), per-invocation model loading dominates wall-clock time. On gx10 (Blackwell sm_121), each `apr run` invocation incurs ~80s of CUDA JIT compilation overhead.
+
+**Batch mode** (`--batch-jsonl`) loads the model and compiles CUDA kernels once, then processes all prompts sequentially:
+
+```bash
+# Prepare JSONL input (one prompt per line)
+jq -c '{prompt: .prompt, task_id: .task_id, max_tokens: 512}' problems/*.json > batch.jsonl
+
+# Run batch inference (model loads once, ~80s JIT amortized across all prompts)
+apr run checkpoints/model.apr --batch-jsonl batch.jsonl --max-tokens 512 --verbose
+
+# Output: JSONL with per-prompt results (text, tokens_generated, tok_per_sec, inference_ms, used_gpu)
+```
+
+**Performance impact:**
+
+| Mode | Model Load | Per-Problem Overhead | 164 Problems (HumanEval) |
+|------|-----------|---------------------|--------------------------|
+| Sequential `apr run` | ~80s × 164 | ~80s JIT + inference | ~3.6 hours JIT alone |
+| Batch `--batch-jsonl` | ~80s × 1 | inference only | ~80s JIT + inference time |
+
+Auto-detects APR vs GGUF format. GPU/CPU fallback: validates GPU with 1-token probe, falls back to CPU on failure. Results stream as JSONL (one line per prompt, flushed after each).
+
+## 13.7 MBPP Function Name Extraction
 
 MBPP test assertions reference specific function names (e.g., `assert min_cost(...) == 42`). If the model generates a function with a different name, all tests fail even if the logic is correct.
 

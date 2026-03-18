@@ -49,6 +49,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make bench` | `apr bench $(CHECKPOINT) --json` | ✅ Working | Throughput benchmark |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | ✅ Working | Download HumanEval/MBPP data |
 | `make results-history` | `scripts/results-history.sh` | ✅ Working | View and compare eval results |
+| `make eval-sweep` | `scripts/eval-sweep.sh` | ✅ Working | Sweep all result JSONs, tabulate pass@k |
+| `make compare-results` | `scripts/compare-results.sh` | ✅ Working | Delta analysis between two result files |
 | `make check-contracts` | Inline awk + jq + python3 | ✅ Working | Run falsification tests (pass@k, throughput, structure) |
 
 ## 19.2 Shell Scripts
@@ -67,7 +69,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 
 | Metric | Current | Target | Gate |
 |---|---|---|---|
-| `apr` CLI version | 0.4.10 | ≥ 0.4.10 | `apr --version` |
+| `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 7 | — | All executable, pass `bashrs lint` |
@@ -117,12 +119,12 @@ CLI flags: `--wait-gpu`, `--vram`, `--experimental-mps`, `--gpu-share`, `--adapt
 
 ## 19.5 `apr` CLI Subcommand Availability
 
-All ML operations are provided by `apr` CLI v0.4.10. Verified via `make verify`:
+All ML operations are provided by `apr` CLI v0.4.11. Verified via `make verify`:
 
 | `apr` Subcommand | Status | Used By |
 |---|---|---|
 | `apr import` | ✅ OK | `make import`, `scripts/import.sh`, `scripts/pipeline.sh` |
-| `apr run` | ✅ OK | `scripts/eval-pass-at-k.sh` (generate completions) |
+| `apr run` | ✅ OK | `scripts/eval-pass-at-k.sh` (generate completions), `--batch-jsonl` batch mode |
 | `apr serve` | ✅ OK | (HTTP API — partial: doesn't bind for .apr files) |
 | `apr chat` | ✅ OK | (interactive — not used by pipeline) |
 | `apr finetune` | ✅ OK | `make finetune`, `scripts/pipeline.sh` |

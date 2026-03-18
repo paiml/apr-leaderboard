@@ -19,7 +19,31 @@ apr import hf://Qwen/Qwen2.5-Coder-32B -o qwen-32b-q8.apr --quantize int8
 apr import qwen-7b.gguf -o qwen-7b.apr --enforce-provenance
 ```
 
-## 6.1.2 Evaluate (Baseline)
+## 6.1.2 Batch Inference (GH-batch)
+
+```bash
+# Batch inference: load model + CUDA JIT once, process all prompts sequentially
+# Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU
+apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
+
+# With GPU disabled (CPU fallback)
+apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --no-gpu --verbose
+```
+
+**Input format (JSONL):**
+```json
+{"prompt": "def fibonacci(n):", "task_id": "HumanEval/0", "max_tokens": 512}
+{"prompt": "def add(a, b):", "task_id": "HumanEval/1"}
+```
+
+**Output format (JSONL, one line per prompt):**
+```json
+{"task_id": "HumanEval/0", "text": "...", "tokens_generated": 85, "tok_per_sec": 14.2, "inference_ms": 5986.0, "used_gpu": true}
+```
+
+Auto-detects model format (GGUF or APR). GPU/CPU fallback: tries CUDA first, validates with a 1-token probe, falls back to CPU on failure. Model stays resident across all prompts.
+
+## 6.1.3 Evaluate (Baseline)
 
 ```bash
 # Perplexity baseline
@@ -29,7 +53,7 @@ apr eval qwen-7b.apr --dataset wikitext-2 --threshold 20.0
 apr eval qwen-7b.apr --task classify --data humaneval.jsonl --json
 ```
 
-## 6.1.3 Instruction Fine-tuning (GH-371)
+## 6.1.4 Instruction Fine-tuning (GH-371)
 
 ```bash
 # Instruction fine-tuning with LoRA on Q/V projections
@@ -73,7 +97,7 @@ learning_rate = 0.0002
 - F-INST-004: Qwen chat template (`<|im_start|>` / `<|im_end|>`)
 - GPU-SHARE-002: VRAM reservation via ledger before allocation
 
-## 6.1.4 Full Optimization Pipeline (preview)
+## 6.1.5 Full Optimization Pipeline (preview)
 
 ```bash
 # The complete leaderboard recipe in 6 commands (follows golden ordering §10):
@@ -128,6 +152,8 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make data-balance` | `apr data balance` | Resample for class balance |
 | `make benchmark-download` | `scripts/download-benchmarks.sh` | Download HumanEval/MBPP data |
 | `make results-history` | `scripts/results-history.sh` | View and compare eval results |
+| `make eval-sweep` | `scripts/eval-sweep.sh` | Sweep all result JSONs, tabulate pass@k across models |
+| `make compare-results` | `scripts/compare-results.sh` | Delta analysis between two result files |
 | `make clean` | `rm -rf checkpoints/ results/` | Remove build artifacts |
 | `make book` | `mdbook build` | Build specification book |
 | `make docs` | `mdbook build` | Alias for book |
