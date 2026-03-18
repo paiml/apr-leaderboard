@@ -51,6 +51,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make results-history` | `scripts/results-history.sh` | ✅ Working | View and compare eval results |
 | `make eval-sweep` | `scripts/eval-sweep.sh` | ✅ Working | Sweep all result JSONs, tabulate pass@k |
 | `make compare-results` | `scripts/compare-results.sh` | ✅ Working | Delta analysis between two result files |
+| `make leaderboard` | `scripts/leaderboard-summary.sh` | ✅ Working | Generate ranked markdown leaderboard from results |
 | `make check-contracts` | Inline awk + jq + python3 | ✅ Working | Run falsification tests (pass@k, throughput, structure) |
 
 ## 19.2 Shell Scripts
@@ -76,7 +77,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 18 | — | models (6) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 10 | — | All executable, pass `bashrs lint` |
-| Makefile targets | 42 | — | `make verify` + `make validate` + `make dogfood` |
+| Makefile targets | 47 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 18/18 | 18/18 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 

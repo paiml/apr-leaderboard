@@ -7,7 +7,7 @@ APR Leaderboard is a thin orchestration layer over the `apr` CLI for building, e
 ## Architecture
 
 ```
-Makefile (41 targets)
+Makefile (47 targets)
 ├── scripts/import.sh           → apr import + validation
 ├── scripts/eval-pass-at-k.sh   → apr run + sandbox + Chen et al. pass@k
 ├── scripts/pipeline.sh         → reads recipe YAML, runs stages in order
@@ -15,6 +15,9 @@ Makefile (41 targets)
 ├── scripts/prove-wgpu.sh       → wgpu training proof
 ├── scripts/download-benchmarks.sh → HumanEval/MBPP data
 ├── scripts/results-history.sh  → eval results viewer
+├── scripts/eval-sweep.sh       → run eval across prompt strategies
+├── scripts/compare-results.sh  → per-problem delta analysis
+├── scripts/leaderboard-summary.sh → ranked markdown leaderboard
 ├── configs/models/              → per-model YAML configs
 ├── configs/recipes/             → multi-stage pipeline recipes (YAML)
 ├── configs/eval/                → benchmark evaluation suite (YAML)
