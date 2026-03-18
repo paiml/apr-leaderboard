@@ -95,10 +95,11 @@ HumanEval pass@1 (greedy decoding, temperature 0.0):
 | Rank | Model | pass@1 | Passed | Backend | Notes |
 |------|-------|--------|--------|---------|-------|
 | 1 | Qwen2.5-Coder-32B-Instruct Q4K_M | **89.63%** | 147/164 | GPU (gx10) | Blackwell sm_121 |
-| 2 | Qwen2.5-Coder-7B-Instruct Q4K | **85.37%** | 140/164 | CPU/GPU (gx10) | GPU/CPU parity verified |
-| 3 | Qwen2.5-Coder-7B-Instruct Q4K (SCoT) | **82.32%** | 135/164 | CPU (gx10) | Structured CoT |
-| 4 | Qwen3-4B Q4K | **78.05%** | 128/164 | CPU (gx10) | Thinking model |
-| 5 | Qwen2.5-Coder-1.5B Q4K | **59.15%** | 97/164 | CPU | Baseline |
+| 2 | Qwen2.5-Coder-7B-Instruct Q4K (few-shot) | **87.20%** | 143/164 | CPU (gx10) | Few-shot prompting |
+| 3 | Qwen2.5-Coder-7B-Instruct Q4K | **85.37%** | 140/164 | CPU/GPU (gx10) | GPU/CPU parity verified |
+| 4 | Qwen2.5-Coder-7B-Instruct Q4K (SCoT) | **82.32%** | 135/164 | CPU (gx10) | Structured CoT |
+| 5 | Qwen3-4B Q4K | **78.05%** | 128/164 | CPU (gx10) | Thinking model |
+| 6 | Qwen2.5-Coder-1.5B Q4K | **59.15%** | 97/164 | CPU | Baseline |
 
 All results produced by `apr run` (zero Python inference). Code execution sandbox uses python3.
 

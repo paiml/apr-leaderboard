@@ -9,6 +9,7 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 | Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | **89.63%** | 147/164 | 73.9 | 294s | GPU (gx10) | 32B model, CUDA sm_121 |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 113s | CPU (gx10) | EOS fix + 512 tokens |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 112s | GPU (gx10) | GPU/CPU parity confirmed |
+| Qwen2.5-Coder-7B-Instruct Q4K (few-shot) | Q4K | **87.20%** | 143/164 | — | — | CPU (gx10) | Few-shot prompting (+1.83pp vs standard) |
 | Qwen2.5-Coder-7B-Instruct Q4K (SCoT) | Q4K | **82.32%** | 135/164 | — | — | CPU (gx10) | Structured CoT prompting |
 | Qwen3-4B Q4K | Q4K | **78.05%** | 128/164 | ~3000† | ~280s | CPU (gx10) | Thinking mode, 4096 tokens |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | 68.90% | 113/164 | 128.0 | 102s | CPU | Pre-EOS-fix, 128 cap |
@@ -19,8 +20,9 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 **Key findings:**
 - 85.37% → 89.63% from 7B → 32B model (+7 problems solved)
 - GPU/CPU parity confirmed: 7B produces identical 85.37% on both backends
+- Few-shot prompting is the best 7B strategy: **87.20%** (+1.83pp vs 85.37% standard, +3 problems)
 - SCoT prompting slightly hurts 7B (82.32% vs 85.37% standard) — model already strong without CoT
-- Few-shot strategy improved with 3 concrete exemplars (max_element, count_vowels, flatten) — pending re-eval
+- Few-shot with improved 3-exemplar strategy (max_element, count_vowels, flatten) pending re-eval — may push higher
 
 **Perplexity baseline (WikiText-2):**
 

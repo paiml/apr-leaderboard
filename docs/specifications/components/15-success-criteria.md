@@ -37,6 +37,7 @@ Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` (greedy decoding,
 | Model | Quant | HumanEval pass@1 | Backend | Notes |
 |---|---|---|---|---|
 | Qwen2.5-Coder-32B-Instruct | Q4K_M | **89.63%** (147/164) | GPU (gx10) | Blackwell sm_121 |
+| Qwen2.5-Coder-7B-Instruct (few-shot) | Q4K | **87.20%** (143/164) | CPU (gx10) | Few-shot prompting |
 | Qwen2.5-Coder-7B-Instruct | Q4K | **85.37%** (140/164) | CPU/GPU (gx10) | GPU/CPU parity verified |
 | Qwen2.5-Coder-7B-Instruct (SCoT) | Q4K | **82.32%** (135/164) | CPU (gx10) | Structured CoT |
 | Qwen3-4B | Q4K | **78.05%** (128/164) | CPU (gx10) | Thinking model, 4096 tokens |
