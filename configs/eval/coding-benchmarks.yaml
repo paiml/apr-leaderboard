@@ -115,19 +115,27 @@ baselines:
   "Qwen/Qwen2.5-Coder-1.5B-Instruct":
     humaneval: 0.676
     mbpp: 0.698
+  "Qwen/Qwen2.5-Coder-32B-Instruct":
+    humaneval: 0.925
+    mbpp: 0.845
+    bigcodebench: 0.519
   "Qwen/Qwen3-8B":
     humaneval: 0.720
     mbpp: 0.650
 
 # apr-native baselines (measured via apr run + eval-pass-at-k.sh)
 apr_baselines:
+  "qwen2.5-coder-32b-instruct-q4km":
+    humaneval: 0.8963
+    notes: "Q4K_M GGUF import, GPU (gx10 Blackwell sm_121), greedy, max_tokens=512"
+  "qwen2.5-coder-7b-instruct-q4k":
+    humaneval: 0.8537
+    humaneval_scot: 0.8232
+    mbpp: null        # eval in progress (batch mode, 2026-03-18)
+    notes: "Q4K GGUF import, CPU/GPU parity verified, greedy, max_tokens=512"
+  "qwen3-4b-q4k":
+    humaneval: 0.7805
+    notes: "Q4K GGUF import, CPU, thinking mode (4096 tokens), 4 timeouts"
   "qwen2.5-coder-1.5b-q4k":
     humaneval: 0.5915
     notes: "Q4K GGUF import, CPU, greedy, max_tokens=512"
-  "qwen2.5-coder-7b-instruct-q4k":
-    humaneval: 0.689
-    notes: "Q4K SafeTensors import, CPU, 128-token cap + broken EOS (pre-fix)"
-  "qwen2.5-coder-1.5b-instruct-q4k":
-    humaneval: null   # eval in progress (~70% at 60/164)
-    mbpp: null        # eval in progress (~50% at 10/974, with function name fix)
-    notes: "Q4K GGUF import, CPU, greedy, max_tokens=512, chat mode + extract_python_code()"
