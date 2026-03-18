@@ -34,9 +34,9 @@ fi
 
 echo "=== Evaluation Results ==="
 echo ""
-printf "%-20s %-40s %8s %6s %6s %10s %8s %10s\n" \
-    "BENCHMARK" "MODEL" "pass@1" "PASS" "TOTAL" "ERRORS" "TOKENS" "LATENCY"
-printf "%s\n" "$(printf '%.0s-' {1..110})"
+printf "%-12s %-30s %-10s %8s %6s %6s %6s %12s\n" \
+    "BENCHMARK" "MODEL" "STRATEGY" "pass@1" "PASS" "TOTAL" "ERRS" "DATE"
+printf "%s\n" "$(printf '%.0s-' {1..100})"
 
 for f in "${RESULT_FILES[@]}"; do
     [[ -f "$f" ]] || continue
@@ -47,8 +47,8 @@ for f in "${RESULT_FILES[@]}"; do
     PASSED="$(jq -r '.results.passed // "?"' < "$f" 2>/dev/null)"
     TOTAL="$(jq -r '.results.completed // "?"' < "$f" 2>/dev/null)"
     ERRS="$(jq -r '.results.errors // "?"' < "$f" 2>/dev/null)"
-    TOKENS="$(jq -r '.results.avg_tokens_generated // "?"' < "$f" 2>/dev/null)"
-    LATENCY="$(jq -r '.results.avg_latency_ms // "?"' < "$f" 2>/dev/null)"
+    STRATEGY="$(jq -r '.config.prompt_strategy // "standard"' < "$f" 2>/dev/null)"
+    TIMESTAMP="$(jq -r '.timestamp // "?"' < "$f" 2>/dev/null | cut -dT -f1)"
 
     # Apply filters
     if [[ -n "$BENCHMARK_FILTER" && "$BENCH" != "$BENCHMARK_FILTER" ]]; then
@@ -60,12 +60,12 @@ for f in "${RESULT_FILES[@]}"; do
 
     # Truncate model path for display
     MODEL_SHORT="$(basename "$MODEL" .apr)"
-    if (( ${#MODEL_SHORT} > 38 )); then
-        MODEL_SHORT="${MODEL_SHORT:0:35}..."
+    if (( ${#MODEL_SHORT} > 28 )); then
+        MODEL_SHORT="${MODEL_SHORT:0:25}..."
     fi
 
-    printf "%-20s %-40s %7s%% %6s %6s %10s %8s %9sms\n" \
-        "$BENCH" "$MODEL_SHORT" "$PASS1" "$PASSED" "$TOTAL" "$ERRS" "$TOKENS" "$LATENCY"
+    printf "%-12s %-30s %-10s %7s%% %6s %6s %6s %12s\n" \
+        "$BENCH" "$MODEL_SHORT" "$STRATEGY" "$PASS1" "$PASSED" "$TOTAL" "$ERRS" "$TIMESTAMP"
 done
 
 echo ""

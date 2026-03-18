@@ -15,7 +15,7 @@
 .PHONY: import import-plan \
         prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download \
         finetune finetune-instruct align merge prune quantize distill compile \
-        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity results-history \
+        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep results-history \
         export publish model-card \
         pipeline pipeline-plan \
         check inspect qa compare-hf bench verify dogfood validate clean \
@@ -221,6 +221,10 @@ eval-perplexity:
 
 results-history:
 	./scripts/results-history.sh "$(RESULTS_DIR)"
+
+eval-sweep:
+	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }
+	./scripts/eval-sweep.sh humaneval "$(CHECKPOINT)" "standard scot few-shot cgo" $(MAX_TOKENS)
 
 # -- Submission ------------------------------------------------------------------
 
