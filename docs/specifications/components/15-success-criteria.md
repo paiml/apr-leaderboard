@@ -32,15 +32,17 @@
 
 ## 15.4 Measured Baselines (apr-native)
 
-Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` on CPU (no GPU):
+Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` (greedy decoding, max_tokens=512):
 
-| Model | Quant | HumanEval pass@1 | Throughput (tok/s) | TTFT (ms) | Notes |
-|---|---|---|---|---|---|
-| Qwen2.5-Coder-1.5B | Q4K | 59.15% | ~2.5 | ~385 | GGUF import, greedy |
-| Qwen2.5-Coder-7B-Instruct | Q4K | 68.9% | — | — | Pre-EOS fix, 128-token cap |
-| Qwen2.5-Coder-1.5B-Instruct | Q4K | *eval in progress* | 2.5 | 385 | Chat mode, greedy |
+| Model | Quant | HumanEval pass@1 | Backend | Notes |
+|---|---|---|---|---|
+| Qwen2.5-Coder-32B-Instruct | Q4K_M | **89.63%** (147/164) | GPU (gx10) | Blackwell sm_121 |
+| Qwen2.5-Coder-7B-Instruct | Q4K | **85.37%** (140/164) | CPU/GPU (gx10) | GPU/CPU parity verified |
+| Qwen2.5-Coder-7B-Instruct (SCoT) | Q4K | **82.32%** (135/164) | CPU (gx10) | Structured CoT |
+| Qwen3-4B | Q4K | **78.05%** (128/164) | CPU (gx10) | Thinking model, 4096 tokens |
+| Qwen2.5-Coder-1.5B | Q4K | 59.15% (97/164) | CPU | Baseline |
 
-**Key finding:** Instruct models via `--chat` append conversational trailing text after code. The `extract_python_code()` fix in `eval-pass-at-k.sh` (§22.15/§24.1) raised pass rate from 0% to ~70% on the 1.5B-Instruct model.
+**HF parity:** 7B gap = 2.43pp (85.37% vs 87.8% HF). 32B gap = 2.87pp (89.63% vs 92.5% HF). Within 5pp threshold.
 
 **Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
 
