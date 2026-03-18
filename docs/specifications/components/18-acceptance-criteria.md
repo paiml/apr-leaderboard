@@ -13,11 +13,12 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [x] AC-027: Every tooling gap in S5 has either a wire-in implementation or a documented external boundary (5 gaps documented with wire-in plans, 9 Ludwig parity gaps tracked with crate targets, execution sandbox scoped as external boundary)
 - [x] AC-028: `make prove-wgpu` completes successfully -- QLoRA training runs on wgpu (Vulkan/Metal/DX12) with no CUDA toolkit installed
 - [x] AC-029: Training via wgpu produces decreasing loss over 2 epochs on Qwen2.5-Coder-1.5B
+- [x] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves >=85% HumanEval pass@1 (apr-native baseline >= HF reference - 5%) — **85.37%** (140/164) on CPU and GPU (parity verified), greedy decoding, max_tokens=512. HF reference 87.8%, gap = 2.43pp (within 5pp threshold)
 
 ## Partially Verified
 
 - [x] AC-017: N-sampling generates distinct completions per problem -- eval script supports `NUM_SAMPLES`, tracks per-task n,c counts, computes Chen et al. unbiased pass@k estimator in log-space. Uses `apr run` for generation. Full 20-sample verification pending GPU eval run.
-- [x] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases -- benchmark data downloaded via `make benchmark-download` (HumanEval 164, MBPP 974, BigCodeBench 1140). `apr data decontaminate` not yet wired (GH-11). Gate ready to enforce once upstream lands.
+- [x] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases -- `apr data decontaminate` confirms 0% overlap (0/164 HumanEval, 0/974 MBPP contaminated). Decontamination report: `clean.jsonl`.
 - [x] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference -- perplexity = 6.63 on WikiText-2 (§22.0). Non-zero confirmed. HF parity check returns 0 comparisons on GGUF imports (different dtype); 10% threshold pending SafeTensors import path fix.
 - [x] AC-019: Structured prompting produces reasoning before code — SCoT produces step-by-step reasoning (confirmed on 1.5B, §24.3). On small models, reasoning consumes token budget; quality improvement pending 7B+ evaluation
 
@@ -33,7 +34,6 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-012: `pv proof-status` shows >=95% binding coverage for pipeline-relevant contracts
 - [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models — GGUF Q4K imports produce 0 comparisons (dtype mismatch with HF FP16). Parity must be verified via benchmark scores or SafeTensors import path (§24.3)
 - [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen) — pass-at-k: 3/3 FTs pass, inference-throughput: 2/2 FTs pass, quantization: FT-QUANT-003 enforced. LoRA and decontamination FTs require upstream (§24.9-§24.11)
-- [ ] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves >=85% HumanEval pass@1 (apr-native baseline >= HF reference - 5%)
 - [ ] AC-022: Full pipeline on Qwen2.5-Coder-7B produces a model scoring >=85% HumanEval, >=82% HumanEval+, >=80% MBPP
 - [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval
 - [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores >= best input specialist on at least one benchmark
@@ -49,8 +49,8 @@ demonstrated, this spec has failed. Status: [x] = verified,
 
 | Category | Count |
 |---|---|
-| Verified | 7 |
+| Verified | 8 |
 | Partially Verified | 4 |
-| Not Yet Tested | 16 |
+| Not Yet Tested | 15 |
 | Blocked on Upstream | 2 |
 | **Total** | **29** |
