@@ -536,11 +536,15 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
   results 512 0.0 1 standard
 ```
 
+- **Result: 50.80% pass@1 (254/500), 0 errors**
 - **Model load:** 5.2s (single load, batch mode)
 - **Per-prompt inference:** ~45-70s on CPU (competing with concurrent HumanEval eval)
 - **Batch output quality:** Correct function names, markdown fences (stripped by eval script)
 - **Total prompts:** 500 (MBPP test split, task_id 11-510)
-- **Estimated wall-clock:** ~8h CPU (single model load)
+- **Wall-clock:** ~6h CPU (single model load, concurrent with HumanEval eval)
+- **HF parity gap:** 32.7pp (50.80% vs 83.5% HF reference) — much larger than HumanEval gap (2.43pp)
+
+**Gap analysis:** The 32.7pp MBPP gap (vs 2.43pp HumanEval) suggests MBPP-specific prompt issues, not model quality. Likely causes: (1) MBPP's `text` field is a natural language description without a function signature — the model must infer structure from prose, (2) function name extraction from `test_list` may not always produce the right name, (3) standard prompting doesn't show examples of the expected MBPP format. Few-shot prompting should close this gap significantly.
 
 ### 22.20.3 Decontamination
 
