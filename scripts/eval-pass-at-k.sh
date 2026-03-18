@@ -238,6 +238,7 @@ echo "0" > "$PROGRESS_FILE"
 # Detect batch mode availability
 # Batch mode loads model + CUDA JIT once, processes all prompts sequentially.
 # Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU.
+# Supports --temperature and --top-k passthrough for non-greedy sampling.
 USE_BATCH=0
 BATCH_MODE="${APR_BATCH_MODE:-auto}"
 if [[ "$BATCH_MODE" == "on" ]]; then
@@ -245,11 +246,9 @@ if [[ "$BATCH_MODE" == "on" ]]; then
 elif [[ "$BATCH_MODE" == "off" ]]; then
     USE_BATCH=0
 elif [[ "$BATCH_MODE" == "auto" ]]; then
-    # Auto-detect: use batch if --batch-jsonl available and greedy decoding
+    # Auto-detect: use batch if --batch-jsonl available
     if apr run --help 2>&1 | grep -q -- '--batch-jsonl'; then
-        if [[ "$TEMPERATURE" == "0.0" || "$TEMPERATURE" == "0" ]]; then
-            USE_BATCH=1
-        fi
+        USE_BATCH=1
     fi
 fi
 
@@ -287,6 +286,7 @@ generate_batch() {
 
     # Build apr run flags
     local -a apr_flags=("$MODEL" "--batch-jsonl" "$batch_input" "--max-tokens" "$EFFECTIVE_MAX_TOKENS")
+    apr_flags+=("--temperature" "$TEMPERATURE" "--top-k" "1")
     if [[ "${APR_NO_GPU:-0}" == "1" ]]; then
         apr_flags+=("--no-gpu")
     fi

@@ -48,6 +48,7 @@ for strategy in $STRATEGIES; do
     echo ""
 
     START="$(date +%s)"
+    # Batch mode auto-detected by eval script (APR_BATCH_MODE inherited from env)
     "${SCRIPT_DIR}/eval-pass-at-k.sh" "$BENCHMARK" "$MODEL" "$RESULTS_DIR" "$MAX_TOKENS" 0.0 1 "$strategy"
     ELAPSED=$(( $(date +%s) - START ))
 
