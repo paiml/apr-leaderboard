@@ -3,13 +3,18 @@
 #
 # Architecture:
 #   Phase 1: Prepare — download benchmark, split into per-problem JSON files
-#   Phase 2: Generate — N parallel workers each claim problems via flock,
-#            run `apr run --json --chat`, write raw output + completion
+#   Phase 2: Generate — batch mode (single model load via --batch-jsonl) or
+#            N parallel workers each claim problems via flock.
+#            Batch mode eliminates ~80s per-problem CUDA JIT overhead on gx10.
 #   Phase 3: Test — sequential sandbox execution of all completions
 #   Phase 4: Score — compute pass@k (Chen et al. unbiased estimator)
 #
 # Usage:
 #   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH [RESULTS_DIR] [MAX_TOKENS] [TEMPERATURE] [NUM_SAMPLES] [PROMPT_STRATEGY] [WORKERS]
+#
+# Environment variables:
+#   APR_BATCH_MODE=auto|on|off  — batch mode control (default: auto)
+#   APR_NO_GPU=0|1              — disable GPU for batch mode (default: 0)
 
 set -euo pipefail
 
@@ -192,7 +197,7 @@ build_instruction() {
                 "$task_desc" "$prompt"
             ;;
         few-shot|fewshot)
-            printf "Example:\ndef add(a, b):\n    return a + b\n\nNow solve:\n%s\n\n%s\n\nReturn ONLY Python code. No markdown." \
+            printf "Here are examples of completing Python functions:\n\nExample 1:\ndef max_element(l: list):\n    \"\"\"Return maximum element in the list.\"\"\"\n    m = l[0]\n    for e in l:\n        if e > m:\n            m = e\n    return m\n\nExample 2:\ndef count_vowels(s: str) -> int:\n    \"\"\"Count the number of vowels in a string.\"\"\"\n    return sum(1 for c in s.lower() if c in 'aeiou')\n\nExample 3:\ndef flatten(lst):\n    \"\"\"Flatten a nested list into a single list.\"\"\"\n    result = []\n    for item in lst:\n        if isinstance(item, list):\n            result.extend(flatten(item))\n        else:\n            result.append(item)\n    return result\n\nNow complete the following:\n%s\n\n%s\n\nReturn ONLY the Python code. No markdown, no explanation." \
                 "$task_desc" "$prompt"
             ;;
         cgo|code-gen-opt)
@@ -228,7 +233,120 @@ PROGRESS_FILE="${WORK_DIR}/progress"
 PROGRESS_LOCK="${WORK_DIR}/progress.lock"
 echo "0" > "$PROGRESS_FILE"
 
-# ── Phase 2: Generate — parallel workers ─────────────────────────────────────
+# ── Phase 2: Generate — batch mode or parallel workers ───────────────────────
+
+# Detect batch mode availability
+# Batch mode loads model + CUDA JIT once, processes all prompts sequentially.
+# Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU.
+USE_BATCH=0
+BATCH_MODE="${APR_BATCH_MODE:-auto}"
+if [[ "$BATCH_MODE" == "on" ]]; then
+    USE_BATCH=1
+elif [[ "$BATCH_MODE" == "off" ]]; then
+    USE_BATCH=0
+elif [[ "$BATCH_MODE" == "auto" ]]; then
+    # Auto-detect: use batch if --batch-jsonl available and greedy decoding
+    if apr run --help 2>&1 | grep -q -- '--batch-jsonl'; then
+        if [[ "$TEMPERATURE" == "0.0" || "$TEMPERATURE" == "0" ]]; then
+            USE_BATCH=1
+        fi
+    fi
+fi
+
+# ── Phase 2a: Batch mode (single model load) ────────────────────────────────
+
+generate_batch() {
+    local batch_input="${WORK_DIR}/batch_input.jsonl"
+    local batch_output="${WORK_DIR}/batch_output.jsonl"
+
+    echo "  Building batch input..."
+    local skipped=0
+    for problem_idx in $(seq 0 $((TOTAL_PROBLEMS - 1))); do
+        local problem_file="${WORK_DIR}/problems/${problem_idx}.json"
+        local prompt instruction
+
+        prompt="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$problem_file" 2>/dev/null)"
+
+        if [[ -z "$prompt" || "$prompt" == "null" ]]; then
+            echo "SKIP" > "${WORK_DIR}/completions/${problem_idx}.py"
+            skipped=$((skipped + 1))
+            continue
+        fi
+
+        instruction="$(build_instruction "$BENCHMARK" "$prompt" "$PROMPT_STRATEGY" "$(cat "$problem_file")")"
+
+        # task_id = problem index for correlation back to completion files
+        jq -nc --arg prompt "$instruction" --arg task_id "${problem_idx}" \
+            --argjson max_tokens "$EFFECTIVE_MAX_TOKENS" \
+            '{prompt: $prompt, task_id: $task_id, max_tokens: $max_tokens}' >> "$batch_input"
+    done
+
+    local input_count
+    input_count="$(wc -l < "$batch_input")"
+    echo "  Batch input: ${input_count} prompts (${skipped} skipped)"
+
+    # Build apr run flags
+    local -a apr_flags=("$MODEL" "--batch-jsonl" "$batch_input" "--max-tokens" "$EFFECTIVE_MAX_TOKENS")
+    if [[ "${APR_NO_GPU:-0}" == "1" ]]; then
+        apr_flags+=("--no-gpu")
+    fi
+    apr_flags+=("--verbose")
+
+    # Run batch inference — stdout=JSONL results, stderr=progress
+    echo "  Running batch inference (model loads once, CUDA JIT amortized)..."
+    local batch_start
+    batch_start="$(date +%s)"
+
+    if ! apr run "${apr_flags[@]}" > "$batch_output"; then
+        echo "  ERROR: Batch inference failed" >&2
+        return 1
+    fi
+
+    local batch_end
+    batch_end="$(date +%s)"
+    local batch_elapsed=$(( batch_end - batch_start ))
+
+    if [[ ! -f "$batch_output" || ! -s "$batch_output" ]]; then
+        echo "  ERROR: No batch output produced" >&2
+        return 1
+    fi
+
+    local output_count
+    output_count="$(wc -l < "$batch_output")"
+    echo "  Batch complete: ${output_count} results in ${batch_elapsed}s"
+
+    # Parse batch output back into per-problem completion files
+    local parsed=0 errors=0
+    while IFS= read -r line; do
+        local task_id text error
+        task_id="$(jq -r '.task_id // ""' <<< "$line" 2>/dev/null)"
+        error="$(jq -r '.error // null' <<< "$line" 2>/dev/null)"
+        text="$(jq -r '.text // ""' <<< "$line" 2>/dev/null)"
+
+        if [[ -z "$task_id" ]]; then continue; fi
+
+        local completion_file="${WORK_DIR}/completions/${task_id}.py"
+
+        if [[ "$error" != "null" && -n "$error" ]]; then
+            echo "ERROR" > "$completion_file"
+            echo "  problem ${task_id} FAILED: ${error}" >&2
+            errors=$((errors + 1))
+        elif [[ -z "$text" || "$text" == "null" ]]; then
+            echo "ERROR" > "$completion_file"
+            errors=$((errors + 1))
+        else
+            text="$(strip_thinking_tokens "$text")"
+            text="$(strip_markdown_fences "$text")"
+            text="$(extract_python_code "$text")"
+            echo "$text" > "$completion_file"
+        fi
+        parsed=$((parsed + 1))
+    done < "$batch_output"
+
+    echo "  Parsed ${parsed} results (${errors} errors)"
+}
+
+# ── Phase 2b: Worker mode (per-problem model load) ──────────────────────────
 
 generate_worker() {
     local worker_id="$1"
@@ -302,33 +420,47 @@ generate_worker() {
     done
 }
 
-echo "Phase 2: Generating completions (${NUM_WORKERS} workers, ${EFFECTIVE_MAX_TOKENS} max tokens, ${GENERATION_TIMEOUT}s timeout)..."
+# ── Phase 2: Dispatch ────────────────────────────────────────────────────────
 
-# Export functions and variables for subshells
-export -f generate_worker build_instruction strip_thinking_tokens strip_markdown_fences extract_python_code
-export WORK_DIR QUEUE_FILE QUEUE_LOCK PROGRESS_FILE PROGRESS_LOCK
-export MODEL BENCHMARK PROMPT_STRATEGY EFFECTIVE_MAX_TOKENS GENERATION_TIMEOUT TOTAL_PROBLEMS
-
-# Launch workers
-WORKER_PIDS=()
-for w in $(seq 1 "$NUM_WORKERS"); do
-    generate_worker "$w" &
-    WORKER_PIDS+=($!)
-done
-
-# Wait for all workers
-WORKER_FAILED=0
-for pid in "${WORKER_PIDS[@]}"; do
-    if ! wait "$pid"; then
-        WORKER_FAILED=$((WORKER_FAILED + 1))
+if (( USE_BATCH )); then
+    echo "Phase 2: Generating completions (BATCH mode — single model load, ${EFFECTIVE_MAX_TOKENS} max tokens)..."
+    if ! generate_batch; then
+        echo "  Batch mode failed, falling back to worker mode..." >&2
+        USE_BATCH=0
     fi
-done
-
-if (( WORKER_FAILED > 0 )); then
-    echo "  WARNING: ${WORKER_FAILED} workers exited with errors"
+    GENERATED="$TOTAL_PROBLEMS"
 fi
 
-GENERATED="$(cat "$PROGRESS_FILE")"
+if (( ! USE_BATCH )); then
+    echo "Phase 2: Generating completions (${NUM_WORKERS} workers, ${EFFECTIVE_MAX_TOKENS} max tokens, ${GENERATION_TIMEOUT}s timeout)..."
+
+    # Export functions and variables for subshells
+    export -f generate_worker build_instruction strip_thinking_tokens strip_markdown_fences extract_python_code
+    export WORK_DIR QUEUE_FILE QUEUE_LOCK PROGRESS_FILE PROGRESS_LOCK
+    export MODEL BENCHMARK PROMPT_STRATEGY EFFECTIVE_MAX_TOKENS GENERATION_TIMEOUT TOTAL_PROBLEMS
+
+    # Launch workers
+    WORKER_PIDS=()
+    for w in $(seq 1 "$NUM_WORKERS"); do
+        generate_worker "$w" &
+        WORKER_PIDS+=($!)
+    done
+
+    # Wait for all workers
+    WORKER_FAILED=0
+    for pid in "${WORKER_PIDS[@]}"; do
+        if ! wait "$pid"; then
+            WORKER_FAILED=$((WORKER_FAILED + 1))
+        fi
+    done
+
+    if (( WORKER_FAILED > 0 )); then
+        echo "  WARNING: ${WORKER_FAILED} workers exited with errors"
+    fi
+
+    GENERATED="$(cat "$PROGRESS_FILE")"
+fi
+
 echo "  Generation complete: ${GENERATED}/${TOTAL_PROBLEMS}"
 echo ""
 
