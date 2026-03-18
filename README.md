@@ -51,8 +51,8 @@ make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
 # Evaluate on HumanEval
 make eval-humaneval CHECKPOINT=checkpoints/qwen_qwen2.5-coder-7b-instruct.apr
 
-# Batch inference (load model once, process all prompts — eliminates ~80s/problem JIT overhead)
-apr run checkpoints/model.apr --batch-jsonl prompts.jsonl --max-tokens 512
+# Batch inference (load model once — eliminates ~80s/problem JIT overhead)
+apr run checkpoints/model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --temperature 0.0
 
 # Sweep all eval results and compare
 make eval-sweep

@@ -41,6 +41,13 @@ apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --no-gpu --verbos
 {"task_id": "HumanEval/0", "text": "...", "tokens_generated": 85, "tok_per_sec": 14.2, "inference_ms": 5986.0, "used_gpu": true}
 ```
 
+**Sampling flags (also available in batch mode):**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--temperature` | `0.0` | Sampling temperature (0.0 = greedy) |
+| `--top-k` | `1` | Top-k sampling (1 = greedy) |
+
 Auto-detects model format (GGUF or APR). GPU/CPU fallback: tries CUDA first, validates with a 1-token probe, falls back to CPU on failure. Model stays resident across all prompts.
 
 ## 6.1.3 Evaluate (Baseline)

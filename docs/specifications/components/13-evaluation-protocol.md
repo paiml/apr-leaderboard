@@ -76,7 +76,14 @@ make eval-all CHECKPOINT=checkpoints/qwen-7b.apr
 make results-history
 ```
 
-The eval script handles: (1) benchmark download, (2) completion generation via `apr run --json --chat`, (3) markdown fence stripping + trailing text extraction, (4) python3/Docker sandbox execution with timeout, (5) Chen et al. unbiased pass@k computation, (6) JSON result output.
+The eval script handles: (1) benchmark download, (2) completion generation via `apr run --batch-jsonl` (batch mode, auto-detected) or `apr run --json --chat` (worker mode), (3) markdown fence stripping + trailing text extraction, (4) python3/Docker sandbox execution with timeout, (5) Chen et al. unbiased pass@k computation, (6) JSON result output.
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|---|---|---|
+| `APR_BATCH_MODE` | `auto` | Batch mode: `auto` (detect), `on` (force), `off` (disable) |
+| `APR_NO_GPU` | `0` | Disable GPU in batch mode |
 
 ## 13.5 Instruct Model Post-Processing
 

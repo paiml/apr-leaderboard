@@ -20,6 +20,7 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 - 85.37% → 89.63% from 7B → 32B model (+7 problems solved)
 - GPU/CPU parity confirmed: 7B produces identical 85.37% on both backends
 - SCoT prompting slightly hurts 7B (82.32% vs 85.37% standard) — model already strong without CoT
+- Few-shot strategy improved with 3 concrete exemplars (max_element, count_vowels, flatten) — pending re-eval
 
 **Perplexity baseline (WikiText-2):**
 
@@ -485,11 +486,24 @@ GPU batch garbage is caused by concurrent training process (entrenar PID 3811) c
 | Batch (164 problems) | 80s × 1 = 80s | 80s + inference |
 | Speedup | — | **~160x JIT reduction** |
 
-### 22.19.4 Key Implementation Details
+### 22.19.4 Eval Script Integration
+
+The eval script (`scripts/eval-pass-at-k.sh`) now auto-detects batch mode:
+
+1. Checks if `apr run --help` contains `--batch-jsonl`
+2. If available, builds all prompts into a single JSONL file
+3. Runs `apr run --batch-jsonl prompts.jsonl --temperature T --top-k K`
+4. Parses JSONL output back into per-problem completion files
+5. Falls back to per-problem worker mode on failure
+
+Environment variables: `APR_BATCH_MODE=auto|on|off`, `APR_NO_GPU=0|1`.
+
+### 22.19.5 Key Implementation Details
 
 - **Format auto-detection:** 8-byte magic read distinguishes APR (`APR\0`) from GGUF
 - **APR tokenization:** Uses `AprV2Model::encode_text()` / `decode_apr_tokens()` (separate from GGUF path)
 - **Stop tokens:** `resolve_apr_stop_tokens()` merges EOS from model config + sibling tokenizer.json
 - **GPU ownership transfer:** If `OwnedQuantizedModelCuda::with_max_seq_len()` consumes the model by value, the CPU fallback path reloads from mapped data
+- **Temperature/top-k passthrough:** CLI flags `--temperature` and `--top-k` pass through to `BatchInferenceConfig` for non-greedy sampling
 - **Streaming output:** Results flushed after each prompt for pipeline consumption
 - **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models
