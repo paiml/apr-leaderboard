@@ -103,7 +103,7 @@ apr-leaderboard/
 │   └── results-history.sh      # Eval results viewer
 ├── configs/
 │   ├── models/                 # 6 per-model YAML configs
-│   ├── recipes/                # 7 multi-stage pipeline recipes (YAML)
+│   ├── recipes/                # 8 multi-stage pipeline recipes (YAML)
 │   ├── eval/                   # Benchmark suite definitions (YAML)
 │   └── pipeline/               # Forjar manifest + batuta playbook (YAML)
 ├── data_catalog.yaml           # Data governance + lineage
@@ -142,7 +142,7 @@ The full specification is published as an [mdBook](https://paiml.github.io/apr-l
 - **S1-4** Architecture, thesis, target leaderboards, model selection
 - **S5-6** Sovereign tooling map, CLI toolchain (19 subcommands, 41 targets)
 - **S7-8** Technique playbook, leaderboard-winning techniques
-- **S9-10** 7 composite recipes, technique interaction matrix + golden ordering
+- **S9-10** 8 composite recipes, technique interaction matrix + golden ordering
 - **S12-14** Data strategy, evaluation protocol (Chen et al. pass@k), submission flow
 - **S16-18** Provable contracts, quality gates, 29 acceptance criteria
 - **S22-23** Dogfooding findings, training infrastructure (QLoRA, GPU sharing, wgpu proof)

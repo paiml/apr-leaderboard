@@ -71,10 +71,10 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
-| YAML configs | 17 | — | models (6) + recipes (7) + eval (1) + pipeline (2) + data catalog (1) |
+| YAML configs | 18 | — | models (6) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 7 | — | All executable, pass `bashrs lint` |
 | Makefile targets | 42 | — | `make verify` + `make validate` + `make dogfood` |
-| Config validity | 17/17 | 17/17 | `bashrs config lint` in `make validate` (zero Python) |
+| Config validity | 18/18 | 18/18 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
 ## 19.4 Config Templates (§4)
@@ -94,6 +94,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `recipe-e-instruct-finetune.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Instruct fine-tune (§9.5) | ✅ Complete |
 | `recipe-f-qwen3-qlora.yaml` | `configs/recipes/` | Qwen3-8B | QLoRA instruct pipeline (§9.6) | ✅ Complete |
 | `recipe-g-wgpu-proof.yaml` | `configs/recipes/` | Qwen2.5-Coder-1.5B | wgpu training proof (§22.14) | ✅ Complete |
+| `recipe-h-32b-distill.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | 32B→7B reasoning distillation | ✅ Complete |
 | `coding-benchmarks.yaml` | `configs/eval/` | — | Benchmark suite definitions + targets + baselines | ✅ Complete |
 | `leaderboard.yaml` | `configs/pipeline/` | — | Forjar infrastructure manifest | ✅ Complete |
 | `leaderboard-playbook.yaml` | `configs/pipeline/` | — | Batuta playbook DAG | ✅ Complete |

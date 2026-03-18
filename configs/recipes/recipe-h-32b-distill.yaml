@@ -1,0 +1,51 @@
+# Recipe H: "Reasoning Distillation" — 32B teacher → 7B student.
+#
+# Pipeline: distill -> eval
+# Transfers 32B's 89.63% HumanEval knowledge into 7B's fast inference.
+# Progressive distillation with high temperature (soft labels).
+#
+# Prerequisites:
+#   - Teacher: checkpoints/qwen2.5-coder-32b-instruct-q4km.apr (89.63% HumanEval)
+#   - Student: checkpoints/qwen2.5-coder-7b-instruct-q4k.apr (85.37% HumanEval)
+#
+# Expected outcome: close the 4.3pp gap (89.63% → 85.37%) while keeping
+# 7B inference speed (~85 tok/s vs 32B's ~14 tok/s).
+#
+# Usage:
+#   make pipeline RECIPE=recipe-h-32b-distill
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  output_dir: checkpoints
+  quantization: q4k
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - mbpp
+
+stages:
+  - distill
+  - eval
+
+distill:
+  teacher: "checkpoints/qwen2.5-coder-32b-instruct-q4km.apr"
+  student: "checkpoints/qwen2.5-coder-7b-instruct-q4k.apr"
+  strategy: progressive
+  temperature: 4.0
+  alpha: 0.8
+  epochs: 3
+
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "kd_loss", "ce_loss"]
+  alerts:
+    - condition: "loss > 10"
+      action: stop
+      message: "Loss exploded"
