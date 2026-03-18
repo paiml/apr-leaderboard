@@ -15,7 +15,7 @@
 .PHONY: import import-plan \
         prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download \
         finetune finetune-instruct align merge prune quantize distill compile \
-        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history \
+        eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history leaderboard \
         export publish model-card \
         pipeline pipeline-plan \
         check inspect qa compare-hf bench verify dogfood validate clean \
@@ -230,6 +230,9 @@ compare-results:
 	@test -n "$(BASE)" || { echo "ERROR: BASE required (e.g., make compare-results BASE=results/a.json NEW=results/b.json)"; exit 1; }
 	@test -n "$(NEW)" || { echo "ERROR: NEW required (e.g., make compare-results BASE=results/a.json NEW=results/b.json)"; exit 1; }
 	./scripts/compare-results.sh "$(BASE)" "$(NEW)"
+
+leaderboard:
+	./scripts/leaderboard-summary.sh "$(RESULTS_DIR)"
 
 # -- Submission ------------------------------------------------------------------
 

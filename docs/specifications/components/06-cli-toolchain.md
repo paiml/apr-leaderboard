@@ -161,6 +161,7 @@ The orchestration layer that drives the pipeline. Each Makefile target maps to o
 | `make results-history` | `scripts/results-history.sh` | View and compare eval results |
 | `make eval-sweep` | `scripts/eval-sweep.sh` | Sweep all result JSONs, tabulate pass@k across models |
 | `make compare-results` | `scripts/compare-results.sh` | Delta analysis between two result files |
+| `make leaderboard` | `scripts/leaderboard-summary.sh` | Generate ranked markdown leaderboard from results |
 | `make clean` | `rm -rf checkpoints/ results/` | Remove build artifacts |
 | `make book` | `mdbook build` | Build specification book |
 | `make docs` | `mdbook build` | Alias for book |

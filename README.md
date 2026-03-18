@@ -88,6 +88,20 @@ make pipeline-plan RECIPE=recipe-c-full-pipeline
 | SWE-bench Lite | 300 | resolve_rate | GitHub issues |
 | CRUXEval | 800 | pass@1 | I/O prediction |
 
+## Current Results
+
+HumanEval pass@1 (greedy decoding, temperature 0.0):
+
+| Rank | Model | pass@1 | Passed | Backend | Notes |
+|------|-------|--------|--------|---------|-------|
+| 1 | Qwen2.5-Coder-32B-Instruct Q4K_M | **89.63%** | 147/164 | GPU (gx10) | Blackwell sm_121 |
+| 2 | Qwen2.5-Coder-7B-Instruct Q4K | **85.37%** | 140/164 | CPU/GPU (gx10) | GPU/CPU parity verified |
+| 3 | Qwen2.5-Coder-7B-Instruct Q4K (SCoT) | **82.32%** | 135/164 | CPU (gx10) | Structured CoT |
+| 4 | Qwen3-4B Q4K | **78.05%** | 128/164 | CPU (gx10) | Thinking model |
+| 5 | Qwen2.5-Coder-1.5B Q4K | **59.15%** | 97/164 | CPU | Baseline |
+
+All results produced by `apr run` (zero Python inference). Code execution sandbox uses python3.
+
 ## Project Structure
 
 ```
@@ -133,6 +147,7 @@ apr-leaderboard/
 | `make prove-wgpu` | Dual GPU wgpu training proof |
 | `make eval-sweep` | Sweep all result JSONs, tabulate pass@k |
 | `make compare-results BASE=... NEW=...` | Delta analysis between two result files |
+| `make leaderboard` | Generate ranked markdown leaderboard from results |
 | `make results-history` | View evaluation results |
 
 ## Specification

@@ -64,6 +64,9 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `scripts/prove-wgpu.sh` | End-to-end wgpu training proof: import → train (QLoRA) → verify → report | ✅ Working |
 | `scripts/download-benchmarks.sh` | Download HumanEval/MBPP benchmark data for eval + decontamination | ✅ Working |
 | `scripts/results-history.sh` | View and compare evaluation results with filtering by benchmark/model | ✅ Working |
+| `scripts/leaderboard-summary.sh` | Generate ranked markdown leaderboard from all result JSONs | ✅ Working |
+| `scripts/eval-sweep.sh` | Run eval across multiple prompt strategies sequentially | ✅ Working |
+| `scripts/compare-results.sh` | Per-problem delta analysis between two result files | ✅ Working |
 
 ## 19.3 Quality Metrics
 
@@ -72,7 +75,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 18 | — | models (6) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
-| Shell scripts | 7 | — | All executable, pass `bashrs lint` |
+| Shell scripts | 10 | — | All executable, pass `bashrs lint` |
 | Makefile targets | 42 | — | `make verify` + `make validate` + `make dogfood` |
 | Config validity | 18/18 | 18/18 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
