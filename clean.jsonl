@@ -1,0 +1,26 @@
+{
+  "data_path": "data.jsonl",
+  "threshold": 0.05,
+  "decontaminated": true,
+  "total_samples": 1138,
+  "total_contaminated": 0,
+  "overall_overlap": 0.0,
+  "passed": true,
+  "benchmarks": [
+    {
+      "benchmark": "humaneval",
+      "total_samples": 164,
+      "contaminated_samples": 0,
+      "overlap_ratio": 0.0,
+      "passed": true
+    },
+    {
+      "benchmark": "mbpp",
+      "total_samples": 974,
+      "contaminated_samples": 0,
+      "overlap_ratio": 0.0,
+      "passed": true
+    }
+  ],
+  "timestamp": "2026-03-01T13:20:10.379158691+00:00"
+}
