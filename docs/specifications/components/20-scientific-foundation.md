@@ -46,7 +46,7 @@ are grouped by the pipeline stage they support.
 *Basis for N-sampling + majority voting reranking in `apr eval --n-samples --rerank majority`.*
 
 [13] Li et al., "Structured Chain-of-Thought Prompting for Code Generation", ACM TOSEM 2025.
-*Basis for `--prompt-strategy scot`. Structure reasoning before code output.*
+*Basis for `--prompt-strategy scot`. Structure reasoning before code output. **Dogfooding note:** SCoT hurts ≤7B Q4K models (-3.05pp on HumanEval, §22.0). Reasoning overhead consumes token budget. Simple few-shot prompting (+1.83pp) is superior at this scale.*
 
 ## 20.4 Benchmarks and Evaluation
 
