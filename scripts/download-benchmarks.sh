@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/download-benchmarks.sh — Download evaluation benchmark data
+# scripts/download-benchmarks.sh --Download evaluation benchmark data
 #
 # Downloads HumanEval, MBPP, and BigCodeBench problem sets from their
 # canonical sources into JSONL format for use by eval scripts and

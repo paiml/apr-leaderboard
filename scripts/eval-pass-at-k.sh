@@ -2,19 +2,19 @@
 # eval-pass-at-k.sh - Evaluate a model on code generation benchmarks
 #
 # Architecture:
-#   Phase 1: Prepare — download benchmark, split into per-problem JSON files
-#   Phase 2: Generate — batch mode (single model load via --batch-jsonl) or
+#   Phase 1: Prepare --download benchmark, split into per-problem JSON files
+#   Phase 2: Generate --batch mode (single model load via --batch-jsonl) or
 #            N parallel workers each claim problems via flock.
 #            Batch mode eliminates ~80s per-problem CUDA JIT overhead on gx10.
-#   Phase 3: Test — sequential sandbox execution of all completions
-#   Phase 4: Score — compute pass@k (Chen et al. unbiased estimator)
+#   Phase 3: Test --sequential sandbox execution of all completions
+#   Phase 4: Score --compute pass@k (Chen et al. unbiased estimator)
 #
 # Usage:
 #   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH [RESULTS_DIR] [MAX_TOKENS] [TEMPERATURE] [NUM_SAMPLES] [PROMPT_STRATEGY] [WORKERS]
 #
 # Environment variables:
-#   APR_BATCH_MODE=auto|on|off  — batch mode control (default: auto)
-#   APR_NO_GPU=0|1              — disable GPU for batch mode (default: 0)
+#   APR_BATCH_MODE=auto|on|off  --batch mode control (default: auto)
+#   APR_NO_GPU=0|1              --disable GPU for batch mode (default: 0)
 
 set -euo pipefail
 
@@ -219,7 +219,7 @@ ${test_examples}"
     esac
 }
 
-# ── Phase 1: Prepare — split benchmark into per-problem files ────────────────
+# ── Phase 1: Prepare --split benchmark into per-problem files ────────────────
 
 echo "Phase 1: Preparing problems..."
 mkdir -p "${WORK_DIR}/problems" "${WORK_DIR}/raw" "${WORK_DIR}/completions" "${WORK_DIR}/tests"
@@ -241,7 +241,7 @@ PROGRESS_FILE="${WORK_DIR}/progress"
 PROGRESS_LOCK="${WORK_DIR}/progress.lock"
 echo "0" > "$PROGRESS_FILE"
 
-# ── Phase 2: Generate — batch mode or parallel workers ───────────────────────
+# ── Phase 2: Generate --batch mode or parallel workers ───────────────────────
 
 # Detect batch mode availability
 # Batch mode loads model + CUDA JIT once, processes all prompts sequentially.
@@ -300,7 +300,7 @@ generate_batch() {
     fi
     apr_flags+=("--verbose")
 
-    # Run batch inference — stdout=JSONL results, stderr=progress
+    # Run batch inference --stdout=JSONL results, stderr=progress
     echo "  Running batch inference (model loads once, CUDA JIT amortized)..."
     local batch_start
     batch_start="$(date +%s)"
@@ -431,7 +431,7 @@ generate_worker() {
 # ── Phase 2: Dispatch ────────────────────────────────────────────────────────
 
 if (( USE_BATCH )); then
-    echo "Phase 2: Generating completions (BATCH mode — single model load, ${EFFECTIVE_MAX_TOKENS} max tokens)..."
+    echo "Phase 2: Generating completions (BATCH mode -- single model load, ${EFFECTIVE_MAX_TOKENS} max tokens)..."
     if ! generate_batch; then
         echo "  Batch mode failed, falling back to worker mode..." >&2
         USE_BATCH=0
@@ -472,7 +472,7 @@ fi
 echo "  Generation complete: ${GENERATED}/${TOTAL_PROBLEMS}"
 echo ""
 
-# ── Phase 3: Test — sequential sandbox execution ─────────────────────────────
+# ── Phase 3: Test --sequential sandbox execution ─────────────────────────────
 
 echo "Phase 3: Testing completions..."
 COMPLETED=0

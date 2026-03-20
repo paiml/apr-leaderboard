@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# prove-wgpu.sh — End-to-end proof that wgpu GPU training works.
+# prove-wgpu.sh --End-to-end proof that wgpu GPU training works.
 #
 # This script proves the entire training pipeline runs on wgpu (not CUDA).
 # Designed to run in parallel with other work: kick it off and check results later.
 #
 # Exit codes:
-#   0 — wgpu training proof passed
-#   1 — proof failed (see output for details)
+#   0 --wgpu training proof passed
+#   1 --proof failed (see output for details)
 #
 # Usage:
 #   ./scripts/prove-wgpu.sh                    # interactive
@@ -31,7 +31,7 @@ fail() { echo -e "${RED}FAIL${NC}: $1"; exit 1; }
 info() { echo -e "${YELLOW}INFO${NC}: $1"; }
 
 echo "================================================================"
-echo "  wgpu Training Proof — $(date -Iseconds)"
+echo "  wgpu Training Proof --$(date -Iseconds)"
 echo "================================================================"
 echo ""
 
@@ -64,7 +64,7 @@ elif [ -f "$DATA_DIR/instruct-corpus.jsonl" ]; then
     info "Extracted 200 samples from instruct corpus"
 else
     # Generate minimal synthetic data for the proof (zero Python)
-    info "No instruct corpus found — generating minimal synthetic data"
+    info "No instruct corpus found --generating minimal synthetic data"
     {
         for i in $(seq 0 199); do
             case $((i % 5)) in
@@ -101,7 +101,7 @@ else
     done
 
     if [ -n "$GGUF_PATH" ]; then
-        info "Found GGUF at $GGUF_PATH — importing"
+        info "Found GGUF at $GGUF_PATH --importing"
         $APR import "$GGUF_PATH" -o "$MODEL_APR" --verbose
     else
         info "Downloading from HuggingFace (Q4K GGUF)..."
@@ -131,7 +131,7 @@ fi
 for gpu_idx in $(seq 0 $((GPU_COUNT - 1))); do
     info "Testing GPU${gpu_idx} (${RENDER_DEVICES[$gpu_idx]})"
     GPU_OUTPUT=$(DRI_PRIME=$gpu_idx $APR run "$MODEL_APR" --gpu --prompt "def fibonacci(n):" --max-tokens 64 --verbose 2>&1) || {
-        info "GPU${gpu_idx} inference with --gpu failed — trying auto-detect"
+        info "GPU${gpu_idx} inference with --gpu failed --trying auto-detect"
         GPU_OUTPUT=$(DRI_PRIME=$gpu_idx $APR run "$MODEL_APR" --prompt "def fibonacci(n):" --max-tokens 64 --verbose 2>&1) || {
             fail "GPU${gpu_idx} inference failed on both --gpu and auto-detect paths"
         }
@@ -182,7 +182,7 @@ fi
 
 # Check for loss decrease
 if grep -q "loss" "$TRAIN_LOG" 2>/dev/null; then
-    pass "Training completed — loss values present in output"
+    pass "Training completed --loss values present in output"
 else
     info "Training completed but no loss values found in output (check log)"
 fi
@@ -211,13 +211,13 @@ echo ""
 # ── Step 6: Summary ──────────────────────────────────────────────────────
 
 echo "================================================================"
-echo "  wgpu Dual GPU Training Proof — Summary"
+echo "  wgpu Dual GPU Training Proof --Summary"
 echo "================================================================"
 echo ""
 echo "  Model:          Qwen2.5-Coder-1.5B Q4K"
 echo "  Training data:  $(wc -l < "$SUBSET_FILE") samples"
 echo "  Method:         QLoRA (rank=8, 2 epochs)"
-echo "  Backend:        wgpu (Vulkan — RADV Navi10)"
+echo "  Backend:        wgpu (Vulkan --RADV Navi10)"
 echo "  GPUs:           ${GPU_COUNT}x AMD Radeon Pro W5700X"
 echo "  Render devices: ${RENDER_DEVICES[*]}"
 echo "  Training log:   $TRAIN_LOG"

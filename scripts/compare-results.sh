@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# compare-results.sh — Compare two eval result files at per-problem level
+# compare-results.sh --Compare two eval result files at per-problem level
 #
 # Shows which problems were gained/lost between two runs.
 # Requires results with "problems" array (eval-pass-at-k.sh with per-problem output).
@@ -46,8 +46,8 @@ B_TOTAL="$(jq -r '.results.total' < "$BASELINE")"
 
 echo "=== Result Comparison ==="
 echo ""
-printf "  Baseline: %s [%s] — %s%% (%s/%s)\n" "$B_MODEL" "$B_STRATEGY" "$B_PASS1" "$B_PASSED" "$B_TOTAL"
-printf "  New:      %s [%s] — %s%% (%s/%s)\n" "$N_MODEL" "$N_STRATEGY" "$N_PASS1" "$N_PASSED" "$B_TOTAL"
+printf "  Baseline: %s [%s] --%s%% (%s/%s)\n" "$B_MODEL" "$B_STRATEGY" "$B_PASS1" "$B_PASSED" "$B_TOTAL"
+printf "  New:      %s [%s] --%s%% (%s/%s)\n" "$N_MODEL" "$N_STRATEGY" "$N_PASS1" "$N_PASSED" "$B_TOTAL"
 echo ""
 
 # Build task_id -> passed maps and compute delta

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# leaderboard-summary.sh — Generate markdown leaderboard from eval results
+# leaderboard-summary.sh --Generate markdown leaderboard from eval results
 #
 # Reads all result JSONs and outputs a ranked markdown table suitable
 # for README.md or spec docs. Groups by benchmark, ranks by pass@1.

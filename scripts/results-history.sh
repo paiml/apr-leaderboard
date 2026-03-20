@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# results-history.sh — View and compare evaluation results
+# results-history.sh --View and compare evaluation results
 #
 # Reads result JSON files from the results directory and displays
 # a formatted comparison table. Supports filtering by benchmark

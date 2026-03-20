@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# eval-sweep.sh — Run eval across multiple prompt strategies sequentially
+# eval-sweep.sh --Run eval across multiple prompt strategies sequentially
 #
 # Runs eval-pass-at-k.sh for each strategy, waiting for completion between runs.
 # Designed for long-running CPU evals where GPU is occupied.
