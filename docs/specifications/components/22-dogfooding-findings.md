@@ -23,7 +23,7 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 - Few-shot prompting is the best 7B strategy: **87.20%** (+1.83pp vs 85.37% standard, +3 problems)
 - Simpler exemplar wins: trivial `add(a,b)` (87.20%) > 3-exemplar (85.98%) > standard (84.76-85.37%)
 - SCoT prompting hurts 7B (82.32% vs 85.37% standard) — model already strong without CoT
-- CGO prompting broken (0%) — prompt format needs fixing
+- CGO fixed: 0% → **83.54%** (137/164) after rewriting prompt to request code-only output
 - MBPP: 50.80% → **76.20%** (+25.4pp) from including test assertions in prompt
 
 **7B Prompt Strategy Comparison (HumanEval):**
@@ -33,8 +33,8 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 | few-shot (trivial `add(a,b)`) | **87.20%** | +1.83pp | Best — simplest exemplar wins |
 | few-shot (3-exemplar) | 85.98% | +0.61pp | Complex exemplars hurt slightly |
 | standard | 84.76-85.37% | baseline | Variance across runs |
+| cgo | 83.54% | -1.83pp | "Use helper functions" prompt (fixed from 0%) |
 | scot | 82.32% | -3.05pp | Reasoning overhead hurts small model |
-| cgo | 0.00% | — | Broken prompt format |
 
 **Perplexity baseline (WikiText-2):**
 
@@ -620,7 +620,7 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 
 ### 22.21.2 Next Steps — Prompt & Eval (No GPU Required)
 
-1. **Fix CGO prompt** — CGO strategy scored 0% on HumanEval. The "break into sub-goals" prompt format likely confuses the model into producing non-code output. Diagnose by inspecting completions, then fix `build_instruction()`. Low effort.
+1. ~~**Fix CGO prompt**~~ — **DONE.** CGO 0% → **83.54%** (137/164). Old prompt ("break into sub-goals") caused model to output planning text. Fixed to "use helper functions" with code-only constraint.
 
 2. **MBPP few-shot with test assertions** — Current MBPP 76.20% uses standard + test assertions. Few-shot helped HumanEval (+1.83pp). Run MBPP with few-shot strategy now that test assertions are included. Expected: +2-5pp.
 
@@ -644,7 +644,7 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 
 | Priority | Action | Expected Gain | Effort | Dependency |
 |----------|--------|---------------|--------|------------|
-| 1 | Fix CGO prompt | Unblock strategy | **Low** | None |
+| ~~1~~ | ~~Fix CGO prompt~~ | ~~83.54%~~ | **Done** | ✅ |
 | 2 | MBPP few-shot + test assertions | +2-5pp MBPP | Low | CPU |
 | 3 | 32B MBPP (GPU) | ~85%+ MBPP | Low | GPU |
 | 4 | 32B few-shot HumanEval | >90%? HumanEval | Low | GPU |

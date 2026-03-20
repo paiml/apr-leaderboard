@@ -54,10 +54,10 @@ AC-019 status: Structured prompting **does** produce reasoning before code. 7B e
 | few-shot (trivial exemplar) | **87.20%** | +1.83pp | Best 7B strategy, 0.60pp from HF parity |
 | few-shot (3-exemplar) | 85.98% | +0.61pp | Complex exemplars slightly worse |
 | standard | 84.76-85.37% | baseline | Variance across runs |
+| cgo (fixed) | 83.54% | -1.83pp | "Use helper functions" — fixed from 0% |
 | scot | 82.32% | -3.05pp | Reasoning overhead degrades 7B |
-| cgo (original) | 0.00% | — | Broken prompt (fixed 2026-03-20) |
 
-**Conclusion:** SCoT hurts 7B models (-3.05pp). Few-shot with the simplest possible exemplar is optimal.
+**Conclusion:** Few-shot with the simplest possible exemplar is optimal (+1.83pp). CGO and SCoT both hurt 7B models. All 5 strategies now functional.
 
 ## 24.4 HF Parity Check (AC-014)
 
