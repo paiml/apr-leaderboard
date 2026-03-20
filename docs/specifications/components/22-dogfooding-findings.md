@@ -45,8 +45,8 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 **Notes:**
 - 7B model shows +9.75pp improvement over 1.5B
 - 7B 68.90% result was with 128-token cap (GH-372) and broken EOS termination (GH-373)
-- Both issues fixed; re-evaluation with max-tokens=512 + EOS in progress (2026-03-02)
-- 7B official score is ~88% — gap attributed to: (1) ~~128-token cap~~ fixed, (2) ~~EOS broken~~ fixed, (3) Q4K quantization loss, (4) greedy decoding
+- Both issues fixed; re-evaluation complete: 85.37% standard, **87.20% few-shot** (0.60pp from HF parity)
+- 7B HF reference ~87.8% — gap closed to 0.60pp with few-shot prompting. Remaining gap: Q4K quantization loss
 - GPU inference via wgpu (Vulkan/Metal/DX12) — no CUDA dependency
 - Perplexity = 6.63 on WikiText-2 confirms non-degenerate model quality (AC-002 partial)
 
@@ -375,7 +375,9 @@ Training bricks, QLoRA readiness, GPU sharing (multi-adapter), and dual wgpu tra
 
 **Before fix:** MBPP pass rate 5% (1/20). Model generated correct code but used wrong function names (e.g., `solve()` instead of `min_cost()`), causing all `assert min_cost(...)` tests to fail with `NameError`.
 
-**After fix:** MBPP pass rate ~50% at 10/974 (eval in progress on CPU). 10x improvement from extracting the expected function name from `test_list[0]` and including it in the prompt.
+**After fix (function name only):** MBPP pass rate 50.80% (254/500). 10x improvement from extracting the expected function name from `test_list[0]` and including it in the prompt.
+
+**After fix (function name + test assertions):** MBPP pass rate **76.20%** (381/500). Additional +25.4pp from including `test_list` assertions as examples in the prompt, giving the model exact I/O format.
 
 **Five Whys:**
 1. Why 5% pass rate? → Tests fail with `NameError`

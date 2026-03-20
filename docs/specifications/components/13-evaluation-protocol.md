@@ -133,4 +133,6 @@ func_name="$(jq -r '.test_list[0]' <<< "$problem_json" | grep -oP '(?<=assert )\
 
 This is included in the prompt: *"Write a Python function called \`min_cost\` to solve this task."*
 
-**Impact:** Without function name extraction, MBPP pass rate was 5% (1/20). With it, the model generates correctly-named functions (eval in progress, §24.5).
+Additionally, test assertions from `test_list` are appended to the prompt as examples, giving the model the exact function signature, argument types, and expected output format.
+
+**Impact:** Without function name extraction or test assertions, MBPP pass rate was 5%. With function name only: 50.80%. With function name + test assertions: **76.20%** (381/500). The 25.4pp improvement from test assertions confirms that MBPP requires explicit I/O examples for strong performance.
