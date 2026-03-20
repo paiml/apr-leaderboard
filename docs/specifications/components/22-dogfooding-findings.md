@@ -564,7 +564,41 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 
 **Remaining 7.3pp gap vs HF (83.5%):** Attributable to (1) Q4K quantization loss, (2) greedy-only decoding, (3) some MBPP problems with very long test assertions (4.4KB prompts) that consume context budget.
 
-### 22.20.3 Decontamination
+### 22.20.3 Per-Problem Failure Analysis (7B HumanEval)
+
+**Few-shot (87.20%) vs Standard (84.76%) delta:**
+- **Gained 5 problems:** `is_simple_power`, `iscube`, `starts_one_ends`, `fix_spaces`, `cycpattern_check`
+- **Lost 1 problem:** `check_if_last_char_is_a_letter`
+- **Net: +4 problems.** Gains are math/pattern problems where the exemplar primes numeric reasoning.
+
+**Always-fail problems (20 — failed by both strategies):**
+
+| Problem | Type | Five-Whys Root Cause |
+|---------|------|---------------------|
+| `make_palindrome` | String manipulation | Requires shortest palindrome prefix — complex string logic |
+| `remove_duplicates` | List filtering | Must remove ALL occurrences of duplicated elements, not just dupes |
+| `find_zero` | Numerical | Polynomial root finding — requires iterative algorithm |
+| `prime_fib` | Math | Fibonacci + primality test composition |
+| `is_multiply_prime` | Math | Product-of-3-primes check — combinatorial |
+| `encode` | String | Vowel swap + case flip — multi-step transformation |
+| `check_dict_case` | Dict | Edge cases with empty dicts and mixed key types |
+| `max_fill` | Grid | 2D grid water fill — requires capacity-based counting |
+| `maximum` | Sort/select | k-largest elements — subtle sorting requirement |
+| `solution` | String | Sum of odd-indexed chars — index arithmetic |
+| `intersection` | Geometry | Interval intersection + prime length check |
+| `minPath` | Grid/path | Grid path with sorted value constraints |
+| `tri` | Sequence | Tribonacci variant — non-standard recurrence |
+| `is_nested` | String | Nested bracket detection — stack-like logic |
+| `can_arrange` | Array | Find largest index where element < predecessor |
+| `file_name_check` | Validation | Multi-rule filename validation |
+| `order_by_points` | Sort | Sort by digit sum with sign handling |
+| `even_odd_count` | Counting | Count even/odd digits — negative number edge case |
+| `do_algebra` | Eval | Operator precedence in string expression |
+| `generate_integers` | Filtering | Even digits between bounds — range direction |
+
+**Pattern:** Most always-fail problems involve (1) multi-step composition (prime + fibonacci), (2) subtle edge cases (empty dict, negative numbers), or (3) non-obvious interpretation of the problem statement. These are inherent 7B model limitations at Q4K quantization — the 32B model solves 7 of these.
+
+### 22.20.4 Decontamination
 
 `apr data decontaminate` confirms 0% overlap between training data and MBPP benchmark:
 - 974 MBPP problems checked, 0 contaminated
