@@ -47,7 +47,17 @@ Tested `standard` vs `scot` (structured chain-of-thought) prompt strategies on H
 2. Use SCoT only on 7B+ models where reasoning is more concise
 3. Post-process to extract code from mixed reasoning+code output
 
-AC-019 status: Structured prompting **does** produce reasoning before code. Quality improvement pending larger model evaluation.
+AC-019 status: Structured prompting **does** produce reasoning before code. 7B evaluation complete:
+
+| Strategy | pass@1 | vs Standard | Notes |
+|----------|--------|-------------|-------|
+| few-shot (trivial exemplar) | **87.20%** | +1.83pp | Best 7B strategy, 0.60pp from HF parity |
+| few-shot (3-exemplar) | 85.98% | +0.61pp | Complex exemplars slightly worse |
+| standard | 84.76-85.37% | baseline | Variance across runs |
+| scot | 82.32% | -3.05pp | Reasoning overhead degrades 7B |
+| cgo (original) | 0.00% | — | Broken prompt (fixed 2026-03-20) |
+
+**Conclusion:** SCoT hurts 7B models (-3.05pp). Few-shot with the simplest possible exemplar is optimal.
 
 ## 24.4 HF Parity Check (AC-014)
 
@@ -73,7 +83,18 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 4. Why no name in prompt? `build_instruction()` didn't extract names from MBPP test_list
 5. Why not? MBPP format was only partially understood
 
-**Fix:** Extract function name from first test assertion via `grep -oP '(?<=assert )\w+'` and include it in the prompt: "Write a Python function called \`min_cost\` to solve this task."
+**Fix (Stage 1):** Extract function name from first test assertion via `grep -oP '(?<=assert )\w+'` and include it in the prompt: "Write a Python function called \`min_cost\` to solve this task." Result: 5% → **50.80%** (254/500).
+
+**Fix (Stage 2):** Append `test_list` assertions as examples in the prompt, giving the model exact function signature, argument types, and expected output format. Result: 50.80% → **76.20%** (381/500, +25.4pp).
+
+**Five Whys for remaining 7.3pp gap (76.20% vs 83.5% HF):**
+1. Why 7.3pp gap? 119 problems fail despite correct function names
+2. Why do they fail? Model generates wrong logic or misunderstands edge cases
+3. Why wrong logic? Q4K quantization reduces reasoning capacity vs FP16
+4. Why Q4K? apr-native inference only supports quantized models (not FP16)
+5. Why not FP16? realizar's fused matmul requires Q4K/Q6K/Q8K types
+
+**Conclusion:** Remaining gap is primarily Q4K quantization loss + greedy-only decoding. N-sampling with temperature may close 2-3pp.
 
 ## 24.6 Wanda Pruning on GGUF Models (AC-008)
 
