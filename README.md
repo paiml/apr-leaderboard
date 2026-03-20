@@ -109,6 +109,18 @@ MBPP pass@1 (greedy decoding, temperature 0.0):
 
 All results produced by `apr run` (zero Python inference). Code execution sandbox uses python3.
 
+## Roadmap
+
+**Immediate (actionable now):**
+1. Fix CGO prompt strategy (0% — broken format)
+2. 32B MBPP eval on GPU — expected ~85%+
+3. 32B few-shot HumanEval on GPU — may push >90%
+4. Per-problem failure analysis (data available)
+
+**Pipeline experiments (require upstream `apr` features):**
+5. 32B→7B reasoning distillation (recipe-h ready)
+6. DPO with execution feedback for HumanEval+ gains
+
 ## Project Structure
 
 ```

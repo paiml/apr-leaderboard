@@ -93,7 +93,11 @@ Phase 7: Compile & Ship
 
 **Success gate:** Final model achieves ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP, all via `apr` commands only.
 
-**Current status:** Phase 1 complete. 7B-Instruct Q4K achieves **85.37%** HumanEval (140/164, GPU/CPU parity). 32B-Instruct Q4K_M achieves **89.63%** (147/164, GPU). MBPP eval in progress. Remaining phases depend on upstream `apr distill` + `apr align` readiness.
+**Current status (2026-03-20):** Phase 1 complete.
+- HumanEval: 7B **87.20%** (few-shot, 0.60pp from HF parity), 32B **89.63%** (GPU)
+- MBPP: 7B **76.20%** (7.3pp from HF parity, fixed by adding test assertions to prompt)
+- Success gate: HumanEval ≥85% ✅, MBPP ≥80% — **3.8pp short**, needs 32B eval or prompt tuning
+- Next: 32B MBPP eval (GPU), 32B few-shot HumanEval, per-problem failure analysis
 
 ### 4.3.2 Qwen2.5-Coder-32B: "The Crown" (Maximum Score)
 
