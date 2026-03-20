@@ -209,7 +209,7 @@ ${test_examples}"
                 "$task_desc" "$prompt"
             ;;
         cgo|code-gen-opt)
-            printf "Break down the implementation into clear sub-goals, then implement each one.\n\n%s\n\n%s\n\nReturn ONLY Python code. No markdown." \
+            printf "%s Use helper functions to break the problem into smaller steps.\n\nReturn ONLY Python code. No markdown, no explanation.\n\n%s" \
                 "$task_desc" "$prompt"
             ;;
         *)
