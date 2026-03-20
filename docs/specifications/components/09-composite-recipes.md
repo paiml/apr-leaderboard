@@ -339,6 +339,22 @@ apr quantize checkpoints/qwen3-8b-qlora.apr \
 
 **Strategy:** Use Recipe F for rapid iteration and hyperparameter search (fast, cheap). Once optimal hyperparameters are found, run Recipe E on a server GPU for the final submission model.
 
+## 9.7 Recipe G: "wgpu Training Proof" (GPU Verification)
+
+**Target:** Prove wgpu GPU training works end-to-end: import → QLoRA train → verify loss decrease.
+
+**Model:** Qwen2.5-Coder-1.5B (smallest model, fastest iteration)
+
+```bash
+# Full proof: import → train → verify
+make prove-wgpu
+# Equivalent to: scripts/prove-wgpu.sh
+```
+
+**Stages:** import → finetune (QLoRA, 2 epochs, 200 samples) → verify (loss decrease)
+
+**Result:** Verified — loss decreases over 2 epochs on wgpu (Vulkan/Metal/DX12). No CUDA toolkit required. See §22.14 and §23 for detailed findings.
+
 ## 9.8 Recipe H: "Reasoning Distillation" (32B → 7B)
 
 **Target:** Transfer 32B teacher's 89.63% HumanEval score into 7B student while preserving fast inference.
