@@ -614,7 +614,7 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 | # | Action | Result | Finding |
 |---|--------|--------|---------|
 | ✅ | MBPP baseline | 50.80% → **76.20%** | Test assertions in prompt = +25.4pp |
-| ✅ | Strategy sweep (HumanEval) | 4 strategies tested | Trivial few-shot best (87.20%) |
+| ✅ | Strategy sweep (HumanEval) | 5 strategies tested | Trivial few-shot best (87.20%), CGO fixed (83.54%) |
 | ✅ | Few-shot with improved exemplars | 85.98% | Simpler exemplar (87.20%) wins |
 | ✅ | Batch mode wired | All evals use `--batch-jsonl` | ~160x JIT reduction on GPU |
 

@@ -169,7 +169,7 @@ Component: Ground truth corpora
 **Implemented in eval pipeline:**
 
 ```bash
-# All 4 strategies work via Makefile targets:
+# All 5 strategies work via Makefile targets (best: few-shot 87.20%):
 make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=standard
 make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=scot
 make eval-humaneval CHECKPOINT=m.apr PROMPT_STRATEGY=few-shot
