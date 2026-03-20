@@ -28,8 +28,8 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | Quality gates | Compliance enforcement | **pmat** | ✅ Complete | 30+ automated checks |
 | **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ✅ **Wired** | `make align` → `apr finetune --method dpo` (GH-8: dedicated `apr align` planned) |
 | **Execution sandbox** | Run generated code safely | — | ❌ **Missing** | **External harness** (see §5.3) |
-| **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ⚠️ **Partial** | N-sampling via `NUM_SAMPLES` in eval script; reranking strategies not yet implemented |
-| **Prompt templates** | SCoT, few-shot strategies | **aprender** 0.27 | ⚠️ **Partial** | `--system` available upstream; prompt strategy engine not yet implemented (PMAT-005) |
+| **N-sampling + rerank** | Batched generation, voting | **aprender** 0.27 | ⚠️ **Partial** | N-sampling via `NUM_SAMPLES` in eval script; `--temperature` + `--top-k` wired through batch mode. Reranking not yet implemented. |
+| **Prompt templates** | SCoT, few-shot strategies | **eval script** | ✅ **Working** | 5 strategies in `build_instruction()`: standard, scot, few-shot, cgo, default. Few-shot best for HumanEval (+1.83pp). MBPP test assertions = +25.4pp. |
 | **Synthetic data gen** | Teacher → training corpus | **alimentar** 0.2 + **aprender** | ⚠️ Partial | Generation via `apr chat --batch`; curation pipeline needed |
 | **Continued pretraining** | Full-weight code corpus training | **entrenar** 0.7 | ⚠️ Partial | Full finetune works; needs large-corpus streaming |
 | **Flash Attention** | Online softmax, tiled attention | **trueno** 0.16 | 🔧 In Progress | Phase 12 planned; tiling infra ready (wgpu compute shaders) |
