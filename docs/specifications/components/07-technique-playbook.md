@@ -219,8 +219,8 @@ apr finetune qwen-7b.apr \
 |----------|-------------|---------|-------------|
 | `few-shot` | **87.20%** (+1.83pp) | — | Best for HumanEval. Use simplest possible exemplar. |
 | `standard` | 85.37% (baseline) | **76.20%** | Default. Sufficient for most benchmarks. |
+| `cgo` | 83.54% (-1.83pp) | — | "Use helper functions" — slight overhead. |
 | `scot` | 82.32% (-3.05pp) | — | Hurts ≤7B models. May help ≥32B. |
-| `cgo` | *under evaluation* | — | Asks for helper functions. |
 
 **Key findings from dogfooding (§22.21):**
 1. **Simpler exemplars win.** Trivial `add(a,b)` (87.20%) > 3 concrete exemplars (85.98%). The exemplar's purpose is format priming, not domain knowledge.
