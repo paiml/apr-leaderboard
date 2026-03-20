@@ -1,9 +1,9 @@
 ---
 title: "APR Leaderboard Specification"
-version: "2.1.0"
+version: "2.2.0"
 status: "Active"
 created: "2026-02-28"
-updated: "2026-03-06"
+updated: "2026-03-20"
 ---
 
 # APR Leaderboard Specification
@@ -25,7 +25,7 @@ updated: "2026-03-06"
 | 6 | [CLI Toolchain](#6-cli-toolchain) | [06](components/06-cli-toolchain.md) | `apr` subcommands, Makefile targets, scripts |
 | 7 | [Technique Playbook](#7-technique-playbook) | [07](components/07-technique-playbook.md) | LoRA, QLoRA, distillation, pruning, quantization |
 | 8 | [Leaderboard Techniques](#8-leaderboard-winning-techniques) | [08](components/08-leaderboard-winning-techniques.md) | Speculative decoding, FIM, prompt strategies |
-| 9 | [Composite Recipes](#9-composite-recipes) | [09](components/09-composite-recipes.md) | Recipes A-G pipeline definitions |
+| 9 | [Composite Recipes](#9-composite-recipes) | [09](components/09-composite-recipes.md) | Recipes A-H pipeline definitions |
 | 10 | [Technique Interaction Matrix](#10-technique-interaction-matrix) | [10](components/10-technique-interaction-matrix.md) | Compatibility matrix for stacked techniques |
 | 11 | [Competitive Advantage](#11-competitive-advantage) | [11](components/11-competitive-advantage.md) | Why sovereign stack wins |
 | 12 | [Data Strategy](#12-data-strategy) | [12](components/12-data-strategy.md) | Training corpora, data lineage |
@@ -68,8 +68,8 @@ Makefile (dev convenience)
 +-- scripts/submit.sh         -> preflight checks + apr export + apr publish
 +-- scripts/prove-wgpu.sh     -> dual GPU wgpu training proof
 +-- scripts/results-history.sh -> eval results viewer
-+-- configs/models/            -> 6 YAML model configs
-+-- configs/recipes/           -> 7 YAML recipe configs
++-- configs/models/            -> 7 YAML model configs
++-- configs/recipes/           -> 8 YAML recipe configs
 +-- configs/eval/              -> benchmark suite definitions
 +-- configs/pipeline/          -> forjar manifest + batuta playbook
 +-- data_catalog.yaml          -> data governance + lineage
@@ -89,8 +89,7 @@ Makefile (dev convenience)
 > Can a single Rust binary (`apr`) match Python-ecosystem HumanEval/MBPP scores
 > for Qwen2.5-Coder-7B, with zero Python dependencies?
 
-**Compute reality:** Dual AMD Radeon Pro W5700X (Navi10) via wgpu/Vulkan.
-No CUDA toolkit. No vendor lock-in. 32 GB total VRAM across 2 GPUs.
+**Compute reality:** Primary eval on gx10 (NVIDIA Blackwell GB10, 119 GB unified, CUDA sm_121). Also verified on AMD Radeon Pro W5700X (Navi10) via wgpu/Vulkan. CPU/GPU parity confirmed on HumanEval (85.37% on both backends).
 
 -> [Full details](components/02-thesis.md)
 
