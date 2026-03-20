@@ -145,7 +145,7 @@ Makefile (dev convenience)
 
 ## 6. CLI Toolchain
 
-19 `apr` subcommands verified. 7 shell scripts. 42 Makefile targets.
+19 `apr` subcommands verified. 10 shell scripts. 45 Makefile targets.
 Zero Python scripts — all data prep uses `apr` CLI.
 
 ```bash
@@ -194,6 +194,7 @@ n-sampling with reranking, code-specific tokenization.
 | E: Instruct LoRA | import -> prep-data -> instruct LoRA -> eval | BigCodeBench |
 | F: Qwen3 QLoRA | import -> QLoRA (NF4) -> eval | VRAM-efficient |
 | G: wgpu Proof | import -> QLoRA (wgpu) -> eval -> verify | GPU proof |
+| H: Reasoning Distill | 32B teacher -> progressive distill -> 7B student -> eval | Knowledge transfer |
 
 -> [Full details](components/09-composite-recipes.md)
 
@@ -249,14 +250,14 @@ Suite config: `configs/eval/coding-benchmarks.yaml`.
 
 ## 15. Success Criteria
 
-| Metric | Target | Gate |
-|---|---|---|
-| HumanEval pass@1 (7B) | >= 80% | Hard |
-| MBPP pass@1 (7B) | >= 70% | Hard |
-| BigCodeBench pass@1 | >= 35% | Soft |
-| Pipeline stages | All 12 working | Hard |
-| Zero Python deps | 0 | Hard |
-| wgpu GPU compute | Dual GPU proven | Hard |
+| Metric | Target | Gate | Current |
+|---|---|---|---|
+| HumanEval pass@1 (7B) | >= 80% | Hard | **87.20%** ✅ |
+| MBPP pass@1 (7B) | >= 70% | Hard | **76.20%** ✅ |
+| BigCodeBench pass@1 | >= 35% | Soft | — |
+| Pipeline stages | All 12 working | Hard | ✅ |
+| Zero Python deps | 0 | Hard | ✅ |
+| wgpu GPU compute | Dual GPU proven | Hard | ✅ |
 
 -> [Full details](components/15-success-criteria.md)
 
