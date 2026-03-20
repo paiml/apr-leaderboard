@@ -111,15 +111,20 @@ All results produced by `apr run` (zero Python inference). Code execution sandbo
 
 ## Roadmap
 
-**Immediate (actionable now):**
-1. Fix CGO prompt strategy (0% — broken format)
-2. 32B MBPP eval on GPU — expected ~85%+
-3. 32B few-shot HumanEval on GPU — may push >90%
-4. Per-problem failure analysis (data available)
+**In progress (eval chain running on gx10):**
+1. 32B standard HumanEval on CPU batch — running (64/164)
+2. 32B few-shot HumanEval — queued
+3. 32B MBPP eval — queued (expected ~85%+)
+
+**Next:**
+4. MBPP few-shot with test assertions
+5. N-sampling (N=5, temp 0.2) for pass@5 estimates
 
 **Pipeline experiments (require upstream `apr` features):**
-5. 32B→7B reasoning distillation (recipe-h ready)
-6. DPO with execution feedback for HumanEval+ gains
+6. 32B→7B reasoning distillation (recipe-h ready)
+7. DPO with execution feedback for HumanEval+ gains
+
+**Completed:** CGO prompt fix (0% → 83.54%), per-problem failure analysis (20 always-fail problems identified)
 
 ## Project Structure
 
