@@ -176,12 +176,20 @@ build_instruction() {
     elif [[ "$benchmark" == "bigcodebench" ]]; then
         task_desc="Write a Python function to solve this task with all necessary imports."
     elif [[ "$benchmark" == "mbpp" && -n "$problem_json" ]]; then
-        local func_name
+        local func_name test_examples
         func_name="$(jq -r '.test_list[0] // ""' <<< "$problem_json" 2>/dev/null | grep -oP '(?<=assert )\w+' | head -1)"
+        # Include test assertions so model knows exact function signature and I/O format
+        test_examples="$(jq -r '.test_list[]? // empty' <<< "$problem_json" 2>/dev/null)"
         if [[ -n "$func_name" ]]; then
             task_desc="Write a Python function called \`${func_name}\` to solve this task."
         else
             task_desc="Write a Python function to solve this task."
+        fi
+        if [[ -n "$test_examples" ]]; then
+            prompt="${prompt}
+
+Examples:
+${test_examples}"
         fi
     else
         task_desc="Write a Python function to solve this task."
