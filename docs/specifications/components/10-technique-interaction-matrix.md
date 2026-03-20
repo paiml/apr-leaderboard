@@ -48,3 +48,5 @@ full-precision LoRA.
 - Prune → Finetune: LoRA can't recover pruned knowledge effectively
 - Finetune → Distill: Overwrites the fine-tuned specialization
 - Quantize → anything: Quality loss compounds with every subsequent operation
+
+**Prompt strategy (§7.6) is orthogonal** — it applies at eval time after all model modifications. No interaction with the training pipeline. Dogfooding shows prompt strategy yields +1.83pp (HumanEval) and +25.4pp (MBPP) at zero compute cost. Always optimize prompts before starting the training pipeline.
