@@ -216,7 +216,7 @@ When we find a gap:
 3. **Is it fundamentally outside the stack's scope?** → Use an external tool (e.g., EvalPlus for code execution) and document the boundary explicitly.
 4. **Is it a research problem with no clear solution?** → Add to §21 Open Questions. Don't block the pipeline.
 
-**Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. We never add a CUDA/nvcc dependency. GPU compute is wgpu only — any vendor, pure Rust. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
+**Hard rule:** We never add a Python dependency. We never add a C/C++ FFI dependency. GPU compute is wgpu (primary, any vendor, pure Rust) with optional CUDA backend for hardware where wgpu support lags (e.g., Blackwell sm_121). No GPU vendor lock-in. If the sovereign stack can't do it in pure Rust, we either build it or scope it out with an explicit boundary.
 
 ## 5.9 Parity Check: Ludwig Feature Coverage
 
