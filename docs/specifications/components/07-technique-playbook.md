@@ -209,7 +209,28 @@ apr finetune qwen-7b.apr \
 
 **When to use QLoRA:** Always for 32B models. For 7B, use LoRA if you have 32GB+ VRAM. When targeting INT4 deployment, prefer QLoRA — it provides implicit quantization awareness.
 
-## 7.6 Quantization (Post-Training)
+## 7.6 Prompt Strategy (Zero-Cost Technique)
+
+**Goal:** Maximize pass@1 without any model modification. Zero training cost, immediate results.
+
+**eval command:** `make eval-humaneval PROMPT_STRATEGY=few-shot`
+
+| Strategy | HumanEval 7B | MBPP 7B | When to Use |
+|----------|-------------|---------|-------------|
+| `few-shot` | **87.20%** (+1.83pp) | — | Best for HumanEval. Use simplest possible exemplar. |
+| `standard` | 85.37% (baseline) | **76.20%** | Default. Sufficient for most benchmarks. |
+| `scot` | 82.32% (-3.05pp) | — | Hurts ≤7B models. May help ≥32B. |
+| `cgo` | *under evaluation* | — | Asks for helper functions. |
+
+**Key findings from dogfooding (§22.21):**
+1. **Simpler exemplars win.** Trivial `add(a,b)` (87.20%) > 3 concrete exemplars (85.98%). The exemplar's purpose is format priming, not domain knowledge.
+2. **SCoT hurts small models.** Reasoning overhead consumes tokens and degrades output quality on 7B. Reserve for 32B+ where reasoning is more concise.
+3. **MBPP needs test assertions.** Including `test_list` assertions in the prompt = +25.4pp (50.80% → 76.20%). Without them, the model guesses function signatures wrong.
+4. **Benchmark-specific prompting matters.** HumanEval provides function signatures (model completes); MBPP provides prose (model writes from scratch). Different benchmarks need different prompt structures.
+
+**Leaderboard recipe:** Use `few-shot` for HumanEval, `standard` with test assertions for MBPP. This costs zero compute and yields the highest known apr-native scores.
+
+## 7.8 Quantization (Post-Training)
 
 **Goal:** Reduce model size for faster inference with minimal quality loss.
 
@@ -229,7 +250,7 @@ apr quantize model.apr --batch int8,int4,fp16,q4k
 apr quantize model.apr --scheme int4 --format gguf -o model.gguf
 ```
 
-## 7.7 Hyperparameter Optimization (HPO)
+## 7.9 Hyperparameter Optimization (HPO)
 
 **Goal:** Find optimal LoRA/QLoRA hyperparameters automatically.
 
