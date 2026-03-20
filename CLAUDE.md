@@ -58,7 +58,7 @@ Every command is provided by the `apr` CLI (aprender). This repo provides pipeli
 ## Constraints
 
 - **Zero Python in pipeline.** Config parsing, data processing, and orchestration use sovereign stack tooling (`apr`, `bashrs`, `alimentar`) or bash builtins. The only `python3` usage is sandbox execution in eval (external boundary per §5.3).
-- **Zero CUDA.** GPU compute via wgpu (Vulkan/Metal/DX12). No CUDA toolkit, no nvcc, no vendor lock-in.
+- **No GPU vendor lock-in.** GPU compute via wgpu (Vulkan/Metal/DX12) or optional CUDA backend. No vendor lock-in.
 - **YAML-only.** All configs are YAML (albor pattern). Legacy TOML configs have been removed.
 
 ## Quality Gates
