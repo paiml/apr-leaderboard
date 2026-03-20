@@ -167,7 +167,7 @@ compare-hf   OK
 ### 22.5.2 `make dogfood` Output
 
 All YAML configs and scripts validated:
-- 6 model configs in `configs/models/` (YAML-only, legacy TOML removed)
+- 7 model configs in `configs/models/` (YAML-only, includes Qwen3-4B)
 - 8 recipe configs in `configs/recipes/` (YAML-only, includes recipe-h distillation)
 - 10 shell scripts in `scripts/` (all pass `bash -n`)
 

@@ -75,10 +75,10 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
-| YAML configs | 18 | — | models (6) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
+| YAML configs | 19 | — | models (7) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
 | Shell scripts | 10 | — | All executable, pass `bashrs lint` |
 | Makefile targets | 45 | — | `make verify` + `make validate` + `make dogfood` |
-| Config validity | 18/18 | 18/18 | `bashrs config lint` in `make validate` (zero Python) |
+| Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
 ## 19.4 Config Templates (§4)
@@ -90,6 +90,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `qwen-coder-1.5b.yaml` | `configs/models/` | Qwen2.5-Coder-1.5B | QLoRA → prune → INT4 → compile | ✅ Complete |
 | `deepseek-r1-distill-7b.yaml` | `configs/models/` | DeepSeek-R1-Distill-Qwen-7B | DPO align → prune → INT4 | ✅ Complete |
 | `phi-4.yaml` | `configs/models/` | Phi-4 | LoRA finetune → INT8 | ✅ Complete |
+| `qwen3-4b.yaml` | `configs/models/` | Qwen3-4B | Thinking model eval (§22.17) | ✅ Complete |
 | `qwen3-8b.yaml` | `configs/models/` | Qwen3-8B | QLoRA instruct + eval | ✅ Complete |
 | `recipe-a-quick-lora.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Quick LoRA (§9.1) | ✅ Complete |
 | `recipe-b-merge-alchemist.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Zero-training merge (§9.2) | ✅ Complete |
