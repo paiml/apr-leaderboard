@@ -34,7 +34,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 │                    apr-leaderboard                        │
 │                                                          │
 │  Makefile           YAML configs        Shell scripts    │
-│  (dev convenience)  (models/recipes/   (7 scripts)      │
+│  (dev convenience)  (models/recipes/   (10 scripts)     │
 │                      eval/pipeline)                      │
 │                                                          │
 │  ┌──────────────── calls ─────────────────────────────┐  │
@@ -89,9 +89,9 @@ All orchestration is implemented via Makefile + shell scripts. Every `make` targ
 | **configs/eval/** | **Complete** | Eval suite YAML with benchmark definitions, targets, and baselines |
 | **configs/pipeline/** | **Complete** | Forjar infra manifest + batuta playbook DAG |
 | **data_catalog.yaml** | **Complete** | Data governance: datasets, lineage, classification, lifecycle |
-| **docs/** | **Complete** | Strategy spec (mdbook), 22 sections covering full pipeline |
+| **docs/** | **Complete** | Strategy spec (mdbook), 24 sections covering full pipeline |
 
-**Quality:** All YAML configs valid (`make validate`), all 7 scripts pass `bashrs lint`, 19/19 `apr` subcommands verified, real model import and inference tested with Qwen2.5-Coder-1.5B and Qwen2.5-Coder-7B. Zero Python scripts. Zero TOML configs (migrated to YAML). Chen et al. unbiased pass@k estimator. 4 prompt strategies (standard, scot, few-shot, cgo).
+**Quality:** All 19 YAML configs valid (`make validate`), 10 scripts, 19/19 `apr` subcommands verified. Real model import and inference tested with Qwen2.5-Coder-1.5B, 7B, 32B, and Qwen3-4B. Zero Python scripts. Zero TOML configs (migrated to YAML). Chen et al. unbiased pass@k estimator. 5 prompt strategies (standard, scot, few-shot, cgo, default). Best results: HumanEval **87.20%** (7B few-shot), MBPP **76.20%** (7B + test assertions).
 
 **GPU sharing infrastructure:** 143 tests across 9 entrenar modules (VRAM guard, ledger, wait queue, profiler, MPS, cluster config, placement, coordinator, multi-adapter pipeline). See §22 for details.
 

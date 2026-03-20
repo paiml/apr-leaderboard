@@ -118,7 +118,7 @@ apr compare-hf --hf "Qwen/Qwen2.5-Coder-1.5B-Instruct" --json \
 
 ## 24.8 Pipeline Verification (2026-03-05)
 
-`make verify`: 19/19 subcommands OK, 17 YAML configs, 7 scripts. Eval script handles HumanEval (function completion), MBPP (assert-based test_list), and BigCodeBench (instruct mode) with benchmark-specific test assembly. Chen et al. unbiased pass@k estimator with per-task sample tracking. `make validate`: all configs pass `bashrs` lint.
+`make verify`: 19/19 subcommands OK, 19 YAML configs, 10 scripts. Eval script handles HumanEval (function completion), MBPP (assert-based test_list with test assertion inclusion), and BigCodeBench (instruct mode) with benchmark-specific test assembly. Chen et al. unbiased pass@k estimator with per-task sample tracking. Batch mode (`--batch-jsonl`) auto-detected. `make validate`: all configs pass `bashrs` lint.
 
 ## 24.9 Pass@k Contract Falsification Tests (AC-015 partial)
 
