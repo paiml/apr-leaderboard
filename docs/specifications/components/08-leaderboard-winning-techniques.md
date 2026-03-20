@@ -238,17 +238,19 @@ Leaderboard winners stack techniques multiplicatively. The winning formula, in p
 
 ```
 1. Best base model selection (Qwen2.5-Coder-7B-Instruct)     — biggest impact
-2. Continued pretraining on code corpus                        — +5-10%
-3. Distillation from 32B teacher                               — +3-8%
-4. LoRA/QLoRA instruction fine-tuning                          — +5-15%
-5. DPO/ORPO preference alignment                               — +3-8%
-6. Merge tournament with specialist variants                   — +2-5%
-7. Structured prompting (SCoT)                                 — +5-14%
+2. Prompt strategy optimization (§7.6)                         — +1-25pp (zero cost)
+3. Continued pretraining on code corpus                        — +5-10%
+4. Distillation from 32B teacher                               — +3-8%
+5. LoRA/QLoRA instruction fine-tuning                          — +5-15%
+6. DPO/ORPO preference alignment                               — +3-8%
+7. Merge tournament with specialist variants                   — +2-5%
 8. N-sampling with test-based reranking                        — +10-30% effective
 9. Pruning + quantization for inference speed                  — neutral quality, faster
 ```
 
-**Not all gains stack linearly.** Steps 2-4 compound well. Steps 5-6 have diminishing returns if 2-4 are strong. Steps 7-8 are inference-time and always apply on top of model-time gains.
+**Not all gains stack linearly.** Steps 3-5 compound well. Steps 6-7 have diminishing returns if 3-5 are strong. Step 8 is inference-time and always applies. **Step 2 is zero-cost and should always be done first** — our dogfooding showed few-shot prompting (+1.83pp HumanEval) and test assertion inclusion (+25.4pp MBPP) outperform some training-based techniques.
+
+**Dogfooding correction:** SCoT (structured chain-of-thought) was previously listed at +5-14%. Actual measurement on 7B: **-3.05pp** (82.32% vs 85.37% standard). SCoT helps reasoning-heavy benchmarks (LiveCodeBench) but hurts code completion on ≤7B models where reasoning overhead consumes token budget.
 
 **The full apr recipe:**
 
