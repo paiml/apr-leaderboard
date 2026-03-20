@@ -288,15 +288,13 @@ make dogfood   # end-to-end smoke test (zero Python)
 ## 18. Acceptance Criteria
 
 29 falsifiable acceptance criteria (AC-001 through AC-029). Every criterion has
-a concrete command and a pass/fail threshold. 7 verified, 4 partially verified,
-2 blocked on upstream, 16 not yet tested. Key milestones:
+a concrete command and a pass/fail threshold. 8 verified, 4 partially verified,
+2 blocked on upstream, 15 not yet tested. Key milestones:
 - AC-001: `apr import` produces valid `.apr` file ✅
 - AC-004: LoRA training with decreasing loss ✅
-- AC-005: QLoRA <50% VRAM vs LoRA ✅
-- AC-011: Full pipeline (Recipe C) completes end-to-end
-- AC-021: Qwen-7B imported achieves >= 85% HumanEval pass@1
+- AC-016: Decontamination 0% overlap (HumanEval + MBPP) ✅
+- AC-021: Qwen-7B achieves **87.20%** HumanEval pass@1 ✅
 - AC-028: `make prove-wgpu` passes — QLoRA training on wgpu ✅
-- AC-029: wgpu training produces decreasing loss over 2 epochs ✅
 
 -> [Full details](components/18-acceptance-criteria.md)
 
@@ -304,19 +302,19 @@ a concrete command and a pass/fail threshold. 7 verified, 4 partially verified,
 
 ## 19. Implementation Status
 
-**All orchestration implemented.** 42 Makefile targets, 7 shell scripts,
-17 YAML configs, 19/19 `apr` subcommands verified. Zero Python scripts.
+**All orchestration implemented.** 45 Makefile targets, 10 shell scripts,
+19 YAML configs, 19/19 `apr` subcommands verified. Zero Python scripts.
 Zero TOML configs (migrated to YAML-only).
 
 | Component | Count | Status |
 |---|---|---|
-| YAML model configs | 6 | Complete |
-| YAML recipe configs | 7 | Complete |
+| YAML model configs | 7 | Complete |
+| YAML recipe configs | 8 | Complete |
 | YAML eval suite | 1 | Complete |
 | YAML pipeline configs | 2 | Complete |
 | Data catalog | 1 | Complete |
-| Shell scripts | 7 | Complete |
-| Makefile targets | 42 | Complete |
+| Shell scripts | 10 | Complete |
+| Makefile targets | 45 | Complete |
 | Provable contracts | 5 | Complete |
 
 -> [Full details](components/19-implementation-status.md)
@@ -346,15 +344,16 @@ self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 ## 22. Dogfooding Findings
 
-**Baseline results:**
+**Best results:**
 
-| Model | pass@1 | Backend |
-|---|---|---|
-| Qwen2.5-Coder-1.5B Q4K | 59.15% | CPU |
-| Qwen2.5-Coder-7B Q4K | 68.90% | CPU |
+| Model | HumanEval | MBPP | Backend |
+|---|---|---|---|
+| Qwen2.5-Coder-32B-Instruct Q4K_M | **89.63%** | — | GPU (gx10) |
+| Qwen2.5-Coder-7B-Instruct Q4K (few-shot) | **87.20%** | **76.20%** | CPU (gx10) |
+| Qwen3-4B Q4K | **78.05%** | — | CPU (gx10) |
+| Qwen2.5-Coder-1.5B Q4K | 59.15% | — | CPU |
 
-**Hardware:** 2x AMD Radeon Pro W5700X (Navi10), 16 GB each, Vulkan 1.3.255.
-**wgpu dual GPU proof:** Ready to run. Both GPUs enumerated and tested.
+**Hardware:** gx10 (NVIDIA Blackwell GB10, 119 GB unified). Also verified on AMD Radeon Pro W5700X (wgpu/Vulkan).
 
 -> [Full details](components/22-dogfooding-findings.md)
 
@@ -384,8 +383,8 @@ pass@k falsification tests (3/3 pass), golden ordering enforcement.
 ## Infrastructure Summary
 
 ```
-Dependencies: apr (v0.4.10+) + bashrs + bash + jq + curl
-GPU:          2x AMD Radeon Pro W5700X (wgpu/Vulkan)
+Dependencies: apr (v0.4.11+) + bashrs + bash + jq + curl
+GPU:          gx10 NVIDIA Blackwell GB10 (CUDA) + AMD Radeon Pro W5700X (wgpu/Vulkan)
 Config:       YAML-first (albor pattern)
 Python:       Zero
 CUDA:         Zero
@@ -405,7 +404,7 @@ docs/specifications/
     +-- 06-cli-toolchain.md        <- apr subcommands, scripts
     +-- 07-technique-playbook.md   <- LoRA, QLoRA, distill, prune
     +-- 08-leaderboard-winning-techniques.md
-    +-- 09-composite-recipes.md    <- Recipes A-G
+    +-- 09-composite-recipes.md    <- Recipes A-H
     +-- 10-technique-interaction-matrix.md
     +-- 11-competitive-advantage.md
     +-- 12-data-strategy.md        <- Training data, lineage
