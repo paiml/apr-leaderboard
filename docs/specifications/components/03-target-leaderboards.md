@@ -35,9 +35,11 @@ HumanEval is approaching saturation (SOTA 92.7%). BigCodeBench and LiveCodeBench
 
 | Model | HumanEval | HE+ | MBPP | LiveCode | License |
 |-------|-----------|------|------|----------|---------|
-| Qwen2.5-Coder-7B-Instruct | **88.4%** | **84.1%** | **83.5%** | 18.2% | Apache-2.0 |
+| Qwen2.5-Coder-7B-Instruct | **87.8%**† | **84.1%** | **83.5%** | 18.2% | Apache-2.0 |
 | OCR-Nemotron-7B | — | — | — | **51.3%** | Apache-2.0 |
 | DeepSeek-Coder-V2-Lite (16B MoE) | 81.1% | — | — | — | Restricted |
 | Phi-4 (14B) | 82.6% | — | — | — | MIT |
+
+†EvalPlus leaderboard score. Qwen model card reports 88.4% (different test harness).
 
 **Critical gap:** Qwen2.5-Coder dominates standard benchmarks (HumanEval, MBPP) but falls behind on LiveCodeBench. The gap is reasoning: OCR-Nemotron-32B (distilled from DeepSeek-R1) nearly doubles Qwen's LiveCodeBench score. This is the improvement vector.

@@ -43,7 +43,7 @@ Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` (greedy decoding,
 | Qwen3-4B | Q4K | **78.05%** (128/164) | — | CPU (gx10) | Thinking model, 4096 tokens |
 | Qwen2.5-Coder-1.5B | Q4K | 59.15% (97/164) | — | CPU | Baseline |
 
-**HF parity:** HumanEval 7B gap = 0.60pp (87.20% few-shot vs 87.8% HF). MBPP 7B gap = 7.3pp (76.20% vs 83.5% HF). 32B HE gap = 2.87pp (89.63% vs 92.5% HF).
+**HF parity (EvalPlus leaderboard reference):** HumanEval 7B gap = 0.60pp (87.20% few-shot vs 87.8%). MBPP 7B gap = 7.3pp (76.20% vs 83.5%). 32B HE gap = 2.87pp (89.63% vs 92.5%). Note: Qwen model card reports 88.4%/92.7% (different test harness).
 
 **Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
 

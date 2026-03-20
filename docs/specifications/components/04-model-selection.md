@@ -8,7 +8,7 @@ We select models based on three criteria: (1) competitive baseline scores, (2) p
 
 | Model | Size | Why This Model | Baseline HE | Target HE | Strategy |
 |-------|------|----------------|-------------|-----------|----------|
-| Qwen2.5-Coder-7B-Instruct | 7B | Best 7B code model. Apache-2.0. Beats CodeLlama-70B. | 88.4% | **90%+** | Distill + LoRA + DPO |
+| Qwen2.5-Coder-7B-Instruct | 7B | Best 7B code model. Apache-2.0. Beats CodeLlama-70B. | 87.8% | **90%+** | Distill + LoRA + DPO |
 | Qwen2.5-Coder-32B-Instruct | 32B | Best open code model overall. Matches GPT-4o. | 92.7% | **94%+** | DPO + merge + speculative |
 | Qwen2.5-Coder-7B (base) | 7B | Distillation target. Prove 32B→7B transfer works. | ~65% | **85%+** | Full pipeline (Recipe C) |
 
