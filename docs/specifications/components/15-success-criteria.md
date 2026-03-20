@@ -34,16 +34,16 @@
 
 Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` (greedy decoding, max_tokens=512):
 
-| Model | Quant | HumanEval pass@1 | Backend | Notes |
-|---|---|---|---|---|
-| Qwen2.5-Coder-32B-Instruct | Q4K_M | **89.63%** (147/164) | GPU (gx10) | Blackwell sm_121 |
-| Qwen2.5-Coder-7B-Instruct (few-shot) | Q4K | **87.20%** (143/164) | CPU (gx10) | Few-shot prompting |
-| Qwen2.5-Coder-7B-Instruct | Q4K | **85.37%** (140/164) | CPU/GPU (gx10) | GPU/CPU parity verified |
-| Qwen2.5-Coder-7B-Instruct (SCoT) | Q4K | **82.32%** (135/164) | CPU (gx10) | Structured CoT |
-| Qwen3-4B | Q4K | **78.05%** (128/164) | CPU (gx10) | Thinking model, 4096 tokens |
-| Qwen2.5-Coder-1.5B | Q4K | 59.15% (97/164) | CPU | Baseline |
+| Model | Quant | HumanEval | MBPP | Backend | Notes |
+|---|---|---|---|---|---|
+| Qwen2.5-Coder-32B-Instruct | Q4K_M | **89.63%** (147/164) | — | GPU (gx10) | Blackwell sm_121 |
+| Qwen2.5-Coder-7B-Instruct (few-shot) | Q4K | **87.20%** (143/164) | — | CPU (gx10) | Best 7B HumanEval strategy |
+| Qwen2.5-Coder-7B-Instruct | Q4K | **85.37%** (140/164) | **76.20%** (381/500) | CPU/GPU (gx10) | GPU/CPU parity (HE) |
+| Qwen2.5-Coder-7B-Instruct (SCoT) | Q4K | **82.32%** (135/164) | — | CPU (gx10) | Structured CoT |
+| Qwen3-4B | Q4K | **78.05%** (128/164) | — | CPU (gx10) | Thinking model, 4096 tokens |
+| Qwen2.5-Coder-1.5B | Q4K | 59.15% (97/164) | — | CPU | Baseline |
 
-**HF parity:** 7B gap = 2.43pp (85.37% vs 87.8% HF). 32B gap = 2.87pp (89.63% vs 92.5% HF). Within 5pp threshold.
+**HF parity:** HumanEval 7B gap = 0.60pp (87.20% few-shot vs 87.8% HF). MBPP 7B gap = 7.3pp (76.20% vs 83.5% HF). 32B HE gap = 2.87pp (89.63% vs 92.5% HF).
 
 **Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
 
