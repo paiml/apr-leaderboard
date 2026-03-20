@@ -132,7 +132,7 @@ apr_baselines:
     humaneval: 0.8537
     humaneval_fewshot: 0.8720
     humaneval_scot: 0.8232
-    mbpp: 0.5080
+    mbpp: 0.7620
     notes: "Q4K GGUF import, CPU/GPU parity verified, greedy, max_tokens=512. Few-shot best strategy."
   "qwen3-4b-q4k":
     humaneval: 0.7805
