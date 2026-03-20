@@ -2,9 +2,9 @@
 
 ## 1.1 Purpose
 
-**apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without any CUDA toolkit or GPU vendor lock-in.
+**apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without GPU vendor lock-in.
 
-It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile, five shell scripts, YAML configs, a batuta playbook, and a forjar infrastructure manifest — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
+It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile (45 targets), 10 shell scripts, 19 YAML configs, a batuta playbook, and a forjar infrastructure manifest — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
 
 ```
 apr import → apr distill → apr finetune → apr merge → apr prune → apr quantize → apr eval → apr submit
