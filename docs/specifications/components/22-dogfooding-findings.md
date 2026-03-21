@@ -570,11 +570,21 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 | Prompt | pass@1 | Passed | Gap vs HF | Notes |
 |--------|--------|--------|-----------|-------|
 | Without test assertions | 50.80% | 254/500 | 32.7pp | Model guesses function signature |
-| **With test assertions** | **76.20%** | **381/500** | **7.3pp** | Model sees exact I/O format |
+| **7B with test assertions** | **76.20%** | **381/500** | **7.3pp** | Model sees exact I/O format |
+| 32B GPU (test assertions) | 74.40% | 372/500 | 9.1pp | 18 GPU errors; adjusted 77.18% (372/482) |
 
 **Root cause of 50.80% → 76.20% jump (+25.4pp):** MBPP's `text` field is a prose description without a function signature. Without test assertions, the model must guess the function name, argument types, and return format — causing mismatches even when logic is correct. Adding `test_list` assertions to the prompt gives the model the exact function signature and expected I/O, eliminating NameError and format mismatches.
 
 **Remaining 7.3pp gap vs HF (83.5%):** Attributable to (1) Q4K quantization loss, (2) greedy-only decoding, (3) some MBPP problems with very long test assertions (4.4KB prompts) that consume context budget.
+
+**32B GPU MBPP five-whys (74.40% < 7B 76.20%):**
+1. Why 32B < 7B? → 18 GPU generation errors inflate failure count (372/500 vs 381/500)
+2. Why 18 errors? → `SKIP_PARITY_GATE=1` bypasses validation but doesn't fix GPU instability
+3. Why GPU unstable? → 32B uses 53 GB VRAM; long MBPP prompts push KV cache limits
+4. Why not on HumanEval? → HumanEval prompts shorter (function signatures vs prose + test assertions)
+5. Adjusted score: **77.18%** (372/482 excluding errors) — 32B beats 7B as expected
+
+**Conclusion:** 32B MBPP should be re-run on CPU batch for definitive score (no GPU errors). GPU eval is reliable for HumanEval (shorter prompts, 0 errors) but marginal for MBPP (longer prompts, 18/500 errors).
 
 ### 22.20.3 Per-Problem Failure Analysis (7B HumanEval)
 
