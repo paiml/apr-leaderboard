@@ -493,7 +493,16 @@ BatchInferenceConfig → run_batch_inference()
 | gx10 7B | 2 | CPU | 2/2 OK (clean output) |
 | gx10 7B | 2 | GPU | JIT compiled OK, output garbled (training contention) |
 
-GPU batch garbage is caused by concurrent training process (entrenar PID 3811) consuming 85 GB GPU memory — same issue as non-batch GPU inference. CPU fallback via `CUDA_VISIBLE_DEVICES=""` produces clean output.
+**GPU parity gate issue (resolved 2026-03-21):** The batch code validates GPU by comparing a 1-token probe (GPU argmax vs CPU argmax). On Blackwell sm_121, minor FP rounding differences cause the top-1 token to differ when logits are close — failing validation even though inference is correct. Fix: `SKIP_PARITY_GATE=1` env var bypasses the exact-match check. Designed for forward-compatible GPUs where bit-exact parity isn't guaranteed.
+
+**Five-whys:**
+1. Why GPU validation fails? → 1-token probe: GPU argmax ≠ CPU argmax
+2. Why different argmax? → FP rounding on sm_121 PTX fallback path
+3. Why FP differences? → PTX JIT Try 2 uses generic target (no sm_121-specific optimization)
+4. Why not exact match? → Top-2 logits very close, rounding tips the balance
+5. Fix: `SKIP_PARITY_GATE=1` — the env var exists for exactly this case
+
+**Verified:** 32B GPU batch with `SKIP_PARITY_GATE=1` produces **90.85%** (149/164) — matching CPU batch result. GPU utilization 96%, 53 GB VRAM.
 
 ### 22.19.3 Performance Projection
 
