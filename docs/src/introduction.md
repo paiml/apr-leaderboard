@@ -18,7 +18,7 @@
 | Provable contracts | 5 (pass-at-k, decontamination, throughput, lora-algebra, quantization) |
 | GPU sharing tests | 143 (entrenar, 9 modules) |
 | HumanEval pass@1 (best 7B) | **87.20%** (few-shot, 0.60pp from HF parity) |
-| HumanEval pass@1 (best 32B) | **89.63%** (standard, GPU) |
+| HumanEval pass@1 (best 32B) | **90.85%** (standard, CPU batch) |
 | MBPP pass@1 (best 7B) | **76.20%** (standard + test assertions) |
 | Perplexity (WikiText-2) | 6.63 (1.5B-Instruct Q4K) |
 | ACs verified | 8 verified, 4 partial, 15 not tested, 2 blocked |

@@ -36,14 +36,14 @@ Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` (greedy decoding,
 
 | Model | Quant | HumanEval | MBPP | Backend | Notes |
 |---|---|---|---|---|---|
-| Qwen2.5-Coder-32B-Instruct | Q4K_M | **89.63%** (147/164) | — | GPU (gx10) | Blackwell sm_121 |
+| Qwen2.5-Coder-32B-Instruct | Q4K_M | **90.85%** (149/164) | — | CPU (gx10) | Batch mode re-run |
 | Qwen2.5-Coder-7B-Instruct (few-shot) | Q4K | **87.20%** (143/164) | — | CPU (gx10) | Best 7B HumanEval strategy |
 | Qwen2.5-Coder-7B-Instruct | Q4K | **85.37%** (140/164) | **76.20%** (381/500) | CPU/GPU (gx10) | GPU/CPU parity (HE) |
 | Qwen2.5-Coder-7B-Instruct (SCoT) | Q4K | **82.32%** (135/164) | — | CPU (gx10) | Structured CoT |
 | Qwen3-4B | Q4K | **78.05%** (128/164) | — | CPU (gx10) | Thinking model, 4096 tokens |
 | Qwen2.5-Coder-1.5B | Q4K | 59.15% (97/164) | — | CPU | Baseline |
 
-**HF parity (EvalPlus leaderboard reference):** HumanEval 7B gap = 0.60pp (87.20% few-shot vs 87.8%). MBPP 7B gap = 7.3pp (76.20% vs 83.5%). 32B HE gap = 2.87pp (89.63% vs 92.5%). Note: Qwen model card reports 88.4%/92.7% (different test harness).
+**HF parity (EvalPlus leaderboard reference):** HumanEval 7B gap = 0.60pp (87.20% few-shot vs 87.8%). MBPP 7B gap = 7.3pp (76.20% vs 83.5%). 32B HE gap = 1.65pp (90.85% vs 92.5%). Note: Qwen model card reports 88.4%/92.7% (different test harness).
 
 **Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
 

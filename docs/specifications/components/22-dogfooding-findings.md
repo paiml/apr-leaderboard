@@ -6,7 +6,8 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 
 | Model | Quantization | pass@1 | Passed | Avg Tokens | Avg Latency | Backend | Notes |
 |-------|-------------|--------|--------|------------|-------------|---------|-------|
-| Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | **89.63%** | 147/164 | 73.9 | 294s | GPU (gx10) | 32B model, CUDA sm_121 |
+| Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | **90.85%** | 149/164 | — | — | CPU (gx10) | 32B batch mode re-run |
+| Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | 89.63% | 147/164 | 73.9 | 294s | GPU (gx10) | 32B model, CUDA sm_121 |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 113s | CPU (gx10) | EOS fix + 512 tokens |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 112s | GPU (gx10) | GPU/CPU parity confirmed |
 | Qwen2.5-Coder-7B-Instruct Q4K (few-shot) | Q4K | **87.20%** | 143/164 | — | — | CPU (gx10) | Few-shot prompting (+1.83pp vs standard) |
@@ -18,7 +19,7 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 †Qwen3 avg tokens includes ~2500 thinking tokens (discarded) + ~500 code tokens.
 
 **Key findings:**
-- 85.37% → 89.63% from 7B → 32B model (+7 problems solved)
+- 85.37% → **90.85%** from 7B → 32B model (+9 problems solved, batch re-run)
 - GPU/CPU parity confirmed: 7B produces identical 85.37% on both backends
 - Few-shot prompting is the best 7B strategy: **87.20%** (+1.83pp vs 85.37% standard, +3 problems)
 - Simpler exemplar wins: trivial `add(a,b)` (87.20%) > 3-exemplar (85.98%) > standard (84.76-85.37%)

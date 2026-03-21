@@ -348,7 +348,7 @@ self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 | Model | HumanEval | MBPP | Backend |
 |---|---|---|---|
-| Qwen2.5-Coder-32B-Instruct Q4K_M | **89.63%** | — | GPU (gx10) |
+| Qwen2.5-Coder-32B-Instruct Q4K_M | **90.85%** | — | CPU batch (gx10) |
 | Qwen2.5-Coder-7B-Instruct Q4K (few-shot) | **87.20%** | **76.20%** | CPU (gx10) |
 | Qwen3-4B Q4K | **78.05%** | — | CPU (gx10) |
 | Qwen2.5-Coder-1.5B Q4K | 59.15% | — | CPU |

@@ -126,8 +126,8 @@ baselines:
 # apr-native baselines (measured via apr run + eval-pass-at-k.sh)
 apr_baselines:
   "qwen2.5-coder-32b-instruct-q4km":
-    humaneval: 0.8963
-    notes: "Q4K_M GGUF import, GPU (gx10 Blackwell sm_121), greedy, max_tokens=512"
+    humaneval: 0.9085
+    notes: "Q4K_M GGUF import, CPU batch (gx10), greedy, max_tokens=512. Previous GPU run: 89.63%."
   "qwen2.5-coder-7b-instruct-q4k":
     humaneval: 0.8537
     humaneval_fewshot: 0.8720
