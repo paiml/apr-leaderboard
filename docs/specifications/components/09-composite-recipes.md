@@ -357,10 +357,10 @@ make prove-wgpu
 
 ## 9.8 Recipe H: "Reasoning Distillation" (32B → 7B)
 
-**Target:** Transfer 32B teacher's 89.63% HumanEval score into 7B student while preserving fast inference.
+**Target:** Transfer 32B teacher's 90.85% HumanEval score into 7B student while preserving fast inference.
 
-**Teacher:** Qwen2.5-Coder-32B-Instruct Q4K_M (89.63% HumanEval, 294s/problem GPU)
-**Student:** Qwen2.5-Coder-7B-Instruct Q4K (85.37% HumanEval, 112s/problem GPU)
+**Teacher:** Qwen2.5-Coder-32B-Instruct Q4K_M (90.85% HumanEval)
+**Student:** Qwen2.5-Coder-7B-Instruct Q4K (87.20% HumanEval few-shot)
 
 ```bash
 # Prerequisites: both checkpoints must exist
@@ -387,6 +387,6 @@ make compare-results \
 
 **Config:** `configs/recipes/recipe-h-32b-distill.yaml`
 
-**Expected:** Close the 4.3pp gap (89.63% → 85.37%). Progressive distillation with temperature 4.0 provides soft probability distributions that transfer the teacher's reasoning patterns into the smaller student network.
+**Expected:** Close the 3.65pp gap (90.85% → 87.20%). Progressive distillation with temperature 4.0 provides soft probability distributions that transfer the teacher's reasoning patterns into the smaller student network.
 
 **Why not just use 32B?** The 32B model runs at ~14 tok/s (294s/problem) vs 7B at ~85 tok/s (112s/problem). For production inference, 7B is 2.6x faster. Distillation aims to get 32B quality at 7B speed.

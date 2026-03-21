@@ -629,7 +629,7 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 
 ### 22.21.3 Next Steps — GPU (gx10 GPU Now Free)
 
-4. **32B MBPP eval (GPU)** — 32B at 89.63% HumanEval likely achieves 85%+ MBPP with test assertions. Requires GPU batch mode. The 32B CPU eval OOM'd — must use GPU.
+4. **32B MBPP eval** — 32B at 90.85% HumanEval likely achieves 85%+ MBPP with test assertions. Batch mode works on CPU (33% MEM). GPU optional.
 
 5. **32B few-shot HumanEval (GPU)** — Few-shot is best 7B strategy. Test on 32B to see if it pushes past 90%. Requires GPU.
 

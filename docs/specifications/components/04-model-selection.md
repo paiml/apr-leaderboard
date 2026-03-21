@@ -93,10 +93,11 @@ Phase 7: Compile & Ship
 
 **Success gate:** Final model achieves ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP, all via `apr` commands only.
 
-**Current status (2026-03-20):** Phase 1 complete.
-- HumanEval: 7B **87.20%** (few-shot, 0.60pp from HF parity), 32B **89.63%** (GPU)
-- MBPP: 7B **76.20%** (7.3pp from HF parity, fixed by adding test assertions to prompt)
-- Success gate: HumanEval ≥85% ✅, MBPP ≥80% — **3.8pp short**, needs 32B eval or prompt tuning
+**Current status (2026-03-21):** Phase 1 complete.
+- HumanEval: 7B **87.20%** (few-shot, 0.60pp gap), 32B **90.85%** (1.65pp gap)
+- MBPP: 7B **76.20%** (7.3pp gap, fixed by adding test assertions to prompt)
+- Success gate: HumanEval ≥85% ✅, MBPP ≥80% — **3.8pp short**, 32B MBPP eval pending
+- Next: 32B few-shot HumanEval (running), 32B MBPP, distillation
 - Next: 32B MBPP eval (GPU), 32B few-shot HumanEval, per-problem failure analysis
 
 ### 4.3.2 Qwen2.5-Coder-32B: "The Crown" (Maximum Score)
