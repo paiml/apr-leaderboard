@@ -138,7 +138,7 @@ apr-leaderboard/
 │   ├── compare-results.sh      # Per-problem delta analysis between runs
 │   └── leaderboard-summary.sh  # Generate ranked markdown leaderboard
 ├── configs/
-│   ├── models/                 # 6 per-model YAML configs
+│   ├── models/                 # 7 per-model YAML configs
 │   ├── recipes/                # 8 multi-stage pipeline recipes (YAML)
 │   ├── eval/                   # Benchmark suite definitions (YAML)
 │   └── pipeline/               # Forjar manifest + batuta playbook (YAML)

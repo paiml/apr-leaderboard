@@ -1,15 +1,15 @@
 # Recipe H: "Reasoning Distillation" — 32B teacher → 7B student.
 #
 # Pipeline: distill -> eval
-# Transfers 32B's 89.63% HumanEval knowledge into 7B's fast inference.
+# Transfers 32B's 90.85% HumanEval knowledge into 7B's fast inference.
 # Progressive distillation with high temperature (soft labels).
 #
 # Prerequisites:
-#   - Teacher: checkpoints/qwen2.5-coder-32b-instruct-q4km.apr (89.63% HumanEval)
-#   - Student: checkpoints/qwen2.5-coder-7b-instruct-q4k.apr (85.37% HumanEval)
+#   - Teacher: checkpoints/qwen2.5-coder-32b-instruct-q4km.apr (90.85% HumanEval)
+#   - Student: checkpoints/qwen2.5-coder-7b-instruct-q4k.apr (87.20% HumanEval few-shot)
 #
-# Expected outcome: close the 4.3pp gap (89.63% → 85.37%) while keeping
-# 7B inference speed (~85 tok/s vs 32B's ~14 tok/s).
+# Expected outcome: close the 3.65pp gap (90.85% → 87.20%) while keeping
+# 7B inference speed.
 #
 # Usage:
 #   make pipeline RECIPE=recipe-h-32b-distill

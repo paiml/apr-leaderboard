@@ -96,9 +96,8 @@ Phase 7: Compile & Ship
 **Current status (2026-03-22):** Phase 1 complete.
 - HumanEval: 7B **87.20%** (few-shot, 0.60pp gap), 32B **90.85%** (1.65pp gap)
 - MBPP: 7B **76.20%** (7.3pp gap, fixed by adding test assertions to prompt)
-- Success gate: HumanEval ≥85% ✅, MBPP ≥80% — **3.8pp short**, 32B MBPP eval pending
-- Next: 32B MBPP CPU re-run (GPU had 18 errors), BigCodeBench eval, distillation
-- Next: 32B MBPP eval (GPU), 32B few-shot HumanEval, per-problem failure analysis
+- Success gate: HumanEval ≥85% ✅, MBPP ≥80% — **3.8pp short**, 32B MBPP GPU eval running
+- Next: BigCodeBench eval (running), distillation (Recipe H ready)
 
 ### 4.3.2 Qwen2.5-Coder-32B: "The Crown" (Maximum Score)
 
