@@ -181,7 +181,7 @@ The §10 golden ordering enforcement works. The pipeline allows violation but wa
 
 ### 19.6.5 Real Inference Verified
 
-`apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr "def fibonacci(n):" --max-tokens 128 --no-gpu` generates real Python code (Fibonacci implementation) in ~20s on CPU.
+`apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr "def fibonacci(n):" --max-tokens 128` generates real Python code (Fibonacci implementation). GPU mandatory for production eval.
 
 ### 19.6.6 GPU Sharing Spec Complete
 
