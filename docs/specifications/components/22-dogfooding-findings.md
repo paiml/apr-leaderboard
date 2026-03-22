@@ -106,14 +106,19 @@ Use pre-quantized GGUF files from HuggingFace for the import step. The SafeTenso
 
 ## 22.2 Inference Testing
 
-### 22.2.1 CPU Inference (Working)
+### 22.2.1 Inference (Working)
 
 ```bash
+# GPU inference (default -- mandatory for production eval)
 apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
-    "def fibonacci(n):" --max-tokens 128 --no-gpu
+    "def fibonacci(n):" --max-tokens 128
+
+# On Blackwell sm_121, set SKIP_PARITY_GATE=1 to bypass FP rounding check
+SKIP_PARITY_GATE=1 apr run checkpoints/qwen2.5-coder-32b-instruct-q4km.apr \
+    --batch-jsonl prompts.jsonl --max-tokens 512
 ```
 
-**Result:** Generates real Python code (correct Fibonacci implementation) in ~20 seconds.
+**Result:** Generates real Python code (correct Fibonacci implementation). GPU mandatory for eval throughput.
 
 ### 22.2.2 GPU Inference (wgpu)
 
@@ -122,7 +127,7 @@ apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
     "def fibonacci(n):" --max-tokens 128
 ```
 
-GPU inference uses wgpu (Vulkan/Metal/DX12) for vendor-agnostic compute. No CUDA toolkit required. Works on NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs. CPU fallback available via `--no-gpu`.
+GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). Works on NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs. GPU is mandatory for production eval — never fall back to CPU. On Blackwell sm_121, use `SKIP_PARITY_GATE=1` (see §22.19.2 five-whys).
 
 **Historical note:** An earlier CUDA-based path had shape mismatch issues. This has been superseded by the wgpu backend.
 
@@ -491,12 +496,11 @@ BatchInferenceConfig → run_batch_inference()
     ├── run_batch_gguf() → MappedGGUFModel → OwnedQuantizedModel
     └── run_batch_apr()  → MappedAprModel  → OwnedQuantizedModel
         └── init_batch_model()
-            ├── OwnedQuantizedModelCuda (GPU, validated with 1-token probe)
-            └── OwnedQuantizedModel (CPU fallback)
+            └── OwnedQuantizedModelCuda (GPU, SKIP_PARITY_GATE=1 on sm_121)
         └── run_batch_loop()
             ├── Read JSONL prompts (BufRead)
             ├── Encode with ChatML template
-            ├── BatchModel::generate() → GPU or CPU dispatch
+            ├── BatchModel::generate() → GPU dispatch
             ├── Write JSONL results (flushed per prompt)
             └── Aggregate BatchStats
 ```
@@ -538,14 +542,14 @@ The eval script (`scripts/eval-pass-at-k.sh`) now auto-detects batch mode:
 4. Parses JSONL output back into per-problem completion files
 5. Falls back to per-problem worker mode on failure
 
-Environment variables: `APR_BATCH_MODE=auto|on|off`, `APR_NO_GPU=0|1`.
+Environment variables: `APR_BATCH_MODE=auto|on|off`, `SKIP_PARITY_GATE=1` (Blackwell sm_121).
 
 ### 22.19.5 Key Implementation Details
 
 - **Format auto-detection:** 8-byte magic read distinguishes APR (`APR\0`) from GGUF
 - **APR tokenization:** Uses `AprV2Model::encode_text()` / `decode_apr_tokens()` (separate from GGUF path)
 - **Stop tokens:** `resolve_apr_stop_tokens()` merges EOS from model config + sibling tokenizer.json
-- **GPU ownership transfer:** If `OwnedQuantizedModelCuda::with_max_seq_len()` consumes the model by value, the CPU fallback path reloads from mapped data
+- **GPU mandatory:** Use `SKIP_PARITY_GATE=1` on Blackwell sm_121 to bypass FP rounding parity check. Never fall back to CPU for eval.
 - **Temperature/top-k passthrough:** CLI flags `--temperature` and `--top-k` pass through to `BatchInferenceConfig` for non-greedy sampling
 - **Streaming output:** Results flushed after each prompt for pipeline consumption
 - **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models
@@ -571,7 +575,7 @@ The eval script extracts the function name from the first assertion (`remove_Occ
 ### 22.20.2 Batch Mode on CPU
 
 ```bash
-CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
+SKIP_PARITY_GATE=1 APR_BATCH_MODE=on \
   ./scripts/eval-pass-at-k.sh mbpp checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
   results 512 0.0 1 standard
 ```

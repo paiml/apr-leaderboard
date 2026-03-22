@@ -13,8 +13,8 @@
 #   ./scripts/eval-pass-at-k.sh BENCHMARK MODEL_PATH [RESULTS_DIR] [MAX_TOKENS] [TEMPERATURE] [NUM_SAMPLES] [PROMPT_STRATEGY] [WORKERS]
 #
 # Environment variables:
-#   APR_BATCH_MODE=auto|on|off  --batch mode control (default: auto)
-#   APR_NO_GPU=0|1              --disable GPU for batch mode (default: 0)
+#   APR_BATCH_MODE=auto|on|off    --batch mode control (default: auto)
+#   SKIP_PARITY_GATE=1            --bypass GPU FP parity check (required for Blackwell sm_121)
 
 set -euo pipefail
 
@@ -303,12 +303,9 @@ generate_batch() {
     input_count="$(wc -l < "$batch_input")"
     echo "  Batch input: ${input_count} prompts (${skipped} skipped)"
 
-    # Build apr run flags
+    # Build apr run flags (GPU mandatory -- use SKIP_PARITY_GATE=1 for Blackwell sm_121)
     local -a apr_flags=("$MODEL" "--batch-jsonl" "$batch_input" "--max-tokens" "$EFFECTIVE_MAX_TOKENS")
     apr_flags+=("--temperature" "$TEMPERATURE" "--top-k" "1")
-    if [[ "${APR_NO_GPU:-0}" == "1" ]]; then
-        apr_flags+=("--no-gpu")
-    fi
     apr_flags+=("--verbose")
 
     # Run batch inference --stdout=JSONL results, stderr=progress

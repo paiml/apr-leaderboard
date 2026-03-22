@@ -26,8 +26,8 @@ apr import qwen-7b.gguf -o qwen-7b.apr --enforce-provenance
 # Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU
 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 
-# With GPU disabled (CPU fallback)
-apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --no-gpu --verbose
+# GPU is mandatory for eval. Use SKIP_PARITY_GATE=1 on Blackwell sm_121.
+# SKIP_PARITY_GATE=1 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --verbose
 ```
 
 **Input format (JSONL):**
@@ -48,7 +48,7 @@ apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --no-gpu --verbos
 | `--temperature` | `0.0` | Sampling temperature (0.0 = greedy) |
 | `--top-k` | `1` | Top-k sampling (1 = greedy) |
 
-Auto-detects model format (GGUF or APR). GPU/CPU fallback: tries CUDA first, validates with a 1-token probe, falls back to CPU on failure. Model stays resident across all prompts.
+Auto-detects model format (GGUF or APR). GPU is mandatory for production eval — use `SKIP_PARITY_GATE=1` on Blackwell sm_121 to bypass the FP rounding parity check. Never fall back to CPU for eval; diagnose and fix GPU issues with five-whys instead. Model stays resident across all prompts.
 
 ## 6.1.3 Evaluate (Baseline)
 

@@ -164,7 +164,7 @@ SafeTensors imports produce F16/BF16 tensors that realizar cannot run inference 
 
 ### 19.6.2 GPU Inference Status
 
-GPU inference uses wgpu (Vulkan/Metal/DX12) for vendor-agnostic compute. Historical CUDA path has been replaced. CPU inference with `--no-gpu` is always available as a fallback.
+GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory for production eval — never fall back to CPU. On Blackwell sm_121, use `SKIP_PARITY_GATE=1` to bypass the FP rounding parity check (five-whys: §22.19.2).
 
 ### 19.6.3 `apr serve` for .apr Files
 

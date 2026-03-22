@@ -83,7 +83,7 @@ The eval script handles: (1) benchmark download, (2) completion generation via `
 | Variable | Default | Description |
 |---|---|---|
 | `APR_BATCH_MODE` | `auto` | Batch mode: `auto` (detect), `on` (force), `off` (disable) |
-| `APR_NO_GPU` | `0` | Disable GPU in batch mode |
+| `SKIP_PARITY_GATE` | `0` | Bypass GPU parity check for Blackwell sm_121 (set to `1`) |
 
 ## 13.5 Instruct Model Post-Processing
 
@@ -119,7 +119,7 @@ apr run checkpoints/model.apr --batch-jsonl batch.jsonl --max-tokens 512 --verbo
 | Sequential `apr run` | ~80s × 164 | ~80s JIT + inference | ~3.6 hours JIT alone |
 | Batch `--batch-jsonl` | ~80s × 1 | inference only | ~80s JIT + inference time |
 
-Auto-detects APR vs GGUF format. GPU/CPU fallback: validates GPU with 1-token probe, falls back to CPU on failure. Results stream as JSONL (one line per prompt, flushed after each).
+Auto-detects APR vs GGUF format. GPU is mandatory for eval — use `SKIP_PARITY_GATE=1` on Blackwell sm_121. If GPU validation fails, diagnose with five-whys (do not fall back to CPU). Results stream as JSONL (one line per prompt, flushed after each).
 
 ## 13.7 MBPP Function Name Extraction
 

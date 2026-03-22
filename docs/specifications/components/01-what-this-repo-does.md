@@ -129,7 +129,7 @@ This repo is an integration test for the sovereign stack. If `make pipeline` pro
 # Run baseline parity check
 make import MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
 apr run checkpoints/qwen_qwen2.5-coder-7b-instruct.apr \
-    --prompt "def fibonacci(n):" --max-tokens 256 --no-gpu
+    --prompt "def fibonacci(n):" --max-tokens 256
 apr eval checkpoints/qwen_qwen2.5-coder-7b-instruct.apr --dataset wikitext-2
 apr bench checkpoints/qwen_qwen2.5-coder-7b-instruct.apr --json
 ```
