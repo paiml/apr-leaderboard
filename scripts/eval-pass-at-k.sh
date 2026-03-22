@@ -79,7 +79,7 @@ get_benchmark_url() {
     case "$1" in
         humaneval)     echo "https://raw.githubusercontent.com/openai/human-eval/master/data/HumanEval.jsonl.gz" ;;
         mbpp)          echo "https://raw.githubusercontent.com/google-research/google-research/master/mbpp/mbpp.jsonl" ;;
-        bigcodebench)  echo "https://huggingface.co/datasets/bigcode/bigcodebench/resolve/main/BigCodeBench.jsonl.gz" ;;
+        bigcodebench)  echo "https://huggingface.co/datasets/bigcode/bigcodebench/resolve/main/data/v0.1.4-00000-of-00001.parquet" ;;
         *)             echo "ERROR: Unknown benchmark: $1"; return 1 ;;
     esac
 }
@@ -94,6 +94,17 @@ if [[ ! -f "$BENCHMARK_FILE" ]]; then
     TMPFILE="$(mktemp "${BENCHMARK_DATA_DIR}/.dl.XXXXXX")"
     if [[ "$URL" == *.gz ]]; then
         curl -sfL "$URL" | gunzip > "$TMPFILE"
+    elif [[ "$URL" == *.parquet ]]; then
+        # BigCodeBench: download parquet, convert to JSONL via python3
+        local PARQUET_FILE="${TMPFILE}.parquet"
+        curl -sfL "$URL" -o "$PARQUET_FILE"
+        python3 -c "
+import pandas as pd, json
+df = pd.read_parquet('$PARQUET_FILE')
+df.to_json('$TMPFILE', orient='records', lines=True)
+print(f'  Converted {len(df)} records from parquet to JSONL')
+"
+        rm -f "$PARQUET_FILE"
     else
         curl -sfL "$URL" -o "$TMPFILE"
     fi
