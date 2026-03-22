@@ -37,6 +37,22 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 | cgo | 83.54% | -1.83pp | "Use helper functions" prompt (fixed from 0%) |
 | scot | 82.32% | -3.05pp | Reasoning overhead hurts small model |
 
+**32B Prompt Strategy Comparison (HumanEval):**
+
+| Strategy | pass@1 | vs Standard | Notes |
+|----------|--------|-------------|-------|
+| standard | **90.85%** | baseline | Best 32B strategy (CPU batch) |
+| few-shot | 87.20% | -3.65pp | Few-shot hurts 32B even more than SCoT hurts 7B |
+
+**MBPP Strategy Comparison (7B, with test assertions):**
+
+| Strategy | pass@1 | vs Standard | Notes |
+|----------|--------|-------------|-------|
+| standard | **76.20%** | baseline | Best MBPP strategy |
+| few-shot | 74.80% | -1.40pp | Few-shot doesn't help MBPP |
+
+**Cross-benchmark insight:** Few-shot helps HumanEval (function completion with signature) but hurts MBPP (prose description + test assertions). The exemplar primes the model for HumanEval's completion format but adds noise for MBPP's from-scratch generation. For 32B, standard prompting is always optimal — the larger model doesn't need format priming.
+
 **Perplexity baseline (WikiText-2):**
 
 | Model | Perplexity | Cross-Entropy | Tokens | Eval Time |
@@ -627,48 +643,47 @@ CUDA_VISIBLE_DEVICES="" APR_BATCH_MODE=auto \
 - 164 HumanEval problems checked, 0 contaminated
 - Report: `clean.jsonl`
 
-## 22.21 Recommendations: Next Best Options (Updated 2026-03-20)
+## 22.21 Recommendations: Next Best Options (Updated 2026-03-22)
 
 ### 22.21.1 Completed
 
 | # | Action | Result | Finding |
 |---|--------|--------|---------|
 | ✅ | MBPP baseline | 50.80% → **76.20%** | Test assertions in prompt = +25.4pp |
-| ✅ | Strategy sweep (HumanEval) | 5 strategies tested | Trivial few-shot best (87.20%), CGO fixed (83.54%) |
+| ✅ | Strategy sweep (HumanEval 7B) | 5 strategies tested | Trivial few-shot best (87.20%), CGO fixed (83.54%) |
 | ✅ | Few-shot with improved exemplars | 85.98% | Simpler exemplar (87.20%) wins |
 | ✅ | Batch mode wired | All evals use `--batch-jsonl` | ~160x JIT reduction on GPU |
+| ✅ | Fix CGO prompt | 0% → **83.54%** | "Use helper functions" with code-only constraint |
+| ✅ | 32B standard HumanEval | **90.85%** (149/164) | New best score, 1.65pp from HF parity |
+| ✅ | 32B few-shot HumanEval | 87.20% (143/164) | Few-shot hurts 32B (-3.65pp) |
+| ✅ | 32B MBPP (GPU) | 74.40% (18 GPU errors) | Adjusted 77.18% excluding errors |
+| ✅ | 7B MBPP few-shot | 74.80% | Few-shot doesn't help MBPP (-1.40pp) |
+| ✅ | Per-problem failure analysis | 20 always-fail problems | Multi-step composition, edge cases |
+| ✅ | GPU parity gate fix | `SKIP_PARITY_GATE=1` | Blackwell sm_121 FP rounding bypass |
 
-### 22.21.2 Next Steps — Prompt & Eval (No GPU Required)
+### 22.21.2 Next Steps — Eval (Actionable Now)
 
-1. ~~**Fix CGO prompt**~~ — **DONE.** CGO 0% → **83.54%** (137/164). Old prompt ("break into sub-goals") caused model to output planning text. Fixed to "use helper functions" with code-only constraint.
+1. **32B MBPP on CPU batch** — Re-run 32B MBPP without GPU to get 0-error definitive score. GPU run had 18 errors; adjusted 77.18% suggests 32B > 7B. CPU batch eliminates GPU instability. Low effort.
 
-2. **MBPP few-shot with test assertions** — Current MBPP 76.20% uses standard + test assertions. Few-shot helped HumanEval (+1.83pp). Run MBPP with few-shot strategy now that test assertions are included. Expected: +2-5pp.
+2. **N-sampling (N=5, temp 0.2)** — Generate 5 completions per problem to estimate pass@5 and best-of-5 reranking potential. `--temperature` and `--top-k` wired through batch mode. Medium effort (5x compute).
 
-3. **Per-problem failure analysis** — New results include per-problem data. Run `compare-results.sh` between HumanEval standard (84.76%) and few-shot (87.20%) to identify which problems few-shot solves that standard doesn't. Use this to design better prompts.
+3. **BigCodeBench eval** — No BigCodeBench score yet. 1140 practical tasks testing library usage. Would fill the last benchmark gap. Low effort (same eval script).
 
-### 22.21.3 Next Steps — GPU (gx10 GPU Now Free)
+### 22.21.3 Next Steps — Pipeline (Require Upstream)
 
-4. **32B MBPP eval** — 32B at 90.85% HumanEval likely achieves 85%+ MBPP with test assertions. Batch mode works on CPU (33% MEM). GPU optional.
+4. **32B→7B distillation** — Recipe H ready (`configs/recipes/recipe-h-32b-distill.yaml`). Progressive distillation at temperature 4.0. Expected: bridge 7B gap (87.20% → 89%+). Requires `apr distill` progressive mode + GPU.
 
-5. **32B few-shot HumanEval (GPU)** — Few-shot is best 7B strategy. Test on 32B to see if it pushes past 90%. Requires GPU.
+5. **DPO with execution feedback** — Generate N completions per HumanEval problem, use pass/fail as preference signal. Expected: +2-4pp on HumanEval+. Requires `apr align --method dpo`.
 
-6. **N-sampling (N=5, temp 0.2)** — Estimate pass@5 and best-of-5 reranking potential. `--temperature` and `--top-k` flags are wired through batch mode.
+6. **HumanEval+ eval** — EvalPlus augmented test cases (80x more tests). The AC-022 success gate requires ≥82% HumanEval+. Requires EvalPlus harness integration.
 
-### 22.21.4 Next Steps — Pipeline (Require Upstream)
-
-7. **32B→7B distillation** — Recipe H ready. Progressive distillation at temperature 4.0. Expected: bridge 7B gap to ~88%+. Requires `apr distill` progressive mode + GPU.
-
-8. **DPO with execution feedback** — Generate N completions per problem, use pass/fail as preference signal. Expected: +2-4pp on HumanEval+. Requires `apr align --method dpo`.
-
-### 22.21.5 ROI Priority Ranking
+### 22.21.4 ROI Priority Ranking
 
 | Priority | Action | Expected Gain | Effort | Dependency |
 |----------|--------|---------------|--------|------------|
-| ~~1~~ | ~~Fix CGO prompt~~ | ~~83.54%~~ | **Done** | ✅ |
-| 2 | MBPP few-shot + test assertions | +2-5pp MBPP | Low | CPU |
-| 3 | 32B MBPP (GPU) | ~85%+ MBPP | Low | GPU |
-| 4 | 32B few-shot HumanEval | >90%? HumanEval | Low | GPU |
-| 5 | Per-problem failure analysis | Better prompts | Low | Data available |
-| 6 | N-sampling | pass@5 data | Medium | CPU or GPU |
-| 7 | 32B→7B distill | +3-5pp on 7B | High | `apr distill` + GPU |
-| 8 | DPO alignment | +2-4pp on HE+ | High | `apr align` + data |
+| 1 | 32B MBPP CPU re-run | ~77%+ (definitive) | Low | CPU only |
+| 2 | BigCodeBench eval | First score | Low | CPU/GPU |
+| 3 | N-sampling | pass@5 data | Medium | CPU or GPU |
+| 4 | 32B→7B distill | +2-3pp on 7B | High | `apr distill` + GPU |
+| 5 | DPO alignment | +2-4pp on HE+ | High | `apr align` + data |
+| 6 | HumanEval+ eval | AC-022 gate | Medium | EvalPlus harness |

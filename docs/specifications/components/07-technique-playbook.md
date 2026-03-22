@@ -215,20 +215,20 @@ apr finetune qwen-7b.apr \
 
 **eval command:** `make eval-humaneval PROMPT_STRATEGY=few-shot`
 
-| Strategy | HumanEval 7B | MBPP 7B | When to Use |
-|----------|-------------|---------|-------------|
-| `few-shot` | **87.20%** (+1.83pp) | — | Best for HumanEval. Use simplest possible exemplar. |
-| `standard` | 85.37% (baseline) | **76.20%** | Default. Sufficient for most benchmarks. |
-| `cgo` | 83.54% (-1.83pp) | — | "Use helper functions" — slight overhead. |
-| `scot` | 82.32% (-3.05pp) | — | Hurts ≤7B models. May help ≥32B. |
+| Strategy | HumanEval 7B | HumanEval 32B | MBPP 7B | When to Use |
+|----------|-------------|--------------|---------|-------------|
+| `few-shot` | **87.20%** (+1.83pp) | 87.20% (-3.65pp) | 74.80% (-1.40pp) | Best for 7B HumanEval only. |
+| `standard` | 85.37% (baseline) | **90.85%** (baseline) | **76.20%** | Best for 32B and MBPP. |
+| `cgo` | 83.54% (-1.83pp) | — | — | Slight overhead. |
+| `scot` | 82.32% (-3.05pp) | — | — | Hurts ≤7B models. |
 
 **Key findings from dogfooding (§22.21):**
-1. **Simpler exemplars win.** Trivial `add(a,b)` (87.20%) > 3 concrete exemplars (85.98%). The exemplar's purpose is format priming, not domain knowledge.
-2. **SCoT hurts small models.** Reasoning overhead consumes tokens and degrades output quality on 7B. Reserve for 32B+ where reasoning is more concise.
-3. **MBPP needs test assertions.** Including `test_list` assertions in the prompt = +25.4pp (50.80% → 76.20%). Without them, the model guesses function signatures wrong.
-4. **Benchmark-specific prompting matters.** HumanEval provides function signatures (model completes); MBPP provides prose (model writes from scratch). Different benchmarks need different prompt structures.
+1. **Benchmark-specific strategy is critical.** Few-shot helps 7B HumanEval (+1.83pp) but hurts MBPP (-1.40pp) and 32B HumanEval (-3.65pp). No single strategy wins everywhere.
+2. **32B doesn't need prompting tricks.** Standard prompting gives 32B its best score (90.85%). Larger models already know the format — exemplars add noise.
+3. **MBPP needs test assertions, not few-shot.** Including `test_list` assertions = +25.4pp (50.80% → 76.20%). Few-shot on top of test assertions actually hurts (-1.40pp).
+4. **Simpler exemplars win when few-shot helps.** Trivial `add(a,b)` (87.20%) > 3 concrete exemplars (85.98%). Format priming only.
 
-**Leaderboard recipe:** Use `few-shot` for HumanEval, `standard` with test assertions for MBPP. This costs zero compute and yields the highest known apr-native scores.
+**Leaderboard recipe:** Use `few-shot` for 7B HumanEval, `standard` for everything else. Always include test assertions for MBPP. This costs zero compute and yields the highest known apr-native scores.
 
 ## 7.8 Quantization (Post-Training)
 
