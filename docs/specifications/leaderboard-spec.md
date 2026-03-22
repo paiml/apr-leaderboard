@@ -3,7 +3,7 @@ title: "APR Leaderboard Specification"
 version: "2.2.0"
 status: "Active"
 created: "2026-02-28"
-updated: "2026-03-20"
+updated: "2026-03-22"
 ---
 
 # APR Leaderboard Specification

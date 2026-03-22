@@ -93,7 +93,7 @@ Phase 7: Compile & Ship
 
 **Success gate:** Final model achieves ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP, all via `apr` commands only.
 
-**Current status (2026-03-21):** Phase 1 complete.
+**Current status (2026-03-22):** Phase 1 complete.
 - HumanEval: 7B **87.20%** (few-shot, 0.60pp gap), 32B **90.85%** (1.65pp gap)
 - MBPP: 7B **76.20%** (7.3pp gap, fixed by adding test assertions to prompt)
 - Success gate: HumanEval ≥85% ✅, MBPP ≥80% — **3.8pp short**, 32B MBPP eval pending
