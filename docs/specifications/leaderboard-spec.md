@@ -346,12 +346,12 @@ self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 **Best results:**
 
-| Model | HumanEval | MBPP | Backend |
+| Model | HumanEval (best) | MBPP (best) | Backend |
 |---|---|---|---|
-| Qwen2.5-Coder-32B-Instruct Q4K_M | **90.85%** | — | CPU batch (gx10) |
-| Qwen2.5-Coder-7B-Instruct Q4K (few-shot) | **87.20%** | **76.20%** | CPU (gx10) |
-| Qwen3-4B Q4K | **78.05%** | — | CPU (gx10) |
-| Qwen2.5-Coder-1.5B Q4K | 59.15% | — | CPU |
+| Qwen2.5-Coder-32B-Instruct Q4K_M | **90.85%** (standard) | — | CPU batch (gx10) |
+| Qwen2.5-Coder-7B-Instruct Q4K | **87.20%** (few-shot) | **76.20%** (standard) | CPU (gx10) |
+| Qwen3-4B Q4K | **78.05%** (standard) | — | CPU (gx10) |
+| Qwen2.5-Coder-1.5B Q4K | 59.15% (standard) | — | CPU |
 
 **Hardware:** gx10 (NVIDIA Blackwell GB10, 119 GB unified). Also verified on AMD Radeon Pro W5700X (wgpu/Vulkan).
 
