@@ -97,12 +97,12 @@ Phase 7: Compile & Ship
 - HumanEval: 7B **87.20%** (few-shot, 0.60pp gap), 32B **90.85%** (1.65pp gap)
 - MBPP: 7B **76.20%** (7.3pp gap, fixed by adding test assertions to prompt)
 - Success gate: HumanEval ≥85% ✅, MBPP ≥80% — **3.8pp short**, 32B MBPP eval pending
-- Next: 32B few-shot HumanEval (running), 32B MBPP, distillation
+- Next: 32B MBPP CPU re-run (GPU had 18 errors), BigCodeBench eval, distillation
 - Next: 32B MBPP eval (GPU), 32B few-shot HumanEval, per-problem failure analysis
 
 ### 4.3.2 Qwen2.5-Coder-32B: "The Crown" (Maximum Score)
 
-The 32B model is already at 92.7% HumanEval. The goal is to push past the ceiling using techniques that benefit from the model's existing strength.
+The 32B model achieves **90.85%** apr-native (HF reference 92.5%). The goal is to close the 1.65pp gap and push past the ceiling using techniques that benefit from the model's existing strength.
 
 ```
 Phase 1: Baseline + parity verification

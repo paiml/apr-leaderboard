@@ -13,7 +13,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [x] AC-027: Every tooling gap in S5 has either a wire-in implementation or a documented external boundary (5 gaps documented with wire-in plans, 9 Ludwig parity gaps tracked with crate targets, execution sandbox scoped as external boundary)
 - [x] AC-028: `make prove-wgpu` completes successfully -- QLoRA training runs on wgpu (Vulkan/Metal/DX12) with no CUDA toolkit installed
 - [x] AC-029: Training via wgpu produces decreasing loss over 2 epochs on Qwen2.5-Coder-1.5B
-- [x] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves >=85% HumanEval pass@1 (apr-native baseline >= HF reference - 5%) — **85.37%** (140/164) on CPU and GPU (parity verified), greedy decoding, max_tokens=512. HF reference 87.8%, gap = 2.43pp (within 5pp threshold)
+- [x] AC-021: Qwen2.5-Coder-7B-Instruct imported via `apr import` achieves >=85% HumanEval pass@1 (apr-native baseline >= HF reference - 5%) — **87.20%** (143/164, few-shot) and **85.37%** (140/164, standard). HF reference 87.8%, gap = **0.60pp** (within 5pp threshold). 32B achieves **90.85%** (149/164).
 
 ## Partially Verified
 
