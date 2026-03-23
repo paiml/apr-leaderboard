@@ -16,7 +16,7 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 | Pruning | Wanda, SparseGPT, structured | **aprender** 0.27 | ✅ Complete | `apr prune` — 6 methods |
 | Quantization | INT4, INT8, Q4K, Q6K | **aprender** 0.27 | ✅ Complete | `apr quantize` — 4 formats |
 | SIMD tensor ops | AVX2, AVX-512, NEON matmul | **trueno** 0.16 | ✅ Complete | 6% faster than NumPy at 256×256 |
-| GPU compute | wgpu (Vulkan/Metal/DX12) | **trueno** 0.16 | ✅ Complete | Pure Rust, any GPU vendor, no CUDA |
+| GPU compute | wgpu (Vulkan/Metal/DX12), CUDA PTX JIT | **trueno** 0.16 + **trueno-gpu** 0.4 | ✅ Complete | Pure Rust, any GPU vendor. CUDA via PTX JIT (no nvcc). See §5.10. |
 | Speculative decoding | Draft model + verification | **realizar** 0.8 | ⚠️ Planned | GH-10: `apr run --speculative` not yet implemented |
 | KV cache management | PagedAttention, CoW | **realizar** 0.8 | ✅ Complete | vLLM-style paged KV |
 | Data loading | Parquet, JSONL, Arrow, HF Hub | **alimentar** 0.2 | ✅ Complete | Zero-copy Arrow RecordBatches |
@@ -393,3 +393,48 @@ Ludwig (ludwig.ai) is the state-of-the-art declarative ML framework. Every featu
 - ~~Experiment tracking~~ → `entrenar` TUI monitor + JSONL event logging + checkpoint metadata
 
 **Out of scope (not needed for leaderboard):** ECD architecture, GBM/LightGBM, multi-modal (text+image+audio), Triton export, TorchScript. These serve Ludwig's "general ML framework" positioning. We are a purpose-built leaderboard pipeline, not a general framework.
+
+## 5.10 GPU Compute Architecture: PTX JIT vs Pre-compiled Kernels
+
+### 5.10.1 Why PTX JIT (Not nvcc)
+
+PyTorch ships **fat binaries** — pre-compiled SASS (GPU machine code) for every supported architecture (sm_70, sm_80, sm_86, sm_89, sm_90). At runtime, the CUDA driver selects the matching SASS — zero JIT, instant startup. This requires `nvcc` (NVIDIA's proprietary compiler) and the CUDA toolkit (~2+ GB) at build time.
+
+trueno-gpu takes a fundamentally different approach: **PTX string templates embedded in Rust**. PTX (Parallel Thread Execution) is NVIDIA's stable intermediate assembly language. trueno-gpu writes CUDA kernels directly as PTX strings in Rust source code, compiled into the `apr` binary by `cargo build` — no nvcc, no CUDA toolkit, no C/C++ FFI.
+
+At runtime, the CUDA driver JIT-compiles PTX to device-specific SASS for whatever GPU is present. This is the same mechanism PyTorch uses as a **fallback** for unsupported architectures — trueno-gpu uses it as the **primary** path.
+
+### 5.10.2 Trade-offs
+
+| Aspect | PyTorch (pre-compiled SASS) | trueno-gpu (PTX JIT) |
+|--------|---------------------------|---------------------|
+| Build deps | nvcc + CUDA toolkit (2+ GB) | `cargo build` only |
+| New GPU support | Requires new release with SASS | Automatic (PTX forward-compatible) |
+| Startup time | Instant | 20-80s JIT (amortized by `--batch-jsonl`) |
+| Binary size | ~500 MB (fat binaries) | ~10 MB (PTX strings) |
+| Vendor lock-in | CUDA toolkit version | None (PTX is stable ISA) |
+| Reproducibility | Tied to CUDA/cuDNN version | Same binary, any NVIDIA GPU |
+
+### 5.10.3 Amortization via Batch Mode
+
+The `--batch-jsonl` flag is the architectural answer to JIT overhead. For a 164-problem HumanEval eval:
+
+- **Without batch:** 80s JIT × 164 invocations = **3.6 hours** of JIT alone
+- **With batch:** 80s JIT × 1 load = **80s** total JIT, then pure inference
+
+Amortized JIT cost per problem: <0.5s. The sovereignty benefit (zero external toolchain, forward GPU compatibility) far outweighs the one-time startup cost.
+
+### 5.10.4 Blackwell sm_121 and the Try 1/Try 2 Pattern
+
+On Blackwell (sm_121), the CUDA 13.0 driver has a JIT bug: it rejects PTX with `.target sm_121` (error 300, CUDA_ERROR_INVALID_SOURCE). The GH-480 fix implements a defensive fallback:
+
+1. **Try 1:** Compile PTX with explicit `.target sm_121` — fails (error 300)
+2. **Try 2:** Compile with `cuModuleLoadData` (no explicit target) — succeeds
+
+This Try 1 → Try 2 pattern is a driver workaround, not a design choice. When NVIDIA fixes the sm_121 JIT in a future driver, Try 1 will succeed and the fallback becomes dead code. The PTX post-processor (GH-480) also patches backward `bra LABEL` instructions to `@%p_jw bra LABEL` for sm_121 compatibility.
+
+### 5.10.5 FP8 Architecture Guard (GH-542)
+
+FP8 E4M3 GEMM kernels (Ada/Hopper-specific) cause `CUDA_ERROR_ILLEGAL_ADDRESS` on Blackwell, poisoning the CUDA context. Fix: `detect_fp8_prefill()` uses `cc >= 89 && cc < 100` to auto-disable FP8 on Blackwell. Provable contract: `gpu-context-health-v1.yaml` (3 proof obligations, 3 falsification tests).
+
+**Five-whys:** (1) Why crash? FP8 warmup writes invalid memory on sm_121. (2) Why invalid? FP8 E4M3 cuBLASLt kernels are Ada/Hopper-specific. (3) Why enabled? `cc >= 89` without upper bound. (4) Why no bound? Blackwell didn't exist when written. (5) Fix: `cc < 100` guard in 3 files (commit `a4bcd908`).

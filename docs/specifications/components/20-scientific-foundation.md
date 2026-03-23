@@ -37,7 +37,12 @@ are grouped by the pipeline stage they support.
 [10] Goddard et al., "Arcee's MergeKit: A Toolkit for Merging Large Language Models", arXiv:2403.13257, 2024.
 *Reference implementation for SLERP, TIES, DARE merge strategies.*
 
-## 20.3 Inference Optimization
+## 20.3 GPU Architecture
+
+[20] NVIDIA, "Parallel Thread Execution ISA Version 8.5", 2024.
+*PTX is NVIDIA's stable intermediate representation. trueno-gpu writes kernels as PTX string templates in Rust — no nvcc, no CUDA toolkit. JIT-compiled to SASS at runtime by the CUDA driver. This is the same fallback mechanism PyTorch uses for unsupported architectures; trueno-gpu uses it as the primary path (§5.10).*
+
+## 20.4 Inference Optimization
 
 [11] Leviathan et al., "Fast Inference from Transformers via Speculative Decoding", ICML 2023.
 *Basis for `apr run --speculative`. Draft model proposes, main model verifies.*
