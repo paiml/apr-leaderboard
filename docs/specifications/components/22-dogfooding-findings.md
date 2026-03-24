@@ -288,12 +288,12 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | `apr compare-hf` returns 0 comparisons on Q4K vs FP16 | aprender | Medium | Expected — dtype mismatch |
 | `apr qa` format parity on .apr-wrapped GGUF | aprender | Medium | **Open** (GH-13) |
 | 32B batch GPU crash — FP8 poisons CUDA context on sm_121 | realizar | Critical | **Fixed** (GH-542) — `cc >= 89 && cc < 100` auto-disables FP8 on Blackwell |
+| Blackwell GPU garbage — PTX JIT numerics unreliable | CUDA driver | Critical | **Open** (GH-550) — use CPU until driver fix |
+| Stale apr binary blocks --batch-jsonl | gx10 ops | High | **Fixed** — removed .local/bin/apr |
 
 ## 22.12 BPE Tokenizer Performance (GH-378)
 
-**Problem:** O(n^2) BPE merge bottleneck — QLoRA training stuck 25+ min pre-tokenizing 15,494 samples.
-
-**Fix:** Priority-queue + doubly-linked symbol list (ported from HF `tokenizers`). O(n + m log m) complexity.
+**Problem:** O(n^2) BPE merge bottleneck. **Fix:** Priority-queue + doubly-linked symbol list. O(n + m log m).
 
 | Metric | Before | After | HF v0.22 |
 |--------|--------|-------|----------|
@@ -497,4 +497,4 @@ Environment variables: `APR_BATCH_MODE=auto|on|off`, `SKIP_PARITY_GATE=1` (Black
 - **Streaming output:** Results flushed after each prompt for pipeline consumption
 - **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models
 
-MBPP eval findings, per-problem analysis, and recommendations moved to [AC Verification (S24)](24-ac-verification.md) §24.12-§24.13.
+MBPP eval, per-problem analysis, recommendations: [AC Verification (S24)](24-ac-verification.md) §24.12-§24.13.
