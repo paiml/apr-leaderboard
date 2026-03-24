@@ -1,7 +1,6 @@
 # Dogfooding Findings
 
-Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, validation, inference, and evaluation. These findings inform spec updates and upstream `apr` CLI improvements.
-
+Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B, 7B, 32B) and Qwen3-4B. These findings inform spec updates and upstream `apr` CLI improvements.
 ## 22.0 HumanEval Baseline Results
 
 | Model | Quantization | pass@1 | Passed | Avg Tokens | Avg Latency | Backend | Notes |
@@ -54,7 +53,6 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B and 7B), import, vali
 **Cross-benchmark insight:** Few-shot helps HumanEval (function completion with signature) but hurts MBPP (prose description + test assertions). The exemplar primes the model for HumanEval's completion format but adds noise for MBPP's from-scratch generation. For 32B, standard prompting is always optimal — the larger model doesn't need format priming.
 
 **Perplexity baseline (WikiText-2):**
-
 | Model | Perplexity | Cross-Entropy | Tokens | Eval Time |
 |-------|-----------|---------------|--------|-----------|
 | Qwen2.5-Coder-1.5B-Instruct Q4K | 6.63 | 1.89 | 164 | 75.8s |
@@ -293,71 +291,15 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 
 ## 22.12 BPE Tokenizer Performance (GH-378)
 
-**Problem:** QLoRA training (recipe-f) stuck 25+ minutes pre-tokenizing
-15,494 instruction samples. The tokenizer was the bottleneck — not the
-model or GPU.
+**Problem:** O(n^2) BPE merge bottleneck — QLoRA training stuck 25+ min pre-tokenizing 15,494 samples.
 
-**Root cause:** The `bpe()` merge function used an O(n^2) greedy-rescan
-algorithm: for each merge iteration, it scanned the entire word to find
-the lowest-rank pair, then cloned a `String` and used `Vec::splice` to
-apply the merge. For large vocabularies (Qwen3: 151,665 tokens), this
-meant thousands of full rescans per word.
-
-**Fix:** Replaced with a priority-queue (BinaryHeap) + doubly-linked
-symbol list algorithm, ported from HuggingFace `tokenizers` `word.rs`:
-- Initial symbols linked by prev/next indices (no array shifting)
-- All valid initial merges pushed into a min-heap keyed by merge rank
-- Main loop pops lowest-rank merge, applies in O(1) via pointer updates
-- New pairs created by the merge are re-enqueued
-- Stale entries (already-consumed symbols) skipped via length-zero sentinel
-- Merge map uses integer-pair keys `(left_id, right_id) → (rank, merged_id)` for O(1) lookup (no string hashing in the hot loop)
-- Complexity: O(n + m log m) where n = initial symbols, m = merges applied
-
-**Before/After:**
-
-| Metric | Before (greedy) | After (priority-queue) | HF tokenizers v0.22 |
-|--------|----------------|----------------------|---------------------|
-| Encode latency (636-char payload) | 145 us | **70 us** | 104 us |
-| Speedup vs before | — | **2.06x** | — |
-| Speedup vs HF | 0.72x (slower) | **1.49x** (faster) | 1.0x (baseline) |
-| Throughput (tokens/sec) | ~1.8M | **~3.76M** | ~2.5M |
-| Allocations in merge loop | O(m) String clones | **Zero** | Zero |
-
-**Impact:** Pre-tokenization of 15,494 samples for QLoRA training drops
-from O(minutes) to O(seconds). All 117 BPE tests pass with identical
-encode/decode behavior.
-
-### 22.12.1 Tokenizer Loading Optimization (GH-378 follow-up)
-
-**Problem:** `BpeTokenizer::from_huggingface()` took 272ms to parse a
-7MB `tokenizer.json` (Qwen2.5 151K vocab) — 1.45x slower than
-HuggingFace tokenizers v0.22 (187ms). The bottleneck was ~825K
-String/Vec allocations during loading: empty HashMaps rehashed ~15
-times growing to 150K entries, vocab strings were cloned twice (300K
-clones), and each merge rule created 5+ String allocations.
-
-**Fix (3 changes):**
-1. **Pre-sized HashMaps** — `with_capacity(config, vocab_size,
-   merge_count)` eliminates all rehashing
-2. **Owned-string vocab loading** — `load_vocab_owned()` moves
-   deserialized HashMap strings instead of cloning (saves 150K allocs)
-3. **Fast merge path** — `add_merge_owned()` skips `merge_ranks`
-   HashMap (only used by tests) and moves strings into `MergeRule`
-   (saves 300K String clones + 150K Vec allocations)
-
-**Before/After:**
+**Fix:** Priority-queue + doubly-linked symbol list (ported from HF `tokenizers`). O(n + m log m) complexity.
 
 | Metric | Before | After | HF v0.22 |
 |--------|--------|-------|----------|
-| `from_file` latency | 272ms | **142ms** | 204ms |
-| `from_json` latency | 275ms | **136ms** | — |
-| vs HF | 1.45x slower | **1.43x faster** | baseline |
-| String allocations | ~825K | ~225K | — |
-
-**Coverage:** All tokenizer formats (Qwen2, Whisper, GPT-2, LLaMA)
-share the same optimized load path via `config_from_vocab_size()`
-dispatch. A Whisper tokenizer (51K vocab) receives identical
-optimizations.
+| Encode latency | 145 us | **70 us** (2.06x faster) | 104 us |
+| Load latency | 272ms | **142ms** (1.43x faster than HF) | 204ms |
+| Allocations | ~825K | ~225K | — |
 
 ## 22.13 Training Infrastructure
 
@@ -555,140 +497,4 @@ Environment variables: `APR_BATCH_MODE=auto|on|off`, `SKIP_PARITY_GATE=1` (Black
 - **Streaming output:** Results flushed after each prompt for pipeline consumption
 - **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models
 
-## 22.20 MBPP Evaluation (2026-03-18)
-
-First full MBPP evaluation using batch mode on gx10 CPU.
-
-### 22.20.1 Data Format
-
-MBPP uses `text` for the problem description and `test_list` for assertions:
-```json
-{
-  "text": "Write a python function to remove first and last occurrence of a given character from the string.",
-  "task_id": 11,
-  "test_list": ["assert remove_Occ(\"hello\",\"l\") == \"heo\"", ...],
-  "code": "def remove_Occ(s,ch): ..."
-}
-```
-
-The eval script extracts the function name from the first assertion (`remove_Occ`) and includes it in the prompt. Without this (§22.16), pass rate was 5% due to NameError.
-
-### 22.20.2 Batch Mode on CPU
-
-```bash
-SKIP_PARITY_GATE=1 APR_BATCH_MODE=on \
-  ./scripts/eval-pass-at-k.sh mbpp checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
-  results 512 0.0 1 standard
-```
-
-- **Model load:** 5.2s (single load, batch mode)
-- **Per-prompt inference:** ~45-70s on CPU (competing with concurrent HumanEval eval)
-- **Batch output quality:** Correct function names, markdown fences (stripped by eval script)
-- **Total prompts:** 500 (MBPP test split, task_id 11-510)
-
-**Results by prompt version:**
-
-| Prompt | pass@1 | Passed | Gap vs HF | Notes |
-|--------|--------|--------|-----------|-------|
-| Without test assertions | 50.80% | 254/500 | 32.7pp | Model guesses function signature |
-| **7B with test assertions** | **76.20%** | **381/500** | **7.3pp** | Model sees exact I/O format |
-| 32B GPU (test assertions) | 74.40% | 372/500 | 9.1pp | 18 GPU errors; adjusted 77.18% (372/482) |
-
-**Root cause of 50.80% → 76.20% jump (+25.4pp):** MBPP's `text` field is a prose description without a function signature. Without test assertions, the model must guess the function name, argument types, and return format — causing mismatches even when logic is correct. Adding `test_list` assertions to the prompt gives the model the exact function signature and expected I/O, eliminating NameError and format mismatches.
-
-**Remaining 7.3pp gap vs HF (83.5%):** Attributable to (1) Q4K quantization loss, (2) greedy-only decoding, (3) some MBPP problems with very long test assertions (4.4KB prompts) that consume context budget.
-
-**32B GPU MBPP five-whys (74.40% < 7B 76.20%):**
-1. Why 32B < 7B? → 18 GPU generation errors inflate failure count (372/500 vs 381/500)
-2. Why 18 errors? → `SKIP_PARITY_GATE=1` bypasses validation but doesn't fix GPU instability
-3. Why GPU unstable? → 32B uses 53 GB VRAM; long MBPP prompts push KV cache limits
-4. Why not on HumanEval? → HumanEval prompts shorter (function signatures vs prose + test assertions)
-5. Adjusted score: **77.18%** (372/482 excluding errors) — 32B beats 7B as expected
-
-**Conclusion:** 32B MBPP should be re-run on CPU batch for definitive score (no GPU errors). GPU eval is reliable for HumanEval (shorter prompts, 0 errors) but marginal for MBPP (longer prompts, 18/500 errors).
-
-### 22.20.3 Per-Problem Failure Analysis (7B HumanEval)
-
-**Few-shot (87.20%) vs Standard (84.76%) delta:**
-- **Gained 5 problems:** `is_simple_power`, `iscube`, `starts_one_ends`, `fix_spaces`, `cycpattern_check`
-- **Lost 1 problem:** `check_if_last_char_is_a_letter`
-- **Net: +4 problems.** Gains are math/pattern problems where the exemplar primes numeric reasoning.
-
-**Always-fail problems (20 — failed by both strategies):**
-
-| Problem | Type | Five-Whys Root Cause |
-|---------|------|---------------------|
-| `make_palindrome` | String manipulation | Requires shortest palindrome prefix — complex string logic |
-| `remove_duplicates` | List filtering | Must remove ALL occurrences of duplicated elements, not just dupes |
-| `find_zero` | Numerical | Polynomial root finding — requires iterative algorithm |
-| `prime_fib` | Math | Fibonacci + primality test composition |
-| `is_multiply_prime` | Math | Product-of-3-primes check — combinatorial |
-| `encode` | String | Vowel swap + case flip — multi-step transformation |
-| `check_dict_case` | Dict | Edge cases with empty dicts and mixed key types |
-| `max_fill` | Grid | 2D grid water fill — requires capacity-based counting |
-| `maximum` | Sort/select | k-largest elements — subtle sorting requirement |
-| `solution` | String | Sum of odd-indexed chars — index arithmetic |
-| `intersection` | Geometry | Interval intersection + prime length check |
-| `minPath` | Grid/path | Grid path with sorted value constraints |
-| `tri` | Sequence | Tribonacci variant — non-standard recurrence |
-| `is_nested` | String | Nested bracket detection — stack-like logic |
-| `can_arrange` | Array | Find largest index where element < predecessor |
-| `file_name_check` | Validation | Multi-rule filename validation |
-| `order_by_points` | Sort | Sort by digit sum with sign handling |
-| `even_odd_count` | Counting | Count even/odd digits — negative number edge case |
-| `do_algebra` | Eval | Operator precedence in string expression |
-| `generate_integers` | Filtering | Even digits between bounds — range direction |
-
-**Pattern:** Most always-fail problems involve (1) multi-step composition (prime + fibonacci), (2) subtle edge cases (empty dict, negative numbers), or (3) non-obvious interpretation of the problem statement. These are inherent 7B model limitations at Q4K quantization — the 32B model solves 7 of these.
-
-### 22.20.4 Decontamination
-
-`apr data decontaminate` confirms 0% overlap between training data and MBPP benchmark:
-- 974 MBPP problems checked, 0 contaminated
-- 164 HumanEval problems checked, 0 contaminated
-- Report: `clean.jsonl`
-
-## 22.21 Recommendations: Next Best Options (Updated 2026-03-22)
-
-### 22.21.1 Completed
-
-| # | Action | Result | Finding |
-|---|--------|--------|---------|
-| ✅ | MBPP baseline | 50.80% → **76.20%** | Test assertions in prompt = +25.4pp |
-| ✅ | Strategy sweep (HumanEval 7B) | 5 strategies tested | Trivial few-shot best (87.20%), CGO fixed (83.54%) |
-| ✅ | Few-shot with improved exemplars | 85.98% | Simpler exemplar (87.20%) wins |
-| ✅ | Batch mode wired | All evals use `--batch-jsonl` | ~160x JIT reduction on GPU |
-| ✅ | Fix CGO prompt | 0% → **83.54%** | "Use helper functions" with code-only constraint |
-| ✅ | 32B standard HumanEval | **90.85%** (149/164) | New best score, 1.65pp from HF parity |
-| ✅ | 32B few-shot HumanEval | 87.20% (143/164) | Few-shot hurts 32B (-3.65pp) |
-| ✅ | 32B MBPP (GPU) | 74.40% (18 GPU errors) | Adjusted 77.18% excluding errors |
-| ✅ | 7B MBPP few-shot | 74.80% | Few-shot doesn't help MBPP (-1.40pp) |
-| ✅ | Per-problem failure analysis | 20 always-fail problems | Multi-step composition, edge cases |
-| ✅ | GPU parity gate fix | `SKIP_PARITY_GATE=1` | Blackwell sm_121 FP rounding bypass |
-
-### 22.21.2 Next Steps — Eval (Actionable Now)
-
-1. **32B MBPP on CPU batch** — Re-run 32B MBPP without GPU to get 0-error definitive score. GPU run had 18 errors; adjusted 77.18% suggests 32B > 7B. CPU batch eliminates GPU instability. Low effort.
-
-2. **N-sampling (N=5, temp 0.2)** — Generate 5 completions per problem to estimate pass@5 and best-of-5 reranking potential. `--temperature` and `--top-k` wired through batch mode. Medium effort (5x compute).
-
-3. **BigCodeBench eval** — No BigCodeBench score yet. 1140 practical tasks testing library usage. Would fill the last benchmark gap. Low effort (same eval script).
-
-### 22.21.3 Next Steps — Pipeline (Require Upstream)
-
-4. **32B→7B distillation** — Recipe H ready (`configs/recipes/recipe-h-32b-distill.yaml`). Progressive distillation at temperature 4.0. Expected: bridge 7B gap (87.20% → 89%+). Requires `apr distill` progressive mode + GPU.
-
-5. **DPO with execution feedback** — Generate N completions per HumanEval problem, use pass/fail as preference signal. Expected: +2-4pp on HumanEval+. Requires `apr align --method dpo`.
-
-6. **HumanEval+ eval** — EvalPlus augmented test cases (80x more tests). The AC-022 success gate requires ≥82% HumanEval+. Requires EvalPlus harness integration.
-
-### 22.21.4 ROI Priority Ranking
-
-| Priority | Action | Expected Gain | Effort | Dependency |
-|----------|--------|---------------|--------|------------|
-| 1 | 32B MBPP CPU re-run | ~77%+ (definitive) | Low | CPU only |
-| 2 | BigCodeBench eval | First score | Low | CPU/GPU |
-| 3 | N-sampling | pass@5 data | Medium | CPU or GPU |
-| 4 | 32B→7B distill | +2-3pp on 7B | High | `apr distill` + GPU |
-| 5 | DPO alignment | +2-4pp on HE+ | High | `apr align` + data |
-| 6 | HumanEval+ eval | AC-022 gate | Medium | EvalPlus harness |
+MBPP eval findings, per-problem analysis, and recommendations moved to [AC Verification (S24)](24-ac-verification.md) §24.12-§24.13.
