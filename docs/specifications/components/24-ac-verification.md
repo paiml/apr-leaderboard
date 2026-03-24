@@ -154,3 +154,40 @@ Both proof obligations satisfied on CPU. GPU (wgpu) throughput expected to be si
 ```
 
 Existing checks: merge-without-finetune, finetune-after-prune, distill-after-finetune. FT-QUANT-003 now enforced.
+
+## 24.12 MBPP Evaluation Findings
+
+### 24.12.1 Results by Prompt Version
+
+| Prompt | pass@1 | Passed | Gap vs HF | Notes |
+|--------|--------|--------|-----------|-------|
+| Without test assertions | 50.80% | 254/500 | 32.7pp | Model guesses function signature |
+| **7B with test assertions** | **76.20%** | **381/500** | **7.3pp** | Model sees exact I/O format |
+| 32B GPU (test assertions) | 74.40% | 372/500 | 9.1pp | 18 GPU errors; adjusted 77.18% (372/482) |
+
+**Root cause of +25.4pp:** MBPP's `text` field is prose without a function signature. Adding `test_list` assertions gives the model exact I/O format.
+
+### 24.12.2 Per-Problem Failure Analysis (7B HumanEval)
+
+**Few-shot (87.20%) vs Standard (84.76%) delta:** Gained 5 problems (`is_simple_power`, `iscube`, `starts_one_ends`, `fix_spaces`, `cycpattern_check`), lost 1 (`check_if_last_char_is_a_letter`). Net +4.
+
+**20 always-fail problems** involve multi-step composition (prime+fibonacci), subtle edge cases (empty dict, negative numbers), or non-obvious problem interpretation. These are inherent 7B Q4K limitations — 32B solves 7 of them.
+
+### 24.12.3 Decontamination
+
+`apr data decontaminate`: 0/164 HumanEval + 0/974 MBPP contaminated. Report: `clean.jsonl`.
+
+## 24.13 Recommendations (Updated 2026-03-24)
+
+**Completed (11 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542).
+
+**Next steps:**
+
+| Priority | Action | Expected Gain | Dependency |
+|----------|--------|---------------|------------|
+| 1 | BigCodeBench sandbox deps | First real score | Install 139 Python libs |
+| 2 | 32B MBPP CPU re-run | ~77%+ definitive | CPU only |
+| 3 | N-sampling (N=5) | pass@5 data | CPU or GPU |
+| 4 | 32B→7B distill | +2-3pp on 7B | `apr distill` + GPU |
+| 5 | DPO alignment | +2-4pp on HE+ | `apr align` + data |
+| 6 | HumanEval+ eval | AC-022 gate | EvalPlus harness |
