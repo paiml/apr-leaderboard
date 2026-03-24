@@ -288,7 +288,7 @@ Commit: realizar `e9ac04d`. Verified: Qwen2.5-Coder-7B now correctly resolves `S
 | `apr compare-hf` returns 0 comparisons on Q4K vs FP16 | aprender | Medium | Expected — dtype mismatch |
 | `apr qa` format parity on .apr-wrapped GGUF | aprender | Medium | **Open** (GH-13) |
 | 32B batch GPU crash — FP8 poisons CUDA context on sm_121 | realizar | Critical | **Fixed** (GH-542) — `cc >= 89 && cc < 100` auto-disables FP8 on Blackwell |
-| Blackwell GPU garbage — PTX JIT numerics unreliable | CUDA driver | Critical | **Open** (GH-550) — use CPU until driver fix |
+| Blackwell GPU garbage (misdiagnosed) | eval test | Low | **Closed** (GH-550) — bare prompt without chat template hit max_tokens, not GPU numerics. GPU inference correct (90.85% HE verified). |
 | Stale apr binary blocks --batch-jsonl | gx10 ops | High | **Fixed** — removed .local/bin/apr |
 
 ## 22.12 BPE Tokenizer Performance (GH-378)
