@@ -216,6 +216,19 @@ echo ""
 
 # ── Phase 3: Test --sequential sandbox execution ─────────────────────────────
 
+# BigCodeBench: use uv for library dependencies
+BCB_UV=""
+if [[ "$BENCHMARK" == "bigcodebench" ]]; then
+    BCB_REQS="$(cd "$(dirname "$0")/.." && pwd)/configs/eval/bigcodebench-requirements.txt"
+    if command -v uv >/dev/null 2>&1 && [[ -f "$BCB_REQS" ]]; then
+        BCB_UV="uv"
+        echo "BigCodeBench sandbox: using uv run with $(wc -l < "$BCB_REQS") deps"
+    else
+        echo "ERROR: BigCodeBench requires uv + bigcodebench-requirements.txt (GH-17)"
+        exit 1
+    fi
+fi
+
 echo "Phase 3: Testing completions..."
 COMPLETED=0
 PASSED=0
@@ -289,14 +302,14 @@ for problem_idx in $(seq 0 $((TOTAL_PROBLEMS - 1))); do
     # Execute test
     TASK_PASSED=0
     if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
-        if command -v python3 >/dev/null 2>&1; then
-            if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
+        if [[ -n "${BCB_UV:-}" ]]; then
+            # BigCodeBench: uv run with library deps
+            if timeout 30 uv run --with-requirements "$BCB_REQS" --no-project \
+                python3 "$TEST_FILE" > /dev/null 2>&1; then
                 TASK_PASSED=1
             fi
-        elif command -v docker >/dev/null 2>&1; then
-            if timeout 30 docker run --rm --network=none --memory=512m \
-                -v "${TEST_FILE}:/test.py:ro" python:3.11-slim \
-                python3 /test.py > /dev/null 2>&1; then
+        elif command -v python3 >/dev/null 2>&1; then
+            if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
                 TASK_PASSED=1
             fi
         fi
