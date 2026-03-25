@@ -13,7 +13,7 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download \
+        prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download generate-preference-pairs \
         finetune finetune-instruct align merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history leaderboard \
         export publish model-card \
@@ -112,6 +112,12 @@ benchmark-download:
 	@echo "=== Downloading benchmark data ==="
 	@mkdir -p data/benchmarks
 	./scripts/download-benchmarks.sh data/benchmarks
+
+# PMAT-014: Generate DPO preference pairs from N-sampling eval results
+generate-preference-pairs:
+	@test -n "$(EVAL_WORK_DIR)" || { echo "ERROR: EVAL_WORK_DIR required (from N-sampling eval run)"; exit 1; }
+	@mkdir -p data
+	./scripts/generate-preference-pairs.sh "$(EVAL_WORK_DIR)" data/preference-pairs.jsonl
 
 # -- Optimization ----------------------------------------------------------------
 

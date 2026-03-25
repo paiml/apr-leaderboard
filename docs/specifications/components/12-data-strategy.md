@@ -72,3 +72,28 @@ apr data decontaminate code-instruct-clean.jsonl \
 ```
 
 **Bootstrapping discipline:** Never generate training data from a teacher whose inference quality hasn't been verified. The pipeline is: import → eval teacher → generate data → validate data → decontaminate → train student.
+
+## 12.3 Preference Pair Generation (PMAT-014)
+
+DPO alignment requires preference pairs: (prompt, chosen, rejected) triples where "chosen" is a correct completion and "rejected" is an incorrect one. We generate these from N-sampling eval results.
+
+```bash
+# Step 1: Run N-sampling eval (generates N completions per problem)
+make eval-humaneval CHECKPOINT=checkpoints/model.apr NUM_SAMPLES=10 TEMPERATURE=0.8
+
+# Step 2: Generate preference pairs from eval results
+make generate-preference-pairs EVAL_WORK_DIR=/tmp/eval-work-dir
+# Output: data/preference-pairs.jsonl
+
+# Step 3: Use for DPO training
+apr finetune checkpoint.apr --method dpo --data data/preference-pairs.jsonl
+```
+
+**Pair generation strategy:** For each problem with at least 1 passing and 1 failing sample, create all (passing, failing) pairs. A problem with 3 passing and 7 failing samples produces 21 preference pairs. This maximizes training signal from each eval run.
+
+**Expected yield from 164 HumanEval problems at 85% pass@1 (N=10, T=0.8):**
+- ~140 problems with at least 1 pass → usable for pairs
+- ~120 problems with mixed pass/fail → source of pairs
+- ~500-1000 preference pairs per eval run
+
+**Implementation:** `scripts/generate-preference-pairs.sh` reads the eval work directory, re-tests each sample to classify pass/fail, and outputs JSONL.
