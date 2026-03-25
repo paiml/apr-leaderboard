@@ -17,7 +17,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 
 ## Partially Verified
 
-- [x] AC-017: N-sampling generates distinct completions per problem -- eval script supports `NUM_SAMPLES`, tracks per-task n,c counts, computes Chen et al. unbiased pass@k estimator in log-space. Uses `apr run` for generation. Full 20-sample verification pending GPU eval run.
+- [x] AC-017: N-sampling generates distinct completions per problem -- eval script supports `NUM_SAMPLES`, duplicates each prompt N times in batch JSONL (task_id format `{idx}_s{sample}`), auto-enables top-k=40 for temperature>0. Tests each of N samples independently, counts passes per problem. Chen et al. unbiased pass@k estimator in log-space (FT-004/FT-005 verified). Usage: `make eval-humaneval CHECKPOINT=m.apr NUM_SAMPLES=10 TEMPERATURE=0.8`.
 - [x] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases -- `apr data decontaminate` confirms 0% overlap (0/164 HumanEval, 0/974 MBPP contaminated). Decontamination report: `clean.jsonl`.
 - [x] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference -- perplexity = 6.63 on WikiText-2 (§22.0). Non-zero confirmed. HF parity check returns 0 comparisons on GGUF imports (different dtype); 10% threshold pending SafeTensors import path fix.
 - [x] AC-019: Structured prompting produces reasoning before code — SCoT produces step-by-step reasoning. 7B evaluation complete: SCoT **82.32%** vs standard **85.37%** (-3.05pp). Reasoning overhead degrades small model performance. Few-shot (87.20%) is the superior prompting strategy for 7B.

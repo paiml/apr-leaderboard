@@ -54,6 +54,9 @@ make eval-humaneval CHECKPOINT=checkpoints/qwen_qwen2.5-coder-7b-instruct.apr
 # Batch inference (load model once — eliminates ~80s/problem JIT overhead)
 apr run checkpoints/model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --temperature 0.0
 
+# N-sampling for unbiased pass@k (PMAT-003)
+make eval-humaneval CHECKPOINT=checkpoints/model.apr NUM_SAMPLES=10 TEMPERATURE=0.8
+
 # Sweep all eval results and compare
 make eval-sweep
 make compare-results BASE=results/humaneval_baseline.json NEW=results/humaneval_latest.json
@@ -112,14 +115,15 @@ All results produced by `apr run` (zero Python inference). Code execution sandbo
 ## Roadmap
 
 **Next (actionable now):**
-1. 32B MBPP CPU re-run (GPU had 18 errors, adjusted 77.18%)
-2. BigCodeBench eval (first score, fills last benchmark gap)
-3. N-sampling (N=5, temp 0.2) for pass@5 estimates
+1. N-sampling pass@k (N=10, temp=0.8) for unbiased pass@1 estimates
+2. 32B MBPP CPU re-run (GPU had 18 errors, adjusted 77.18%)
+3. BigCodeBench eval (first score, fills last benchmark gap)
+4. Fix GPU inference on Blackwell sm_121 (GH-559: Q4K GEMV kernel)
 
 **Pipeline experiments (require upstream `apr` features):**
-4. 32B→7B reasoning distillation (recipe-h ready)
-5. DPO with execution feedback for HumanEval+ gains
-6. HumanEval+ eval (AC-022 gate: ≥82%)
+5. 32B→7B reasoning distillation (recipe-h ready)
+6. DPO with execution feedback for HumanEval+ gains
+7. HumanEval+ eval (AC-022 gate: ≥82%)
 
 ## Project Structure
 
