@@ -26,29 +26,44 @@ machines:
     arch: x86_64
     roles: [gpu-train, eval, inference]
 
+  gx10:
+    hostname: gx10
+    addr: 192.168.50.187
+    user: noah
+    arch: aarch64
+    roles: [gpu-eval, gpu-train]
+
 resources:
   # Infrastructure — Dual AMD Radeon Pro W5700X via wgpu/Vulkan
   gpu-0:
     type: gpu
     machine: lambda
-    gpu_backend: wgpu                           # Vulkan — no CUDA toolkit
-    device: "/dev/dri/renderD128"
-    vendor: amd
-    model: "Radeon Pro W5700X (Navi10)"
-    vram_gb: 16
-    vulkan_version: "1.3.255"
-    driver: "radv (Mesa 23.2.1)"
+    gpu_backend: wgpu
+    driver_version: "Mesa 23.2.1"
+    devices: [0]
 
   gpu-1:
     type: gpu
     machine: lambda
     gpu_backend: wgpu
-    device: "/dev/dri/renderD129"
-    vendor: amd
-    model: "Radeon Pro W5700X (Navi10)"
-    vram_gb: 16
-    vulkan_version: "1.3.255"
-    driver: "radv (Mesa 23.2.1)"
+    driver_version: "Mesa 23.2.1"
+    devices: [1]
+
+  # gx10 — NVIDIA Blackwell GB10 (sm_121)
+  gx10-gpu:
+    type: gpu
+    machine: gx10
+    gpu_backend: cuda
+    driver_version: "590.48.01"
+    cuda_version: "13.1"
+
+  gx10-nvidia-driver:
+    type: package
+    machine: gx10
+    provider: apt
+    state: present
+    packages: [nvidia-driver-590]                  # Upgrade 580→590 to fix sm_121 PTX JIT bug (GH-555)
+    depends_on: [gx10-gpu]
 
   vulkan-driver:
     type: package
