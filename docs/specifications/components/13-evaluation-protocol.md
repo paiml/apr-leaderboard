@@ -83,7 +83,9 @@ The eval script handles: (1) benchmark download, (2) completion generation via `
 | Variable | Default | Description |
 |---|---|---|
 | `APR_BATCH_MODE` | `auto` | Batch mode: `auto` (detect), `on` (force), `off` (disable) |
-| `SKIP_PARITY_GATE` | `0` | Bypass GPU parity check for Blackwell sm_121 (set to `1`) |
+| `SKIP_PARITY_GATE` | `0` | Bypass GPU FP parity check for Blackwell sm_121 (set to `1`) |
+| `FP8_PREFILL` | `1` | FP8 prefill cache. Set to `0` on Blackwell sm_121 (GH-542) |
+| `FP8_DECODE` | `1` | FP8 decode cache. Set to `0` on Blackwell sm_121 (GH-542) |
 
 ## 13.5 Instruct Model Post-Processing
 
