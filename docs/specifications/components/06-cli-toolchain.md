@@ -26,8 +26,8 @@ apr import qwen-7b.gguf -o qwen-7b.apr --enforce-provenance
 # Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU
 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 
-# GPU is mandatory for eval. Use SKIP_PARITY_GATE=1 on Blackwell sm_121.
-# SKIP_PARITY_GATE=1 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512 --verbose
+# Blackwell sm_121: required env vars (GH-542 FP8 fix + parity gate bypass)
+# SKIP_PARITY_GATE=1 FP8_PREFILL=0 FP8_DECODE=0 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 ```
 
 **Input format (JSONL):**
