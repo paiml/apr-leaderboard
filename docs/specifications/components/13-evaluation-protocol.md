@@ -78,6 +78,32 @@ make results-history
 
 The eval script handles: (1) benchmark download, (2) completion generation via `apr run --batch-jsonl` (batch mode, auto-detected) or `apr run --json --chat` (worker mode), (3) markdown fence stripping + trailing text extraction, (4) python3/Docker sandbox execution with timeout, (5) Chen et al. unbiased pass@k computation, (6) JSON result output.
 
+## 13.5 N-Sampling for pass@k (PMAT-003)
+
+When `NUM_SAMPLES > 1`, the eval pipeline generates N completions per problem using temperature sampling:
+
+```bash
+# Generate 10 samples per HumanEval problem with temperature=0.8
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr \
+    NUM_SAMPLES=10 TEMPERATURE=0.8
+```
+
+**Implementation details:**
+- Batch mode duplicates each prompt N times (task_id format: `{idx}_s{sample}`)
+- Temperature > 0 automatically enables top-k=40 sampling (greedy for T=0)
+- Each sample is tested independently in the sandbox
+- Results: `task_id  N  num_passed` (TSV) → Chen et al. estimator
+- `pass@1` with N>1 gives the unbiased estimate: `E[1 - (n-c)/n]`
+- `pass@10` requires `N >= 10` and gives: `E[1 - C(n-c,10)/C(n,10)]`
+
+**Recommended configurations:**
+
+| Configuration | N | Temperature | Top-k | Use Case |
+|---|---|---|---|---|
+| Greedy (default) | 1 | 0.0 | 1 | Deterministic baseline |
+| pass@1 (unbiased) | 10 | 0.8 | 40 | Publication-grade pass@1 |
+| pass@10 | 100 | 0.8 | 40 | Pass@10 for leaderboard |
+
 **Environment variables:**
 
 | Variable | Default | Description |

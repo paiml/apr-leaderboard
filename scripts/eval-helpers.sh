@@ -128,19 +128,32 @@ generate_batch() {
 
         instruction="$(build_instruction "$BENCHMARK" "$prompt" "$PROMPT_STRATEGY" "$(cat "$problem_file")")"
 
-        # task_id = problem index for correlation back to completion files
-        jq -nc --arg prompt "$instruction" --arg task_id "${problem_idx}" \
-            --argjson max_tokens "$EFFECTIVE_MAX_TOKENS" \
-            '{prompt: $prompt, task_id: $task_id, max_tokens: $max_tokens}' >> "$batch_input"
+        # PMAT-003: N-sampling — generate NUM_SAMPLES copies per problem
+        # task_id format: "{idx}" for n=1, "{idx}_s{sample}" for n>1
+        local sample
+        for sample in $(seq 0 $((NUM_SAMPLES - 1))); do
+            local tid="${problem_idx}"
+            if (( NUM_SAMPLES > 1 )); then
+                tid="${problem_idx}_s${sample}"
+            fi
+            jq -nc --arg prompt "$instruction" --arg task_id "$tid" \
+                --argjson max_tokens "$EFFECTIVE_MAX_TOKENS" \
+                '{prompt: $prompt, task_id: $task_id, max_tokens: $max_tokens}' >> "$batch_input"
+        done
     done
 
     local input_count
     input_count="$(wc -l < "$batch_input")"
     echo "  Batch input: ${input_count} prompts (${skipped} skipped)"
 
-    # Build apr run flags (GPU mandatory -- use SKIP_PARITY_GATE=1 for Blackwell sm_121)
+    # Build apr run flags (GPU mandatory -- parity gate blocks if GPU broken)
     local -a apr_flags=("$MODEL" "--batch-jsonl" "$batch_input" "--max-tokens" "$EFFECTIVE_MAX_TOKENS")
-    apr_flags+=("--temperature" "$TEMPERATURE" "--top-k" "1")
+    # PMAT-003: Use top-k=40 for temperature>0 sampling (N-sampling pass@k)
+    local top_k=1
+    if awk "BEGIN{exit !($TEMPERATURE > 0)}" 2>/dev/null; then
+        top_k=40
+    fi
+    apr_flags+=("--temperature" "$TEMPERATURE" "--top-k" "$top_k")
     apr_flags+=("--verbose")
 
     # Run batch inference --stdout=JSONL results, stderr=progress

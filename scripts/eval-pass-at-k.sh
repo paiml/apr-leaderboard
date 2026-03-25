@@ -14,7 +14,6 @@
 #
 # Environment variables:
 #   APR_BATCH_MODE=auto|on|off    --batch mode control (default: auto)
-#   SKIP_PARITY_GATE=1            --bypass GPU FP parity check (required for Blackwell sm_121)
 
 set -euo pipefail
 
@@ -238,86 +237,96 @@ TASK_RESULTS_FILE="${WORK_DIR}/task_results.tsv"
 
 for problem_idx in $(seq 0 $((TOTAL_PROBLEMS - 1))); do
     local_problem_file="${WORK_DIR}/problems/${problem_idx}.json"
-    local_completion_file="${WORK_DIR}/completions/${problem_idx}.py"
 
     TASK_ID="$(jq -r '.task_id // .name // "unknown"' < "$local_problem_file" 2>/dev/null)"
     PROMPT="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$local_problem_file" 2>/dev/null)"
-
-    # Check if completion exists and isn't an error marker
-    if [[ ! -f "$local_completion_file" ]]; then
-        ERRORS=$((ERRORS + 1))
-        printf "%s\t1\t0\n" "$TASK_ID" >> "$TASK_RESULTS_FILE"
-        COMPLETED=$((COMPLETED + 1))
-        continue
-    fi
-
-    COMPLETION_TEXT="$(cat "$local_completion_file")"
-    if [[ "$COMPLETION_TEXT" == "ERROR" || "$COMPLETION_TEXT" == "SKIP" ]]; then
-        ERRORS=$((ERRORS + 1))
-        printf "%s\t1\t0\n" "$TASK_ID" >> "$TASK_RESULTS_FILE"
-        COMPLETED=$((COMPLETED + 1))
-        continue
-    fi
-
-    # Assemble test file
-    TEST_FILE="${WORK_DIR}/tests/${problem_idx}.py"
     ENTRY_POINT="$(jq -r '.entry_point // ""' < "$local_problem_file" 2>/dev/null)"
     TEST_SETUP="$(jq -r '.test_setup_code // ""' < "$local_problem_file" 2>/dev/null)"
     HAS_TEST="$(jq -r 'has("test")' < "$local_problem_file" 2>/dev/null)"
     HAS_TEST_LIST="$(jq -r 'has("test_list")' < "$local_problem_file" 2>/dev/null)"
-
+    HAS_CODE_PROMPT="$(jq -r 'has("code_prompt")' < "$local_problem_file" 2>/dev/null)"
+    TEST_CODE=""
     if [[ "$HAS_TEST" == "true" ]]; then
         TEST_CODE="$(jq -r '.test' < "$local_problem_file" 2>/dev/null)"
-        HAS_CODE_PROMPT="$(jq -r 'has("code_prompt")' < "$local_problem_file" 2>/dev/null)"
-        {
-            if [[ "$HAS_CODE_PROMPT" == "true" ]]; then
+    fi
+
+    # PMAT-003: N-sampling — test each of NUM_SAMPLES completions per problem
+    SAMPLE_PASSED=0
+    SAMPLE_ERRORS=0
+    for sample_idx in $(seq 0 $((NUM_SAMPLES - 1))); do
+        local_completion_file="${WORK_DIR}/completions/${problem_idx}.py"
+        if (( NUM_SAMPLES > 1 )); then
+            local_completion_file="${WORK_DIR}/completions/${problem_idx}_s${sample_idx}.py"
+        fi
+
+        # Check if completion exists and isn't an error marker
+        if [[ ! -f "$local_completion_file" ]]; then
+            SAMPLE_ERRORS=$((SAMPLE_ERRORS + 1))
+            continue
+        fi
+
+        COMPLETION_TEXT="$(cat "$local_completion_file")"
+        if [[ "$COMPLETION_TEXT" == "ERROR" || "$COMPLETION_TEXT" == "SKIP" ]]; then
+            SAMPLE_ERRORS=$((SAMPLE_ERRORS + 1))
+            continue
+        fi
+
+        # Assemble test file
+        TEST_FILE="${WORK_DIR}/tests/${problem_idx}_s${sample_idx}.py"
+
+        if [[ "$HAS_TEST" == "true" ]]; then
+            {
+                if [[ "$HAS_CODE_PROMPT" == "true" ]]; then
+                    cat "$local_completion_file"
+                else
+                    echo "$PROMPT"
+                    cat "$local_completion_file"
+                fi
+                echo ""
+                echo "$TEST_CODE"
+                if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" && "$HAS_CODE_PROMPT" != "true" ]]; then
+                    echo "check(${ENTRY_POINT})"
+                fi
+            } > "$TEST_FILE"
+        elif [[ "$HAS_TEST_LIST" == "true" ]]; then
+            {
+                if [[ -n "$TEST_SETUP" && "$TEST_SETUP" != "null" ]]; then
+                    echo "$TEST_SETUP"
+                    echo ""
+                fi
                 cat "$local_completion_file"
-            else
+                echo ""
+                jq -r '.test_list[]' < "$local_problem_file" 2>/dev/null
+            } > "$TEST_FILE"
+        else
+            {
                 echo "$PROMPT"
                 cat "$local_completion_file"
-            fi
-            echo ""
-            echo "$TEST_CODE"
-            if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" && "$HAS_CODE_PROMPT" != "true" ]]; then
-                echo "check(${ENTRY_POINT})"
-            fi
-        } > "$TEST_FILE"
-    elif [[ "$HAS_TEST_LIST" == "true" ]]; then
-        {
-            if [[ -n "$TEST_SETUP" && "$TEST_SETUP" != "null" ]]; then
-                echo "$TEST_SETUP"
-                echo ""
-            fi
-            cat "$local_completion_file"
-            echo ""
-            jq -r '.test_list[]' < "$local_problem_file" 2>/dev/null
-        } > "$TEST_FILE"
-    else
-        {
-            echo "$PROMPT"
-            cat "$local_completion_file"
-        } > "$TEST_FILE"
-    fi
+            } > "$TEST_FILE"
+        fi
 
-    # Execute test
-    TASK_PASSED=0
-    if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
-        if [[ -n "${BCB_UV:-}" ]]; then
-            # BigCodeBench: uv run with library deps
-            if timeout 30 uv run --with-requirements "$BCB_REQS" --no-project \
-                python3 "$TEST_FILE" > /dev/null 2>&1; then
-                TASK_PASSED=1
-            fi
-        elif command -v python3 >/dev/null 2>&1; then
-            if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
-                TASK_PASSED=1
+        # Execute test
+        if [[ -f "$TEST_FILE" && -s "$TEST_FILE" ]]; then
+            if [[ -n "${BCB_UV:-}" ]]; then
+                if timeout 30 uv run --with-requirements "$BCB_REQS" --no-project \
+                    python3 "$TEST_FILE" > /dev/null 2>&1; then
+                    SAMPLE_PASSED=$((SAMPLE_PASSED + 1))
+                fi
+            elif command -v python3 >/dev/null 2>&1; then
+                if timeout 10 python3 "$TEST_FILE" > /dev/null 2>&1; then
+                    SAMPLE_PASSED=$((SAMPLE_PASSED + 1))
+                fi
             fi
         fi
+    done
+
+    # Record: task_id  num_samples  num_passed
+    printf "%s\t%s\t%s\n" "$TASK_ID" "$NUM_SAMPLES" "$SAMPLE_PASSED" >> "$TASK_RESULTS_FILE"
+
+    if (( SAMPLE_ERRORS == NUM_SAMPLES )); then
+        ERRORS=$((ERRORS + 1))
     fi
-
-    printf "%s\t1\t%s\n" "$TASK_ID" "$TASK_PASSED" >> "$TASK_RESULTS_FILE"
-
-    if (( TASK_PASSED > 0 )); then
+    if (( SAMPLE_PASSED > 0 )); then
         PASSED=$((PASSED + 1))
     fi
 
