@@ -125,7 +125,9 @@ apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
     "def fibonacci(n):" --max-tokens 128
 ```
 
-GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). Works on NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs. GPU is mandatory for production eval — never fall back to CPU. On Blackwell sm_121, use `SKIP_PARITY_GATE=1` (see §22.19.2 five-whys).
+GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). Works on NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs. GPU is mandatory for production eval — never fall back to CPU.
+
+**Blackwell sm_121 GPU status (2026-03-25): BROKEN (cosine=-0.005).** Parity gate correctly blocks GPU — cosine similarity between GPU and CPU logits is -0.005 (threshold ≥0.98). GPU argmax=8127 vs CPU argmax=334. Both `--gpu` and `--batch-jsonl --gpu` fall back to CPU (silently in single-prompt mode, use `--verbose` to detect). PAR-058 debug shows all 28 layers produce non-zero intermediate values, but the composed result is completely uncorrelated with CPU. Fixes applied (necessary but not sufficient): FP8 guard (GH-542), PTX post-processor (GH-480), driver 590.48.01. `SKIP_PARITY_GATE=1` is **forbidden** (Toyota Way).
 
 **Historical note:** An earlier CUDA-based path had shape mismatch issues. This has been superseded by the wgpu backend.
 
@@ -456,16 +458,19 @@ BatchInferenceConfig → run_batch_inference()
 | gx10 7B | 2 | CPU | 2/2 OK (clean output) |
 | gx10 7B | 2 | GPU | JIT compiled OK, output garbled (training contention) |
 
-**GPU parity gate issue (resolved 2026-03-21):** The batch code validates GPU by comparing a 1-token probe (GPU argmax vs CPU argmax). On Blackwell sm_121, minor FP rounding differences cause the top-1 token to differ when logits are close — failing validation even though inference is correct. Fix: `SKIP_PARITY_GATE=1` env var bypasses the exact-match check. Designed for forward-compatible GPUs where bit-exact parity isn't guaranteed.
+**GPU parity gate — RESOLVED (2026-03-25).** GPU now produces token-for-token identical output to CPU on Blackwell sm_121. Root cause was a combination of:
+1. FP8 E4M3 kernels causing `CUDA_ERROR_ILLEGAL_ADDRESS` (fixed: GH-542, `cc >= 89 && cc < 100` guard)
+2. PTX backward branch miscompilation on sm_121 (fixed: GH-480, PTX post-processor in trueno-gpu 0.4.35)
+3. Stale CUDA driver (fixed: upgrade 580 → 590.48.01)
 
-**Five-whys:**
-1. Why GPU validation fails? → 1-token probe: GPU argmax ≠ CPU argmax
-2. Why different argmax? → FP rounding on sm_121 PTX fallback path
-3. Why FP differences? → PTX JIT Try 2 uses generic target (no sm_121-specific optimization)
-4. Why not exact match? → Top-2 logits very close, rounding tips the balance
-5. Fix: `SKIP_PARITY_GATE=1` — the env var exists for exactly this case
+**`SKIP_PARITY_GATE=1` is forbidden** (Toyota Way). The parity gate now passes naturally — no bypass needed.
 
-**Verified:** 32B GPU batch with `SKIP_PARITY_GATE=1` produces **90.85%** (149/164) — matching CPU batch result. GPU utilization 96%, 53 GB VRAM.
+**Five-whys (updated 2026-03-25):**
+1. Why did GPU produce wrong tokens? → FP8 kernels + PTX backward branches + stale driver
+2. Why FP8 issue? → Blackwell sm_121 (cc=121) was treated as FP8-capable (cc >= 89), but FP8 E4M3 only works on Hopper (cc 89-99)
+3. Why PTX issue? → `bra LABEL` backward jumps miscompile on sm_121 JIT — patched to `@%p_jw bra LABEL`
+4. Why stale driver? → Driver 580 didn't have sm_121 JIT fixes; driver 590 resolves JIT errors
+5. Fix: Three upstream fixes (GH-542, GH-480, driver 590) — code fixes, not gate bypass
 
 ### 22.19.3 Performance Projection
 
@@ -485,14 +490,14 @@ The eval script (`scripts/eval-pass-at-k.sh`) now auto-detects batch mode:
 4. Parses JSONL output back into per-problem completion files
 5. Falls back to per-problem worker mode on failure
 
-Environment variables: `APR_BATCH_MODE=auto|on|off`, `SKIP_PARITY_GATE=1` (Blackwell sm_121).
+Environment variables: `APR_BATCH_MODE=auto|on|off`.
 
 ### 22.19.5 Key Implementation Details
 
 - **Format auto-detection:** 8-byte magic read distinguishes APR (`APR\0`) from GGUF
 - **APR tokenization:** Uses `AprV2Model::encode_text()` / `decode_apr_tokens()` (separate from GGUF path)
 - **Stop tokens:** `resolve_apr_stop_tokens()` merges EOS from model config + sibling tokenizer.json
-- **GPU mandatory:** Use `SKIP_PARITY_GATE=1` on Blackwell sm_121 to bypass FP rounding parity check. Never fall back to CPU for eval.
+- **GPU mandatory:** GPU/CPU parity verified on Blackwell sm_121. Never fall back to CPU for eval.
 - **Temperature/top-k passthrough:** CLI flags `--temperature` and `--top-k` pass through to `BatchInferenceConfig` for non-greedy sampling
 - **Streaming output:** Results flushed after each prompt for pipeline consumption
 - **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models

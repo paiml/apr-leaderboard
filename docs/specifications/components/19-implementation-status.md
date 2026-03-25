@@ -164,7 +164,32 @@ SafeTensors imports produce F16/BF16 tensors that realizar cannot run inference 
 
 ### 19.6.2 GPU Inference Status
 
-GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory for production eval — never fall back to CPU. On Blackwell sm_121, use `SKIP_PARITY_GATE=1` to bypass the FP rounding parity check (five-whys: §22.19.2).
+GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory for production eval — never fall back to CPU.
+
+**Current status (GH-559): GPU BROKEN on Blackwell sm_121.**
+
+The F2 parity gate (`validate_gpu_first_token`) correctly detects that GPU produces wrong tokens. The gate must NOT be bypassed — `SKIP_PARITY_GATE=1` is **forbidden** (Toyota Way: fix the code, not the gate).
+
+Five-whys root cause analysis:
+1. **Why does GPU produce wrong tokens?** → Final logits are garbage (cosine = -0.005 vs CPU)
+2. **Why are logits garbage?** → GPU produces non-zero but WRONG values across all 28 layers
+3. **Why are values wrong?** → Individual kernel phases (RMSNorm, QKV, Attention, FFN) each produce non-zero output, but the composed result diverges from CPU
+4. **Why does composition diverge?** → Suspect: weight pointer mapping, buffer aliasing, KV cache corruption, or quantization dispatch selecting wrong kernel for sm_90 target
+5. **Why on sm_121 specifically?** → PTX targets sm_90 (clamped from sm_121). JIT optimization may change operation ordering or precision
+
+Completed diagnostics:
+- PAR-058 per-phase debug (`GPU_DEBUG=1`): All phases produce non-zero values through 28 layers
+- CORRECTNESS-001 hidden state: sum=78.83, rms=26.12 (non-zero but wrong vs CPU)
+- Parity gate: cosine=-0.005, CPU argmax=334, GPU argmax=8127
+- CORRECTNESS-011 layer trace: correlation=-0.0008, CPU argmax=75311, GPU argmax=14087
+- Stream sync fix (`self.stream.synchronize()` per-layer) eliminates no-op layers
+- All 28 GPU layers now produce different output (no no-ops)
+- But final logits are STILL completely uncorrelated with CPU (cosine=-0.005)
+- Root cause: Q4K GEMV PTX kernel (trueno-gpu) produces systematically wrong values on sm_121
+  when JIT-compiled from sm_90 target. All weight projections (QKV, output, FFN) are affected.
+
+Next step: Verify Q4K GEMV kernel correctness in isolation (single matmul CPU vs GPU).
+  If confirmed, fix the PTX kernel in trueno-gpu for sm_121 compatibility.
 
 ### 19.6.3 `apr serve` for .apr Files
 

@@ -61,6 +61,23 @@ Every command is provided by the `apr` CLI (aprender). This repo provides pipeli
 - **No GPU vendor lock-in.** GPU compute via wgpu (Vulkan/Metal/DX12) or optional CUDA backend. No vendor lock-in.
 - **YAML-only.** All configs are YAML (albor pattern). Legacy TOML configs have been removed.
 
+## Toyota Way: No Workarounds
+
+**NEVER bypass a failing gate, check, or contract.** When something fails:
+1. **Stop the line** — do not continue with a workaround
+2. **Five-whys** — trace to root cause at the code/kernel level
+3. **Fix the code** — not the gate, not with env vars, not with CPU fallback
+4. **Verify** — the original gate/check must pass after the fix
+
+**Forbidden patterns:**
+- `SKIP_PARITY_GATE=1` — fix the GPU kernel instead
+- `FP8_PREFILL=0 FP8_DECODE=0` — fix the FP8 detection code instead
+- `CUDA_VISIBLE_DEVICES=""` — fix GPU, don't hide it
+- Relaxing `AllImplemented` contract policy — implement the bindings
+- "use CPU fallback" / "use worker mode" — fix the GPU/batch code
+
+**Current blocker:** GPU inference on Blackwell sm_121 produces wrong tokens. F2 parity gate correctly blocks it. Root cause is in trueno-gpu CUDA kernels. Must be fixed there, not bypassed.
+
 ## Quality Gates
 
 ```bash
