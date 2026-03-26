@@ -34,6 +34,15 @@ apr-leaderboard acceptance --verify
 | `lora-algebra.yaml` | 3 (lora_forward, lora_merge, adapter_params) | 3 (rank bound, merge equivalence, param compression) | 3 (FT-LORA-001..003) |
 | `quantization.yaml` | 3 (quantize_dequantize, size_reduction, ordering) | 3 (identity approx, size <50%, golden ordering) | 3 (FT-QUANT-001..003) |
 
+**Cross-project contracts (in `../provable-contracts/contracts/`):**
+
+| Contract | Equations | Proof Obligations | Falsification Tests | Status |
+|---|---|---|---|---|
+| `gpu-multi-backend-parity-v1.yaml` | 4 (multi_backend_parity, backend_priority, bandwidth_bound, jit_correctness) | 6 (parity, no garbage, determinism, wgpu, nvrtc, bandwidth) | 7 (F-MBP-001..007) | Active |
+| `gpu-context-health-v1.yaml` | 2 (fp8_guard, context_health) | 3 (FP8 disabled on Blackwell, no poison, Ada still enabled) | 3 (FT-GPU-CTX-001..003) | Verified |
+| `ptx-target-parity-v1.yaml` | 3 (target_parity, no_hardcoded, jit_success) | 4 (target match, no emit_ptx, kernels with_target, JIT success) | 5 (FALSIFY-PTP-001..005) | **Violated on sm_121** |
+| `gqa-kernel-v1.yaml` | 1 (GQA formula) | 8 (normalization, MHA equiv, convex bound, KV broadcast, SIMD, GPU, head mapping) | 9 (FALSIFY-GQ-001..009) | Active |
+
 ## 16.1 Contract Coverage Requirements
 
 The leaderboard pipeline touches these kernel equivalence classes from the provable-contracts registry:

@@ -301,27 +301,36 @@ one-token forward pass between the candidate GPU backend and CPU:
               passing backend
 ```
 
-### 5.2 Contract (provable-contracts)
+### 5.2 Contract Enforcement
+
+Full provable contract: `../provable-contracts/contracts/gpu-multi-backend-parity-v1.yaml`
+
+**4 equations:**
+
+| Equation | Formula | Status |
+|----------|---------|--------|
+| `multi_backend_parity` | `exists b: cosine(forward(b), forward(cpu)) >= 0.98` | Enforced |
+| `backend_priority` | `select = first(b in [cuda, wgpu, cpu] where parity >= 0.98)` | Enforced |
+| `bandwidth_bound_theorem` | `latency >= model_bytes / bandwidth` (Ivanov 2021) | Proven |
+| `jit_compilation_correctness` | `cosine(jit_sass, ref_sass) >= 0.9999` | **Violated sm_121** |
+
+**6 proof obligations:** parity exists, no garbage serving, determinism, wgpu equiv, NVRTC equiv, Q4K bandwidth bound.
+
+**7 falsification tests (F-MBP-001..007):** wgpu parity, NVRTC parity, PyTorch canary, pre-Blackwell JIT, Q4K advantage, Toyota Way (no silent garbage), driver update.
+
+**2 Kani harnesses:** backend selection determinism, failed backend exclusion.
+
+**Five-whys embedded** in contract YAML for audit trail (GH-559 root cause → NVIDIA JIT bug).
+
+See also:
+- `gpu-context-health-v1.yaml` — FP8 architecture guard (GH-542)
+- `ptx-target-parity-v1.yaml` — PTX .target directive (**violated on sm_121**)
+- `gqa-kernel-v1.yaml` — GQA attention correctness
 
 ```yaml
-# contracts/gpu-parity-v2.yaml
-equations:
-  parity:
-    formula: "cosine(gpu_logits, cpu_logits) >= 0.98"
-    domain: "all supported GPU backends"
-
-proof_obligations:
-  - type: invariant
-    property: "At least one backend produces cosine >= 0.98"
-    formal: "exists b in {wgpu, cuda, nvrtc}: cosine(b, cpu) >= 0.98"
-
-  - type: equivalence
-    property: "Backend selection is deterministic"
-    formal: "select(model, device) = select(model, device) for all calls"
-
-falsification_tests:
-  - id: F-PARITY-001
-    rule: "wgpu parity on sm_121"
+# Key falsification test from gpu-multi-backend-parity-v1.yaml:
+- id: F-PARITY-001
+  rule: "wgpu parity on sm_121"
     prediction: "cosine(wgpu_forward, cpu_forward) >= 0.98 on GB10"
     test: "Run canary with wgpu backend on gx10"
     if_fails: "wgpu Vulkan shader compiler also has sm_121 issues"
