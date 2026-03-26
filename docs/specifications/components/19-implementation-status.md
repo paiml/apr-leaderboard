@@ -190,8 +190,16 @@ Completed diagnostics:
 - Root cause: Q4K GEMV PTX kernel (trueno-gpu) produces systematically wrong values on sm_121
   when JIT-compiled from sm_90 target. All weight projections (QKV, output, FFN) are affected.
 
-Next step: Verify Q4K GEMV kernel correctness in isolation (single matmul CPU vs GPU).
-  If confirmed, fix the PTX kernel in trueno-gpu for sm_121 compatibility.
+Per-super-block comparison (2026-03-26):
+- Each Q4K super-block (256 values) has 5-20% error between CPU and GPU
+- Error is UNIFORM — not concentrated in one super-block
+- Per-element error: ~1-5% (cosine=0.994 for first 5 elements of Layer 0)
+- Compounds through 28 layers → cosine=-0.005 at logits
+- Root cause hypothesis: FP16→FP32 conversion or packed scale extraction in Q4K
+  dequantization PTX produces wrong values when JIT-compiled for sm_121
+
+Next step: Dump raw Q4K weight bytes, dequantize on CPU, compare with GPU dequant.
+  Fix the Q4K dequantization in trueno-gpu's PTX codegen for sm_121.
 
 ### 19.6.3 `apr serve` for .apr Files
 
