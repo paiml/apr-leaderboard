@@ -110,15 +110,27 @@ MBPP pass@1 (greedy decoding, temperature 0.0):
 |------|-------|--------|--------|---------|-------|
 | 1 | Qwen2.5-Coder-7B-Instruct Q4K | **76.20%** | 381/500 | CPU (gx10) | Standard + test assertions |
 
-All results produced by `apr run` (zero Python inference). Code execution sandbox uses python3.
+All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan) on Blackwell GB10. Code execution sandbox uses python3.
+
+## GPU Compute
+
+`apr run --gpu` auto-dispatches to the best available backend:
+
+| Backend | Compilation | Result on Blackwell sm_121 |
+|---------|-------------|---------------------------|
+| CUDA PTX (JIT) | Runtime JIT by NVIDIA driver | **FAIL** (cosine=-0.005, driver JIT bug) |
+| **wgpu (Vulkan)** | **Vulkan shader compiler** | **PASS** (cosine=0.999863) |
+| PyTorch (cuBLAS) | Pre-compiled SASS | PASS (cosine=1.0, hardware verified) |
+| CPU (SIMD) | Ahead-of-time | Always correct |
+
+The NVIDIA JIT compiler has a bug on Blackwell sm_121 that affects ALL custom PTX kernels. wgpu bypasses this by using Vulkan compute shaders instead. See §25 for full architecture specification.
 
 ## Roadmap
 
 **Next (actionable now):**
 1. N-sampling pass@k (N=10, temp=0.8) for unbiased pass@1 estimates
-2. 32B MBPP CPU re-run (GPU had 18 errors, adjusted 77.18%)
+2. 32B MBPP CPU re-run
 3. BigCodeBench eval (first score, fills last benchmark gap)
-4. Fix GPU inference on Blackwell sm_121 (GH-559: Q4K GEMV kernel)
 
 **Pipeline experiments (require upstream `apr` features):**
 5. 32B→7B reasoning distillation (recipe-h ready)
