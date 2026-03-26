@@ -427,6 +427,14 @@ check-contracts:
 				|| { echo "  FT-DATA ($${bench}): FAIL ($$lines < 100 problems)"; FAIL=$$((FAIL+1)); }; \
 		else echo "  FT-DATA ($${bench}): SKIP (not downloaded)"; fi; \
 	done; \
+	echo "-- decontamination (FT-DECON-001) --"; \
+	if [ -f data/benchmarks/humaneval.jsonl ] && [ -f data/benchmarks/mbpp.jsonl ]; then \
+		overlap=$$(comm -12 <(jq -r '.prompt // .text // ""' data/benchmarks/humaneval.jsonl 2>/dev/null | sort -u) \
+			<(jq -r '.prompt // .text // ""' data/benchmarks/mbpp.jsonl 2>/dev/null | sort -u) | wc -l); \
+		[ "$$overlap" -eq 0 ] \
+			&& echo "  FT-DECON-001 (no HE/MBPP overlap): PASS" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DECON-001: FAIL ($$overlap overlapping prompts)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-DECON-001: SKIP (benchmarks not downloaded)"; fi; \
 	echo "-- eval results (FT-EVAL-001..002) --"; \
 	if ls results/humaneval_*.json 1>/dev/null 2>&1; then \
 		best=$$(jq -s '[.[] | select(.results.pass_at_1 != null)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1' results/humaneval_*.json 2>/dev/null || echo "0"); \
