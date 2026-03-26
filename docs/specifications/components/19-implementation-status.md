@@ -212,8 +212,16 @@ Both 32-thread (single warp) and 256-thread (8 warps) RMSNorm kernels produce wr
   kernel types). Connection to albor/entrenar#309: same RMSNorm kernel used in
   backward pass → wrong gradient norms → 21x slower training convergence.
 
-Fix strategy: Debug the PTX builder to make SharedMemRmsNorm emit valid PTX, then
-  test the shared-memory-only tree reduction as a workaround for sm_121 shuffle bug.
+**Critical update (2026-03-26):** CPU RMSNorm bypass (CPU_RMSNORM=1) still gives
+  cosine=-0.005172 — the bug is NOT just RMSNorm! Other GPU kernels (Q4K GEMV,
+  attention, residual, etc.) ALSO produce wrong results on sm_121. The issue is
+  SYSTEMIC across ALL custom PTX kernels JIT-compiled on sm_121.
+
+  This changes the fix strategy: individual kernel fixes won't work. Need either:
+  1. Use cuBLAS for ALL compute (not just prefill) — requires wiring HGEMM for M=1 decode
+  2. Pre-compile SASS via NVCC instead of JIT — requires NVIDIA compiler toolchain
+  3. Use a different GPU (non-Blackwell) for inference
+  4. File NVIDIA driver bug for sm_121 JIT miscompilation of sm_90 PTX
 
 ### 19.6.3 `apr serve` for .apr Files
 
