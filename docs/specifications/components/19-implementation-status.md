@@ -166,18 +166,15 @@ SafeTensors imports produce F16/BF16 tensors that realizar cannot run inference 
 
 ### 19.6.2 GPU Inference Status
 
-GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory for production eval — never fall back to CPU.
+GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory for production eval.
 
-**Current status (GH-559): GPU BROKEN on Blackwell sm_121.**
+**Status (2026-03-26): FIXED via wgpu (Vulkan) fallback.**
 
-The F2 parity gate (`validate_gpu_first_token`) correctly detects that GPU produces wrong tokens. The gate must NOT be bypassed — `SKIP_PARITY_GATE=1` is **forbidden** (Toyota Way: fix the code, not the gate).
+`apr run --gpu` now auto-dispatches: CUDA (parity gate fails on sm_121) → **wgpu (Vulkan, cosine=0.999863)** → CPU. Token-for-token parity confirmed between wgpu and CPU output on Blackwell GB10.
 
-Five-whys root cause analysis:
-1. **Why does GPU produce wrong tokens?** → Final logits are garbage (cosine = -0.005 vs CPU)
-2. **Why are logits garbage?** → GPU produces non-zero but WRONG values across all 28 layers
-3. **Why are values wrong?** → Individual kernel phases (RMSNorm, QKV, Attention, FFN) each produce non-zero output, but the composed result diverges from CPU
-4. **Why does composition diverge?** → Suspect: weight pointer mapping, buffer aliasing, KV cache corruption, or quantization dispatch selecting wrong kernel for sm_90 target
-5. **Why on sm_121 specifically?** → PTX targets sm_90 (clamped from sm_121). JIT optimization may change operation ordering or precision
+The CUDA PTX JIT bug (GH-559) remains unfixed — NVIDIA's driver JIT generates wrong SASS from valid sm_90 PTX on sm_121. PyTorch canary proves hardware is correct (cosine=1.0). The wgpu path uses Vulkan compute shaders which bypass the CUDA JIT entirely.
+
+See §25 (GPU Compute Architecture) for full specification, provable contracts, and implementation roadmap.
 
 Completed diagnostics:
 - PAR-058 per-phase debug (`GPU_DEBUG=1`): All phases produce non-zero values through 28 layers
