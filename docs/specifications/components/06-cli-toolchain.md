@@ -26,8 +26,8 @@ apr import qwen-7b.gguf -o qwen-7b.apr --enforce-provenance
 # Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU
 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 
-# Blackwell sm_121: required env vars (GH-542 FP8 fix + parity gate bypass)
-# SKIP_PARITY_GATE=1 FP8_PREFILL=0 FP8_DECODE=0 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
+# Blackwell sm_121: GPU parity gate blocks inference (GH-559: Q4K dequant error)
+# Fix pending in trueno-gpu PTX codegen. Do NOT use SKIP_PARITY_GATE=1.
 ```
 
 **Input format (JSONL):**
@@ -48,7 +48,7 @@ apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 | `--temperature` | `0.0` | Sampling temperature (0.0 = greedy) |
 | `--top-k` | `1` | Top-k sampling (1 = greedy) |
 
-Auto-detects model format (GGUF or APR). GPU is mandatory for production eval — use `SKIP_PARITY_GATE=1` on Blackwell sm_121 to bypass the FP rounding parity check. Never fall back to CPU for eval; diagnose and fix GPU issues with five-whys instead. Model stays resident across all prompts.
+Auto-detects model format (GGUF or APR). GPU is mandatory for production eval. On Blackwell sm_121, GPU is blocked by parity gate (GH-559: Q4K dequant error). Never bypass the gate — fix the root cause in trueno-gpu. Model stays resident across all prompts.
 
 ## 6.1.3 Evaluate (Baseline)
 

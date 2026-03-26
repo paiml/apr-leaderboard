@@ -109,9 +109,6 @@ make eval-humaneval CHECKPOINT=checkpoints/qwen-7b.apr \
 | Variable | Default | Description |
 |---|---|---|
 | `APR_BATCH_MODE` | `auto` | Batch mode: `auto` (detect), `on` (force), `off` (disable) |
-| `SKIP_PARITY_GATE` | `0` | Bypass GPU FP parity check for Blackwell sm_121 (set to `1`) |
-| `FP8_PREFILL` | `1` | FP8 prefill cache. Set to `0` on Blackwell sm_121 (GH-542) |
-| `FP8_DECODE` | `1` | FP8 decode cache. Set to `0` on Blackwell sm_121 (GH-542) |
 
 ## 13.5 Instruct Model Post-Processing
 
@@ -147,7 +144,7 @@ apr run checkpoints/model.apr --batch-jsonl batch.jsonl --max-tokens 512 --verbo
 | Sequential `apr run` | ~80s × 164 | ~80s JIT + inference | ~3.6 hours JIT alone |
 | Batch `--batch-jsonl` | ~80s × 1 | inference only | ~80s JIT + inference time |
 
-Auto-detects APR vs GGUF format. GPU is mandatory for eval — use `SKIP_PARITY_GATE=1` on Blackwell sm_121. If GPU validation fails, diagnose with five-whys (do not fall back to CPU). Results stream as JSONL (one line per prompt, flushed after each).
+Auto-detects APR vs GGUF format. GPU is mandatory for eval. On Blackwell sm_121, GPU is blocked by parity gate (GH-559). Never bypass the gate — fix the root cause. Results stream as JSONL (one line per prompt, flushed after each).
 
 ## 13.7 MBPP Function Name Extraction
 

@@ -111,8 +111,9 @@ Use pre-quantized GGUF files from HuggingFace for the import step. The SafeTenso
 apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
     "def fibonacci(n):" --max-tokens 128
 
-# On Blackwell sm_121, set SKIP_PARITY_GATE=1 to bypass FP rounding check
-SKIP_PARITY_GATE=1 apr run checkpoints/qwen2.5-coder-32b-instruct-q4km.apr \
+# On Blackwell sm_121, GPU is blocked by parity gate (GH-559: Q4K dequant error)
+# Do NOT use SKIP_PARITY_GATE=1 — fix root cause in trueno-gpu PTX codegen
+apr run checkpoints/qwen2.5-coder-32b-instruct-q4km.apr \
     --batch-jsonl prompts.jsonl --max-tokens 512
 ```
 
@@ -441,7 +442,7 @@ BatchInferenceConfig → run_batch_inference()
     ├── run_batch_gguf() → MappedGGUFModel → OwnedQuantizedModel
     └── run_batch_apr()  → MappedAprModel  → OwnedQuantizedModel
         └── init_batch_model()
-            └── OwnedQuantizedModelCuda (GPU, SKIP_PARITY_GATE=1 on sm_121)
+            └── OwnedQuantizedModelCuda (GPU, parity gate — GH-559 blocks sm_121)
         └── run_batch_loop()
             ├── Read JSONL prompts (BufRead)
             ├── Encode with ChatML template
