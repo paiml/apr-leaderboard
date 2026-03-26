@@ -1,8 +1,9 @@
 # GPU Compute Architecture Specification
 
-**Version:** 1.0.0
-**Status:** Active
+**Version:** 1.1.0
+**Status:** IMPLEMENTED — wgpu fallback wired into `apr run --gpu`
 **Created:** 2026-03-26
+**Updated:** 2026-03-26
 **GH Issues:** aprender#559, entrenar#309, albor#82
 **Author:** PAIML Engineering
 
@@ -374,12 +375,12 @@ See also:
 
 ## 7. Implementation Roadmap
 
-| Phase | Work | Priority | Blocks |
+| Phase | Work | Priority | Status |
 |-------|------|----------|--------|
-| 1 | Wire wgpu end-to-end forward in realizar | Critical | GPU inference on all vendors |
-| 2 | Run parity gate on wgpu (F-PARITY-001) | Critical | Validates wgpu as sm_121 fix |
-| 3 | Add NVRTC FFI to trueno-gpu | High | CUDA fast path on Blackwell |
-| 4 | Run parity gate on NVRTC (F-PARITY-002) | High | Validates NVRTC fix |
-| 5 | Smart backend dispatch in realizar | Medium | Automatic best-backend selection |
-| 6 | File NVIDIA driver bug report | Medium | Long-term JIT fix |
-| 7 | Benchmark wgpu vs CUDA vs cuBLAS | Low | Performance validation |
+| 1 | Wire wgpu end-to-end forward in realizar | Critical | **DONE** — `try_apr_wgpu_inference` in gguf_gpu_generate.rs |
+| 2 | Run parity gate on wgpu (F-PARITY-001) | Critical | **DONE** — cosine=0.999863 on sm_121 |
+| 3 | Smart backend dispatch in realizar | Medium | **DONE** — CUDA → wgpu → CPU auto-fallback |
+| 4 | Add NVRTC FFI to trueno-gpu | High | Planned (alternative to wgpu for NVIDIA-only speed) |
+| 5 | Run parity gate on NVRTC (F-PARITY-002) | High | Blocked on Phase 4 |
+| 6 | File NVIDIA driver bug report | Medium | Planned |
+| 7 | Benchmark wgpu vs CUDA vs cuBLAS | Low | Planned |
