@@ -206,8 +206,14 @@ Per-super-block comparison (2026-03-26):
   with Kahan summation gives the same wrong result). Connection to albor/entrenar#309:
   if RMSNorm is wrong, gradient norms are also wrong → explains 21x slower training.
 
-Fix: Replace warp shuffle reduction with shared memory reduction, or dump per-lane
-  partial sums to identify which lane produces wrong values.
+Both 32-thread (single warp) and 256-thread (8 warps) RMSNorm kernels produce wrong
+  results (cosine -0.005197 and -0.005182 respectively). SharedMemRmsNorm kernel
+  attempted but PTX generation fails (0 bytes — PtxKernel builder issue with new
+  kernel types). Connection to albor/entrenar#309: same RMSNorm kernel used in
+  backward pass → wrong gradient norms → 21x slower training convergence.
+
+Fix strategy: Debug the PTX builder to make SharedMemRmsNorm emit valid PTX, then
+  test the shared-memory-only tree reduction as a workaround for sm_121 shuffle bug.
 
 ### 19.6.3 `apr serve` for .apr Files
 
