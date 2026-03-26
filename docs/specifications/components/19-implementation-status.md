@@ -198,8 +198,16 @@ Per-super-block comparison (2026-03-26):
 - Root cause hypothesis: FP16→FP32 conversion or packed scale extraction in Q4K
   dequantization PTX produces wrong values when JIT-compiled for sm_121
 
-Next step: Dump raw Q4K weight bytes, dequantize on CPU, compare with GPU dequant.
-  Fix the Q4K dequantization in trueno-gpu's PTX codegen for sm_121.
+**Root cause CONFIRMED (2026-03-26):** The RMSNorm PTX kernel computes a 1.4% wrong
+  normalization factor on sm_121. Verified by downloading GPU input data and computing
+  RMSNorm on host — host result matches CPU exactly (sq_sum=1.12337, rms=0.01773), but
+  the GPU kernel produces RMS≈0.01798. The error is in the warp shuffle reduction
+  (`shfl.sync.down.b32`) or the reduction tree, NOT in FP32 precision (PreciseRmsNorm
+  with Kahan summation gives the same wrong result). Connection to albor/entrenar#309:
+  if RMSNorm is wrong, gradient norms are also wrong → explains 21x slower training.
+
+Fix: Replace warp shuffle reduction with shared memory reduction, or dump per-lane
+  partial sums to identify which lane produces wrong values.
 
 ### 19.6.3 `apr serve` for .apr Files
 
