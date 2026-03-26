@@ -143,7 +143,7 @@ The wgpu inference kernels are individually implemented in trueno:
 | LM Head | PMAT-347 | `lm_head_shader` | Done |
 | SwiGLU/SiLU | PMAT-346 | `silu_shader` | Done (overflow fixed) |
 | KV Cache | PMAT-344 | `kv_cache_shader` | Partial |
-| **End-to-end forward** | PMAT-037 | `wgpu_parity_test.rs` | **Wired, cosine=0.24** |
+| **End-to-end forward** | PMAT-037 | `wgpu_parity_test.rs` | **PASS: cosine=0.999863** |
 
 ### 3.2 Completion Plan
 
