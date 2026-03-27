@@ -13,7 +13,7 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download generate-preference-pairs \
+        prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download generate-training-data generate-preference-pairs \
         finetune finetune-instruct align merge prune quantize distill compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history leaderboard \
         export publish model-card \
@@ -112,6 +112,14 @@ benchmark-download:
 	@echo "=== Downloading benchmark data ==="
 	@mkdir -p data/benchmarks
 	./scripts/download-benchmarks.sh data/benchmarks
+
+# PMAT-004: Generate synthetic training data from teacher model
+TEACHER ?= checkpoints/qwen2.5-coder-32b-instruct-q4km.apr
+NUM_TRAIN_PROMPTS ?= 50
+generate-training-data:
+	@test -f "$(TEACHER)" || { echo "ERROR: Teacher model not found: $(TEACHER)"; exit 1; }
+	@mkdir -p data/synthetic
+	./scripts/generate-training-data.sh "$(TEACHER)" data/synthetic $(NUM_TRAIN_PROMPTS) $(MAX_TOKENS)
 
 # PMAT-014: Generate DPO preference pairs from N-sampling eval results
 generate-preference-pairs:
