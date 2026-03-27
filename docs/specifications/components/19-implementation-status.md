@@ -180,51 +180,26 @@ Q GEMV ~1%). The -0.005 cosine is from FP32 accumulation ordering differences (G
 vs CPU sequential) compounding through 28 layers × 10+ operations. wgpu avoids this by using
 the same accumulation order as CPU (cosine=0.999863).
 
-See §25 (GPU Compute Architecture) for full specification, provable contracts, and implementation roadmap.
+See §25 (GPU Compute Architecture) for full specification, provable contracts, and roadmap.
 
-Completed diagnostics:
-- PAR-058 per-phase debug (`GPU_DEBUG=1`): All phases produce non-zero values through 28 layers
-- CORRECTNESS-001 hidden state: sum=78.83, rms=26.12 (non-zero but wrong vs CPU)
-- Parity gate: cosine=-0.005, CPU argmax=334, GPU argmax=8127
-- CORRECTNESS-011 layer trace: correlation=-0.0008, CPU argmax=75311, GPU argmax=14087
-- Stream sync fix (`self.stream.synchronize()` per-layer) eliminates no-op layers
-- All 28 GPU layers now produce different output (no no-ops)
-- But final logits are STILL completely uncorrelated with CPU (cosine=-0.005)
-- Root cause: Q4K GEMV PTX kernel (trueno-gpu) produces systematically wrong values on sm_121
-  when JIT-compiled from sm_90 target. All weight projections (QKV, output, FFN) are affected.
+**Diagnostic trail (2026-03-25 → 2026-03-27):**
 
-Per-super-block comparison (2026-03-26):
-- Each Q4K super-block (256 values) has 5-20% error between CPU and GPU
-- Error is UNIFORM — not concentrated in one super-block
-- Per-element error: ~1-5% (cosine=0.994 for first 5 elements of Layer 0)
-- Compounds through 28 layers → cosine=-0.005 at logits
-- Root cause hypothesis: FP16→FP32 conversion or packed scale extraction in Q4K
-  dequantization PTX produces wrong values when JIT-compiled for sm_121
+| Hypothesis | Tested | Result | Falsified by |
+|---|---|---|---|
+| RMSNorm kernel wrong | GPU_DEBUG=1, CPU bypass | Individual RMSNorm diff=5e-7 (correct) | Per-element comparison |
+| Q4K GEMV kernel wrong | 5 PTX variants | All produce cosine=1.0 via Python ctypes | `falsify-ptx-implementations.py` |
+| NVIDIA JIT compiler bug | Same PTX via Python | cosine=1.0 (JIT correct) | `isolate-cuda-bug.py` |
+| Stream sync race | bar.sync per layer | Fixes no-op layers, not cosine | Per-layer sync test |
+| **FP32 accumulation ordering** | — | **Correct root cause** | Not falsified |
 
-**Root cause CONFIRMED (2026-03-26):** The RMSNorm PTX kernel computes a 1.4% wrong
-  normalization factor on sm_121. Verified by downloading GPU input data and computing
-  RMSNorm on host — host result matches CPU exactly (sq_sum=1.12337, rms=0.01773), but
-  the GPU kernel produces RMS≈0.01798. The error is in the warp shuffle reduction
-  (`shfl.sync.down.b32`) or the reduction tree, NOT in FP32 precision (PreciseRmsNorm
-  with Kahan summation gives the same wrong result). Connection to albor/entrenar#309:
-  if RMSNorm is wrong, gradient norms are also wrong → explains 21x slower training.
+**Corrected root cause (2026-03-27):** ~0.1% FP32 rounding per kernel × 280 operations
+  → (1.001)^280 = 1.32 → cosine=-0.005. Individual kernels are correct (RMSNorm diff=5e-7,
+  Q GEMV ~1%). PyTorch avoids this via TF32/FP64 accumulators. wgpu avoids it with
+  sequential accumulation matching CPU.
 
-Both 32-thread (single warp) and 256-thread (8 warps) RMSNorm kernels produce wrong
-  results (cosine -0.005197 and -0.005182 respectively). SharedMemRmsNorm kernel
-  attempted but PTX generation fails (0 bytes — PtxKernel builder issue with new
-  kernel types). Connection to albor/entrenar#309: same RMSNorm kernel used in
-  backward pass → wrong gradient norms → 21x slower training convergence.
-
-**Critical update (2026-03-26):** CPU RMSNorm bypass (CPU_RMSNORM=1) still gives
-  cosine=-0.005172 — the bug is NOT just RMSNorm! Other GPU kernels (Q4K GEMV,
-  attention, residual, etc.) ALSO produce wrong results on sm_121. The issue is
-  SYSTEMIC across ALL custom PTX kernels JIT-compiled on sm_121.
-
-  This changes the fix strategy: individual kernel fixes won't work. Need either:
-  1. Use cuBLAS for ALL compute (not just prefill) — requires wiring HGEMM for M=1 decode
-  2. Pre-compile SASS via NVCC instead of JIT — requires NVIDIA compiler toolchain
-  3. Use a different GPU (non-Blackwell) for inference
-  4. File NVIDIA driver bug for sm_121 JIT miscompilation of sm_90 PTX
+**Active tickets:**
+- GH-560: wgpu batch wired, CPU LM head bottleneck (needs GPU LM head)
+- GH-561: Fix CUDA FP32 precision — Kahan in ALL kernels or FP64 accumulators
 
 ### 19.6.3 `apr serve` for .apr Files
 
