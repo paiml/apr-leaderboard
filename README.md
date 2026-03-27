@@ -123,35 +123,42 @@ All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan)
 | PyTorch (cuBLAS) | Pre-compiled SASS | PASS (cosine=1.0, hardware verified) |
 | CPU (SIMD) | Ahead-of-time | Always correct |
 
-The NVIDIA JIT compiler has a bug on Blackwell sm_121 that affects ALL custom PTX kernels. wgpu bypasses this by using Vulkan compute shaders instead. See §25 for full architecture specification.
+**Root cause (corrected 2026-03-27):** NOT a JIT bug. Our PTX loads correctly via Python ctypes (cosine=1.0). The cosine=-0.005 is FP32 non-associativity: parallel GPU accumulation order ≠ CPU sequential order, compounding through 280 operations. wgpu uses sequential accumulation matching CPU. See §25.
 
 ## Roadmap
 
+**Completed:**
+- N-sampling (PMAT-003): `make eval-humaneval NUM_SAMPLES=10 TEMPERATURE=0.8`
+- Preference pairs (PMAT-014): `make generate-preference-pairs`
+- Synthetic training data (PMAT-004): `make generate-training-data`
+- GPU fix (PMAT-037): wgpu Vulkan fallback, cosine=0.999863
+- 18/18 contract falsification tests passing
+
 **Next (actionable now):**
-1. N-sampling pass@k (N=10, temp=0.8) for unbiased pass@1 estimates
-2. 32B MBPP CPU re-run
-3. BigCodeBench eval (first score, fills last benchmark gap)
+1. 32B MBPP eval (running on gx10)
+2. BigCodeBench eval (first score)
+3. 32B→7B reasoning distillation (recipe-h ready)
 
 **Pipeline experiments (require upstream `apr` features):**
-5. 32B→7B reasoning distillation (recipe-h ready)
-6. DPO with execution feedback for HumanEval+ gains
-7. HumanEval+ eval (AC-022 gate: ≥82%)
+4. DPO with execution feedback for HumanEval+ gains
+5. HumanEval+ eval (AC-022 gate: ≥82%)
 
 ## Project Structure
 
 ```
 apr-leaderboard/
-├── Makefile                    # 45 orchestration targets
+├── Makefile                    # 47 orchestration targets
 ├── scripts/
-│   ├── import.sh               # HF model download + convert to .apr
-│   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k (batch mode)
-│   ├── eval-sweep.sh           # Run eval across multiple prompt strategies
+│   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k (batch + N-sampling)
+│   ├── eval-helpers.sh          # Extraction, scoring, batch generation helpers
+│   ├── generate-training-data.sh # PMAT-004: Synthetic instruct pairs from teacher model
+│   ├── generate-preference-pairs.sh # PMAT-014: DPO pairs from N-sampling eval
+│   ├── canary-pytorch-gpu.py    # GH-559: PyTorch GPU canary (hardware validation)
+│   ├── falsify-ptx-implementations.py # GH-559: 5 PTX variants via cuModuleLoadData
 │   ├── pipeline.sh             # YAML-driven multi-stage pipeline
 │   ├── submit.sh               # Preflight checks + export + HF Hub publish
 │   ├── prove-wgpu.sh           # Dual GPU wgpu training proof
 │   ├── download-benchmarks.sh  # Download HumanEval/MBPP data
-│   ├── results-history.sh      # Eval results viewer
-│   ├── compare-results.sh      # Per-problem delta analysis between runs
 │   └── leaderboard-summary.sh  # Generate ranked markdown leaderboard
 ├── configs/
 │   ├── models/                 # 7 per-model YAML configs
@@ -160,7 +167,11 @@ apr-leaderboard/
 │   └── pipeline/               # Forjar manifest + batuta playbook (YAML)
 ├── data_catalog.yaml           # Data governance + lineage
 ├── contracts/
-│   └── pass-at-k.yaml          # Formal pass@k metric contract
+│   ├── pass-at-k.yaml          # Pass@k metric contract (3 obligations, 3 FTs)
+│   ├── decontamination.yaml    # N-gram overlap gate (AC-016)
+│   ├── inference-throughput.yaml # Throughput + TTFT bounds
+│   ├── lora-algebra.yaml       # LoRA correctness (rank, merge, compression)
+│   └── quantization.yaml       # Q4K dequant identity + size reduction
 ├── checkpoints/                # .apr model files (gitignored)
 ├── results/                    # Evaluation result JSONs
 ├── data/                       # Training/calibration data (gitignored)
@@ -183,22 +194,24 @@ apr-leaderboard/
 | `make pipeline-plan RECIPE=...` | Dry-run: show commands |
 | `make publish CHECKPOINT=... HF_REPO=...` | Publish to HF Hub |
 | `make prove-wgpu` | Dual GPU wgpu training proof |
+| `make generate-training-data TEACHER=...` | PMAT-004: synthetic instruct pairs from teacher |
+| `make generate-preference-pairs EVAL_WORK_DIR=...` | PMAT-014: DPO pairs from N-sampling |
+| `make check-contracts` | 18 falsification tests (pass@k, throughput, decon, eval) |
 | `make eval-sweep` | Sweep all result JSONs, tabulate pass@k |
-| `make compare-results BASE=... NEW=...` | Delta analysis between two result files |
 | `make leaderboard` | Generate ranked markdown leaderboard from results |
-| `make results-history` | View evaluation results |
 
 ## Specification
 
-The full specification is published as an [mdBook](https://paiml.github.io/apr-leaderboard/) via GitHub Actions. 24 sections covering:
+The full specification is published as an [mdBook](https://paiml.github.io/apr-leaderboard/) via GitHub Actions. 25 sections covering:
 
 - **S1-4** Architecture, thesis, target leaderboards, model selection
-- **S5-6** Sovereign tooling map, CLI toolchain (19 subcommands, 45 targets)
+- **S5-6** Sovereign tooling map, CLI toolchain (19 subcommands, 47 targets)
 - **S7-8** Technique playbook, leaderboard-winning techniques
 - **S9-10** 8 composite recipes, technique interaction matrix + golden ordering
-- **S12-14** Data strategy, evaluation protocol (Chen et al. pass@k), submission flow
-- **S16-18** Provable contracts, quality gates, 29 acceptance criteria
+- **S12-14** Data strategy (incl. synthetic data §12.3), evaluation protocol (Chen et al. pass@k, N-sampling §13.5), submission flow
+- **S16-18** Provable contracts (18 FTs + gpu-multi-backend-parity), quality gates, 29 acceptance criteria
 - **S22-24** Dogfooding findings, training infrastructure, AC verification
+- **S25** GPU Compute Architecture — hybrid wgpu/CUDA dispatch, parity gate, NVRTC strategy
 
 ## Contributing
 
