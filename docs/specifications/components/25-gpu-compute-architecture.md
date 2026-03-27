@@ -1,9 +1,9 @@
 # GPU Compute Architecture Specification
 
-**Version:** 1.1.0
-**Status:** IMPLEMENTED — wgpu fallback wired into `apr run --gpu`
+**Version:** 1.2.0
+**Status:** IMPLEMENTED — wgpu fallback + root cause corrected
 **Created:** 2026-03-26
-**Updated:** 2026-03-26
+**Updated:** 2026-03-27
 **GH Issues:** aprender#559, entrenar#309, albor#82
 **Author:** PAIML Engineering
 
@@ -28,28 +28,35 @@ On NVIDIA GB10 Blackwell (sm_121), all custom PTX kernels JIT-compiled via
 
 | Evidence | Value |
 |----------|-------|
-| GPU/CPU logit cosine similarity | -0.005 (completely uncorrelated) |
-| Per-layer RMSNorm error | 1.4% uniform scaling |
-| Per-super-block GEMV error | 5-20% per 256-value block |
-| PyTorch GPU/CPU cosine (same hardware) | **1.000000** (perfect) |
+| CUDA GPU/CPU logit cosine | -0.005 (completely uncorrelated) |
+| Individual RMSNorm kernel error | 5e-7 (CORRECT — within FP32 epsilon) |
+| Individual Q4K GEMV error | ~1% per operation (FP32 rounding) |
+| wgpu GPU/CPU cosine | **0.999863** (near-perfect parity) |
+| PyTorch GPU/CPU cosine | **1.000000** (pre-compiled CUDA) |
+| Our PTX via Python ctypes | **1.000000** (JIT is correct) |
 
-The error is **systemic** — bypassing individual kernels (CPU_RMSNORM=1)
-doesn't fix it. Every custom PTX kernel (RMSNorm, Q4K GEMV, attention,
-RoPE, bias add, SwiGLU, residual) produces wrong results.
+### 1.2 Root Cause (Corrected 2026-03-27)
 
-### 1.2 Root Cause
+**Previous diagnosis (WRONG):** "NVIDIA JIT compiler bug on sm_121."
+**Falsified by:** Loading our exact PTX via Python ctypes → cosine=1.0.
 
-The NVIDIA CUDA driver contains three compilation pipelines:
+**Actual root cause:** FP32 non-associativity in accumulation ordering.
+Each Q4K GEMV kernel accumulates partial sums in parallel (32 threads ×
+different order than CPU's sequential sum). This produces ~0.1% per-kernel
+rounding difference. Over 28 layers × 10+ kernels = ~280 operations:
 
 ```
-1. nvcc (offline)     → Full optimizing compiler, used by PyTorch/cuBLAS
-2. NVRTC (runtime)    → Same backend as nvcc, library API
-3. Driver JIT         → Lightweight compiler, used by our PTX via cuModuleLoadData
+(1.001)^280 ≈ 1.32 → 32% divergence → cosine ≈ -0.005
 ```
 
-Pipeline 3 (driver JIT) has a bug on sm_121: it generates numerically
-incorrect native SASS from valid sm_90 PTX. Pipelines 1 and 2 work
-correctly — proven by PyTorch canary (cosine=1.0) on the same GPU.
+PyTorch avoids this because cuBLAS uses TF32/FP64 internal accumulators.
+wgpu avoids it because WGSL shaders use sequential accumulation matching CPU.
+
+**Fix options:**
+1. **wgpu (DONE)** — same accumulation order as CPU, cosine=0.999863
+2. **FP64 accumulation** — use `.f64` for GEMV partial sums in PTX
+3. **Kahan compensation** — compensated summation in GEMV inner loop
+4. **cuBLAS fallback** — pre-compiled TF32 accumulators (3.5x bandwidth cost)
 
 ### 1.3 Connection to Training Quality (entrenar#309)
 
