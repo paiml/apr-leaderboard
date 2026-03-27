@@ -47,7 +47,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: Implement N-sampling and reranking pipeline
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-02-28T18:40:46Z
@@ -68,7 +68,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: Build synthetic training data pipeline
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-02-28T18:40:54Z
@@ -110,11 +110,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Establish Qwen2.5-Coder-7B apr-native baseline
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-02-28T18:41:03Z
-  updated: 2026-02-28T18:41:03Z
+  updated: 2026-03-25T21:16:07.687917607+00:00
   spec: null
   acceptance_criteria:
   - '§4.3.1 Phase 1 + §9.0 Step Zero — Import Qwen2.5-Coder-7B-Instruct via apr import, run apr eval for HumanEval/MBPP perplexity, run apr compare-hf for parity gap measurement. Gate: if apr baseline is >5% below HF reference, investigate inference bugs before any optimization. AC-021: imported model achieves ≥85% HumanEval pass@1 (apr-native baseline ≥ HF reference - 5%). This gates ALL subsequent work.'
@@ -280,7 +280,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: Generate preference pairs from execution feedback
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-02-28T18:41:47Z
@@ -301,7 +301,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: Data decontamination pipeline for benchmark safety
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-02-28T18:41:52Z
@@ -343,11 +343,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Wire apr-leaderboard scaffolding to real aprender API
-  status: planned
+  status: inprogress
   priority: critical
   assigned_to: null
   created: 2026-02-28T18:42:04Z
-  updated: 2026-02-28T18:42:04Z
+  updated: 2026-03-26T08:30:18.037370217+00:00
   spec: null
   acceptance_criteria:
   - 'Current apr-leaderboard code is scaffolding: eval/mod.rs returns hardcoded zeros, finetune/mod.rs prints loss=0.000, convert/mod.rs writes placeholder tensors. Replace with real aprender/entrenar/realizar API calls. Each module (convert, eval, finetune, submit) must call actual apr CLI subcommands or link against aprender crate directly. AC-011: full pipeline completes end-to-end without manual intervention.'
@@ -726,11 +726,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'End-to-end eval pipeline dogfood: import 1.5B model, run HumanEval, verify pass@k estimator'
-  status: inprogress
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-03-05T21:18:53Z
-  updated: 2026-03-05T21:18:55.874071921+00:00
+  updated: 2026-03-26T14:37:26.668843272+00:00
   spec: null
   acceptance_criteria: []
   phases: []
