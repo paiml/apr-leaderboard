@@ -387,7 +387,7 @@ See also:
 | 1 | Wire wgpu end-to-end forward in realizar | Critical | **DONE** — `try_apr_wgpu_inference` in gguf_gpu_generate.rs |
 | 2 | Run parity gate on wgpu (F-PARITY-001) | Critical | **DONE** — cosine=0.999863 on sm_121 |
 | 3 | Smart backend dispatch in realizar | Medium | **DONE** — CUDA → wgpu → CPU auto-fallback |
-| 4 | Wire wgpu into batch path (GH-560) | Critical | **DONE** — wgpu activates but OOMs (28GB F32 + 7.5GB clone) |
-| 5 | Fix wgpu batch OOM | High | Remove model.clone(), use reference. LM head stays on CPU |
+| 4 | Wire wgpu into batch path (GH-560) | Critical | **DONE** — clone removed (lazy mmap). F32 dequant OOMs (28 GB) |
+| 5 | Update gx10 trueno for Q4K GEMV shader | Critical | PMAT-363 keeps 7.5 GB raw (vs 28 GB F32). Fixes OOM. |
 | 6 | Fix CUDA FP32 precision (GH-561) | High | Needs FP64 PTX builder in trueno-gpu |
 | 7 | Benchmark wgpu vs CUDA vs cuBLAS | Low | Planned |
