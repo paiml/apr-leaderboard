@@ -6,9 +6,9 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B, 7B, 32B) and Qwen3-4
 | Model | Quantization | pass@1 | Passed | Avg Tokens | Avg Latency | Backend | Notes |
 |-------|-------------|--------|--------|------------|-------------|---------|-------|
 | Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | **90.85%** | 149/164 | — | — | CPU (gx10) | 32B batch mode re-run |
-| Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | 89.63% | 147/164 | 73.9 | 294s | GPU (gx10) | 32B model, CUDA sm_121 |
+| Qwen2.5-Coder-32B-Instruct Q4K_M | Q4K_M | 89.63% | 147/164 | 73.9 | 294s | CPU†† (gx10) | 32B, parity gate blocked CUDA |
 | Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 113s | CPU (gx10) | EOS fix + 512 tokens |
-| Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 112s | GPU (gx10) | GPU/CPU parity confirmed |
+| Qwen2.5-Coder-7B-Instruct Q4K | Q4K | **85.37%** | 140/164 | 85.5 | 112s | CPU†† (gx10) | Parity gate blocked CUDA, CPU fallback |
 | Qwen2.5-Coder-7B-Instruct Q4K (few-shot) | Q4K | **87.20%** | 143/164 | — | — | CPU (gx10) | Few-shot prompting (+1.83pp vs standard) |
 | Qwen2.5-Coder-7B-Instruct Q4K (SCoT) | Q4K | **82.32%** | 135/164 | — | — | CPU (gx10) | Structured CoT prompting |
 | Qwen3-4B Q4K | Q4K | **78.05%** | 128/164 | ~3000† | ~280s | CPU (gx10) | Thinking mode, 4096 tokens |
@@ -16,6 +16,7 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B, 7B, 32B) and Qwen3-4
 | Qwen2.5-Coder-1.5B Q4K | Q4_K_M (GGUF) | 59.15% | 97/164 | 59.5 | 3.6s | CPU | 128 token cap |
 
 †Qwen3 avg tokens includes ~2500 thinking tokens (discarded) + ~500 code tokens.
+††These runs were labeled "GPU" but the CUDA parity gate silently fell back to CPU. CUDA cosine=-0.005 on sm_121 due to FP32 accumulation ordering (GH-559/561). wgpu (Vulkan) gives cosine=0.999863 and is now wired as fallback.
 
 **Key findings:**
 - 85.37% → **90.85%** from 7B → 32B model (+9 problems solved, batch re-run)
