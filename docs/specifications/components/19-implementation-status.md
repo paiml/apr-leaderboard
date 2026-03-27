@@ -77,9 +77,10 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 19 | — | models (7) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
-| Shell scripts | 11 | — | All executable, pass `bashrs lint` |
+| Shell scripts | 11 + 4 canaries | — | All executable. 4 GPU canary/falsification scripts |
 | Makefile targets | 46 | — | `make verify` + `make validate` + `make dogfood` |
-| Contract tests | 15/15 | 15/15 | `make check-contracts` (pass@k, N-sampling, throughput, data, eval, structure) |
+| Contract tests | 18/18 | 18/18 | `make check-contracts` (pass@k ×5, throughput ×2, data ×2, decon ×1, eval ×3, structure ×5) |
+| Spec sections | 25 | — | §1-24 + §25 GPU Compute Architecture |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 

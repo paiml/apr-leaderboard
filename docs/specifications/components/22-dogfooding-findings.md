@@ -128,9 +128,13 @@ apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
 
 GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). Works on NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs. GPU is mandatory for production eval — never fall back to CPU.
 
-**Blackwell sm_121 GPU status (2026-03-25): BROKEN (cosine=-0.005).** Parity gate correctly blocks GPU — cosine similarity between GPU and CPU logits is -0.005 (threshold ≥0.98). GPU argmax=8127 vs CPU argmax=334. Both `--gpu` and `--batch-jsonl --gpu` fall back to CPU (silently in single-prompt mode, use `--verbose` to detect). PAR-058 debug shows all 28 layers produce non-zero intermediate values, but the composed result is completely uncorrelated with CPU. Fixes applied (necessary but not sufficient): FP8 guard (GH-542), PTX post-processor (GH-480), driver 590.48.01. `SKIP_PARITY_GATE=1` is **forbidden** (Toyota Way).
+**Blackwell sm_121 GPU status (2026-03-27): FIXED via wgpu (Vulkan).**
 
-**Historical note:** An earlier CUDA-based path had shape mismatch issues. This has been superseded by the wgpu backend.
+`apr run --gpu` auto-dispatches: CUDA (parity fails) → **wgpu (cosine=0.999863)** → CPU. Token-for-token parity confirmed between wgpu and CPU output.
+
+**Root cause (corrected 2026-03-27):** NOT a JIT bug. Individual CUDA kernels produce correct results (RMSNorm diff=5e-7, Q GEMV ~1%). The cosine=-0.005 is FP32 non-associativity: parallel GPU accumulation order ≠ sequential CPU order, compounding through 280 operations. Falsified by loading our exact PTX via Python ctypes → cosine=1.0. PyTorch avoids this via TF32 accumulators. wgpu avoids it with sequential accumulation matching CPU. See §25 for full architecture specification.
+
+`SKIP_PARITY_GATE=1` is **forbidden** (Toyota Way).
 
 ### 22.2.3 `apr serve` (Partial)
 
