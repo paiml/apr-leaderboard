@@ -170,9 +170,11 @@ SafeTensors imports produce F16/BF16 tensors that realizar cannot run inference 
 
 GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory for production eval.
 
-**Status (2026-03-27): FULLY FIXED — single-prompt AND batch mode.**
+**Status (2026-03-27): FIXED — single-prompt working, batch mode partial.**
 
-`apr run --gpu` auto-dispatches: wgpu (Vulkan) → CUDA → CPU. Both single-prompt and `--batch-jsonl` use wgpu on Blackwell GB10. Cosine=0.999863. Batch uses streaming per-layer dequant to avoid OOM (GH-560). 1.2 tok/s batch, 14.9s model load.
+- **Single-prompt** `apr run --gpu`: wgpu (Vulkan), cosine=0.999863, token-for-token parity.
+- **Batch** `--batch-jsonl --gpu`: wgpu activates with streaming per-layer dequant (1.2 tok/s for 1 prompt). OOMs during 164-problem full eval — memory fragmentation from 28 GB F32 dequant across 336 weight buffers. CPU batch fallback works reliably.
+- **CPU batch** (default): Proven reliable, ~3 hours for 164 HumanEval problems.
 
 The CUDA cosine=-0.005 on sm_121 (GH-559) is NOT a JIT bug — falsification proved the
 PTX and JIT are both correct. Individual kernels produce correct results (RMSNorm diff=5e-7,
