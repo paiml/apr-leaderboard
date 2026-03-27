@@ -435,12 +435,21 @@ check-contracts:
 			&& echo "  FT-DECON-001 (no HE/MBPP overlap): PASS" && PASS=$$((PASS+1)) \
 			|| { echo "  FT-DECON-001: FAIL ($$overlap overlapping prompts)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-DECON-001: SKIP (benchmarks not downloaded)"; fi; \
-	echo "-- eval results (FT-EVAL-001..002) --"; \
+	echo "-- eval results (FT-EVAL-001..003) --"; \
 	if ls results/humaneval_*.json 1>/dev/null 2>&1; then \
 		best=$$(jq -s '[.[] | select(.results.pass_at_1 != null)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1' results/humaneval_*.json 2>/dev/null || echo "0"); \
 		[ $$(echo "$$best >= 85.0" | bc) -eq 1 ] \
 			&& echo "  FT-EVAL-001 (pass@1>=85%): PASS ($${best}%)" && PASS=$$((PASS+1)) \
 			|| { echo "  FT-EVAL-001: FAIL ($${best}% < 85%)"; FAIL=$$((FAIL+1)); }; \
+		nresults=$$(ls results/humaneval_*.json | wc -l); \
+		[ "$$nresults" -ge 3 ] \
+			&& echo "  FT-EVAL-002 (>=3 HE runs): PASS ($$nresults runs)" && PASS=$$((PASS+1)) \
+			|| echo "  FT-EVAL-002: SKIP ($$nresults < 3 runs)"; \
+		latest=$$(ls -t results/humaneval_*.json | head -1); \
+		latest_score=$$(jq '.results.pass_at_1' "$$latest" 2>/dev/null || echo "0"); \
+		[ $$(echo "$$latest_score >= 80.0" | bc) -eq 1 ] \
+			&& echo "  FT-EVAL-003 (latest>=80%): PASS ($${latest_score}%)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-EVAL-003: FAIL ($${latest_score}% < 80%)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-EVAL-001: SKIP (no results)"; fi; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
