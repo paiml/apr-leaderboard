@@ -387,7 +387,7 @@ See also:
 | 1 | Wire wgpu end-to-end forward in realizar | Critical | **DONE** — `try_apr_wgpu_inference` in gguf_gpu_generate.rs |
 | 2 | Run parity gate on wgpu (F-PARITY-001) | Critical | **DONE** — cosine=0.999863 on sm_121 |
 | 3 | Smart backend dispatch in realizar | Medium | **DONE** — CUDA → wgpu → CPU auto-fallback |
-| 4 | Add NVRTC FFI to trueno-gpu | High | Planned (alternative to wgpu for NVIDIA-only speed) |
-| 5 | Run parity gate on NVRTC (F-PARITY-002) | High | Blocked on Phase 4 |
-| 6 | File NVIDIA driver bug report | Medium | Planned |
+| 4 | Wire wgpu into batch path (GH-560) | Critical | **DONE** — wgpu activates in batch, CPU LM head bottleneck |
+| 5 | Fix CUDA FP32 precision (GH-561) | High | Planned — Kahan in ALL kernels |
+| 6 | Move LM head to wgpu GEMV | High | Needed for wgpu batch performance |
 | 7 | Benchmark wgpu vs CUDA vs cuBLAS | Low | Planned |
