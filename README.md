@@ -118,7 +118,7 @@ All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan)
 
 | Backend | Compilation | Result on Blackwell sm_121 |
 |---------|-------------|---------------------------|
-| CUDA PTX (JIT) | Runtime JIT by NVIDIA driver | **FAIL** (cosine=-0.005, driver JIT bug) |
+| CUDA PTX (JIT) | Runtime JIT by NVIDIA driver | **FAIL** (cosine=-0.005, FP32 accumulation) |
 | **wgpu (Vulkan)** | **Vulkan shader compiler** | **PASS** (cosine=0.999863) |
 | PyTorch (cuBLAS) | Pre-compiled SASS | PASS (cosine=1.0, hardware verified) |
 | CPU (SIMD) | Ahead-of-time | Always correct |
