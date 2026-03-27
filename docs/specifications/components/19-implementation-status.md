@@ -54,6 +54,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make leaderboard` | `scripts/leaderboard-summary.sh` | ✅ Working | Generate ranked markdown leaderboard from results |
 | `make check-contracts` | Inline awk + jq + python3 | ✅ Working | 15 falsification tests (pass@k, throughput, data, eval, structure) |
 | `make generate-preference-pairs` | `scripts/generate-preference-pairs.sh` | ✅ Working | Generate DPO pairs from N-sampling eval (PMAT-014) |
+| `make generate-training-data` | `scripts/generate-training-data.sh` | ✅ Working | Synthetic instruct pairs from teacher model (PMAT-004) |
 
 ## 19.2 Shell Scripts
 
@@ -77,8 +78,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 19 | — | models (7) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
-| Shell scripts | 11 + 4 canaries | — | All executable. 4 GPU canary/falsification scripts |
-| Makefile targets | 46 | — | `make verify` + `make validate` + `make dogfood` |
+| Shell scripts | 12 + 4 canaries | — | 12 pipeline scripts + 4 GPU canary/falsification scripts |
+| Makefile targets | 47 | — | `make verify` + `make validate` + `make dogfood` |
 | Contract tests | 18/18 | 18/18 | `make check-contracts` (pass@k ×5, throughput ×2, data ×2, decon ×1, eval ×3, structure ×5) |
 | Spec sections | 25 | — | §1-24 + §25 GPU Compute Architecture |
 | Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
