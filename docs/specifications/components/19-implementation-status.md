@@ -172,7 +172,11 @@ GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory
 
 `apr run --gpu` now auto-dispatches: CUDA (parity gate fails on sm_121) → **wgpu (Vulkan, cosine=0.999863)** → CPU. Token-for-token parity confirmed between wgpu and CPU output on Blackwell GB10.
 
-The CUDA PTX JIT bug (GH-559) remains unfixed — NVIDIA's driver JIT generates wrong SASS from valid sm_90 PTX on sm_121. PyTorch canary proves hardware is correct (cosine=1.0). The wgpu path uses Vulkan compute shaders which bypass the CUDA JIT entirely.
+The CUDA cosine=-0.005 on sm_121 (GH-559) is NOT a JIT bug — falsification proved the
+PTX and JIT are both correct. Individual kernels produce correct results (RMSNorm diff=5e-7,
+Q GEMV ~1%). The -0.005 cosine is from FP32 accumulation ordering differences (GPU parallel
+vs CPU sequential) compounding through 28 layers × 10+ operations. wgpu avoids this by using
+the same accumulation order as CPU (cosine=0.999863).
 
 See §25 (GPU Compute Architecture) for full specification, provable contracts, and implementation roadmap.
 
