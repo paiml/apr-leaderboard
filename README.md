@@ -134,51 +134,55 @@ All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan)
 - Preference pairs (PMAT-014): `make generate-preference-pairs`
 - Synthetic training data (PMAT-004): `make generate-training-data`
 - GPU fix (PMAT-037): wgpu Vulkan fallback, cosine=0.999863
-- 21/21 contract falsification tests passing (6 contracts)
+- 22/22 contract falsification tests passing (6 contracts)
+- Oracle analysis: 96.34% upper bound (158/164), only 6 unsolvable
 
 **In progress:**
 1. 32B→7B text-based distillation (PMAT-007): `make distill-generate` → `make distill-finetune`
 
-**Next (actionable now):**
-2. BigCodeBench eval (first score)
-3. LoRA fine-tune on curated code data (PMAT-008)
+**Pipeline ready (11 recipes A-K):**
+2. BigCodeBench eval (`make eval-bigcodebench`) — first score
+3. QLoRA fine-tune (Recipe I, PMAT-008): `make pipeline RECIPE=recipe-i-humaneval-qlora`
+4. Specialist merge (Recipe J, PMAT-010): `make pipeline RECIPE=recipe-j-merge-specialists`
+5. Final artifact (Recipe K, PMAT-011): `make pipeline RECIPE=recipe-k-final-artifact`
+6. AC-022 success gate: `make validate-ac022` (≥85% HE, ≥80% MBPP)
 
-**Pipeline experiments (require upstream `apr` features):**
-4. DPO with execution feedback for HumanEval+ gains
-5. HumanEval+ eval (AC-022 gate: ≥82%)
+**Blocked on upstream:**
+7. DPO alignment (PMAT-001): `apr align --method dpo` needed in entrenar
+8. HumanEval+ eval: EvalPlus harness integration
 
 ## Project Structure
 
 ```
 apr-leaderboard/
-├── Makefile                    # 51 orchestration targets
-├── scripts/
-│   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k (batch + N-sampling)
+├── Makefile                    # 54 orchestration targets
+├── scripts/                    # 21 pipeline + 4 GPU canary scripts
+│   ├── eval-pass-at-k.sh       # Generate → sandbox → Chen et al. pass@k (batch + N-sampling)
 │   ├── eval-helpers.sh          # Extraction, scoring, batch generation helpers
-│   ├── generate-training-data.sh # PMAT-004: Synthetic instruct pairs from teacher model
-│   ├── generate-preference-pairs.sh # PMAT-014: DPO pairs from N-sampling eval
-│   ├── distill-generate.sh      # PMAT-007: 32B teacher batch inference → completions
-│   ├── generate-distill-prompts.sh # PMAT-007: Targeted prompts from failure analysis
-│   ├── canary-pytorch-gpu.py    # GH-559: PyTorch GPU canary (hardware validation)
-│   ├── falsify-ptx-implementations.py # GH-559: 5 PTX variants via cuModuleLoadData
+│   ├── distill-generate.sh      # PMAT-007: 32B teacher → coding completions
+│   ├── combine-training-data.sh # PMAT-008: merge + dedup + shuffle data sources
+│   ├── validate-teacher.sh      # §12.2: verify teacher quality before distillation
+│   ├── validate-ac022.sh        # AC-022: success gate (≥85% HE, ≥80% MBPP)
+│   ├── failure-analysis.sh      # Always-fail / borderline / always-pass categorization
+│   ├── oracle-analysis.sh       # Oracle upper bound across strategies
 │   ├── pipeline.sh             # YAML-driven multi-stage pipeline
-│   ├── submit.sh               # Preflight checks + export + HF Hub publish
-│   ├── prove-wgpu.sh           # Dual GPU wgpu training proof
-│   ├── download-benchmarks.sh  # Download HumanEval/MBPP data
-│   └── leaderboard-summary.sh  # Generate ranked markdown leaderboard
+│   ├── submit.sh               # 6 preflight checks + export + HF Hub publish
+│   └── ...                     # 10 more scripts (training data, proofs, benchmarks)
 ├── configs/
 │   ├── models/                 # 7 per-model YAML configs
-│   ├── recipes/                # 9 multi-stage pipeline recipes (YAML)
-│   ├── eval/                   # Benchmark suite definitions (YAML)
-│   ├── distill/                # Text-based distillation configs (YAML)
-│   └── pipeline/               # Forjar manifest + batuta playbook (YAML)
+│   ├── recipes/                # 11 multi-stage pipeline recipes (A-K)
+│   ├── eval/                   # Benchmark suite + prompt strategies
+│   ├── distill/                # Text-based distillation config
+│   └── pipeline/               # Forjar manifest + batuta playbook
 ├── data_catalog.yaml           # Data governance + lineage
-├── contracts/
-│   ├── pass-at-k.yaml          # Pass@k metric contract (3 obligations, 3 FTs)
-│   ├── decontamination.yaml    # N-gram overlap gate (AC-016)
-│   ├── inference-throughput.yaml # Throughput + TTFT bounds
-│   ├── lora-algebra.yaml       # LoRA correctness (rank, merge, compression)
-│   └── quantization.yaml       # Q4K dequant identity + size reduction
+├── contracts/                  # 6 provable contracts, 22/22 FTs
+│   ├── pass-at-k.yaml          # Pass@k estimator (3 proofs, 5 tests)
+│   ├── distillation.yaml       # Teacher quality + gain (3 proofs, 2 tests)
+│   ├── decontamination.yaml    # N-gram overlap gate (3 proofs, 1 test)
+│   ├── inference-throughput.yaml # Throughput + TTFT (2 proofs, 2 tests)
+│   ├── lora-algebra.yaml       # LoRA correctness (3 proofs, pending)
+│   ├── quantization.yaml       # Q4K dequant identity (3 proofs, pending)
+│   └── CONTRACT_STATUS.md      # Audit trail
 ├── checkpoints/                # .apr model files (gitignored)
 ├── results/                    # Evaluation result JSONs
 ├── data/                       # Training/calibration data (gitignored)
@@ -206,7 +210,11 @@ apr-leaderboard/
 | `make distill-generate` | PMAT-007: 32B teacher → coding completions |
 | `make distill-finetune` | PMAT-007: QLoRA fine-tune 7B on teacher data |
 | `make distill-eval` | PMAT-007: evaluate distilled model |
-| `make check-contracts` | 21 falsification tests (pass@k, throughput, decon, eval, distill) |
+| `make check-contracts` | 22 falsification tests (pass@k, throughput, data, decon, eval, distill) |
+| `make validate-ac022` | AC-022 success gate (≥85% HE, ≥80% MBPP) |
+| `make failure-analysis` | Problem reliability analysis across all runs |
+| `make validate-teacher TEACHER=...` | Verify teacher quality before distillation |
+| `make prepare-calibration-data` | 128-sample Wanda/SparseGPT calibration set |
 | `make eval-sweep` | Sweep all result JSONs, tabulate pass@k |
 | `make leaderboard` | Generate ranked markdown leaderboard from results |
 
