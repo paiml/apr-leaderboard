@@ -1,0 +1,63 @@
+# Recipe K: "Final Artifact" — prune + quantize + compile the submission model.
+#
+# Pipeline: prune -> quantize -> compile -> eval
+# Produces the final leaderboard submission: a standalone binary with
+# INT4 quantized weights, 20% pruned, LTO-optimized.
+#
+# Prerequisites:
+#   - Optimized model: output from PMAT-010 merge or PMAT-008 finetune
+#
+# Hypotheses:
+#   H4: INT4 quantization loses <2% pass@1 (AC-023)
+#   Binary < 5GB total (AC-026 stretch: <1GB for 1.5B model)
+#
+# Success gate: ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP (AC-022)
+#
+# Usage:
+#   make pipeline RECIPE=recipe-k-final-artifact
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  output_dir: checkpoints
+  quantization: int4
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - mbpp
+
+stages:
+  - prune
+  - quantize
+  - compile
+  - eval
+
+prune:
+  method: wanda
+  target_ratio: 0.2
+  calibration_data: "data/calibration.jsonl"
+  output: "checkpoints/qwen-7b-pruned.apr"
+
+quantize:
+  scheme: int4
+  output: "checkpoints/qwen-7b-pruned-int4.apr"
+
+compile:
+  release: true
+  lto: true
+  strip: true
+  output: "checkpoints/qwen-coder-7b"
+
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["pass_at_1", "model_size_mb", "binary_size_mb"]
+  alerts:
+    - condition: "pass_at_1 < 83"
+      action: stop
+      message: "Pruned+quantized model too degraded"

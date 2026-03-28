@@ -1,0 +1,53 @@
+# Recipe J: "Specialist Merge" — TIES merge code + reasoning specialists.
+#
+# Pipeline: merge -> eval
+# Hypothesis H3: merged model beats any single specialist on at least
+# one benchmark. TIES resolves sign conflicts in task vectors.
+#
+# Prerequisites:
+#   - Code specialist: checkpoints/qwen-7b-code-specialist.apr (PMAT-008 output)
+#   - Reasoning specialist: checkpoints/qwen-7b-reasoning-specialist.apr (PMAT-007 output)
+#   - Base model: checkpoints/qwen2.5-coder-7b-instruct-q4k.apr (pre-training base)
+#
+# Falsifiable: if merged model scores below best input specialist on ALL
+# benchmarks, the merge is falsified. AC-024.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-j-merge-specialists
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  output_dir: checkpoints
+  quantization: q4k
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - mbpp
+
+stages:
+  - merge
+  - eval
+
+merge:
+  models:
+    - "checkpoints/qwen-7b-code-specialist.apr"
+    - "checkpoints/qwen-7b-reasoning-specialist.apr"
+  base_model: "checkpoints/qwen2.5-coder-7b-instruct-q4k.apr"
+  strategy: ties
+  density: 0.2
+  output: "checkpoints/qwen-7b-merged-specialists.apr"
+
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["pass_at_1"]
+  alerts:
+    - condition: "pass_at_1 < 80"
+      action: warn
+      message: "Merged model below 80% — merge may have degraded"

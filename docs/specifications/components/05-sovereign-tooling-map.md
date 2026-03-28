@@ -6,24 +6,24 @@ Every leaderboard-winning technique maps to a sovereign stack component. When a 
 
 | Technique | Required Capability | Sovereign Component | Status | Gap Action |
 |-----------|-------------------|-------------------|--------|------------|
-| Import HF models | SafeTensors/GGUF → .apr | **aprender** 0.27 | ✅ Complete | `apr import` — 14+ architectures supported |
+| Import HF models | SafeTensors/GGUF → .apr | **aprender** 0.4.11 | ✅ Complete | `apr import` — 14+ architectures supported |
 | Inference (decode) | Transformer forward pass | **realizar** 0.8 | ✅ Complete | `apr run` — 8-21% faster than llama.cpp |
 | Inference (serve) | HTTP API, batching, streaming | **realizar** 0.8 | ✅ Complete | `apr serve` — OpenAI-compatible, PagedAttention |
 | LoRA/QLoRA training | Low-rank adaptation, autograd | **entrenar** 0.7 | ✅ Complete | `apr finetune` — AdamW, cosine LR, checkpointing |
-| Checkpoint management | Atomic save, resume, NaN scan, filtered load | **aprender** 0.27 | ✅ Complete | `AprWriter::write()` atomic (F-CKPT-009), `AprReader::open_filtered()` (F-CKPT-016), `read_tensor_f32_checked()` (F-CKPT-013), `validate_tensor_shape()` (F-CKPT-014) — 18/18 contracts |
-| Knowledge distillation | KL-divergence, progressive | **entrenar** 0.7 | ✅ Complete | `apr distill` — standard, progressive, ensemble |
-| Model merging | SLERP, TIES, DARE | **aprender** 0.27 | ✅ Complete | `apr merge` — 5 strategies |
-| Pruning | Wanda, SparseGPT, structured | **aprender** 0.27 | ✅ Complete | `apr prune` — 6 methods |
-| Quantization | INT4, INT8, Q4K, Q6K | **aprender** 0.27 | ✅ Complete | `apr quantize` — 4 formats |
-| SIMD tensor ops | AVX2, AVX-512, NEON matmul | **trueno** 0.16 | ✅ Complete | 6% faster than NumPy at 256×256 |
-| GPU compute | wgpu (Vulkan/Metal/DX12), CUDA PTX JIT | **trueno** 0.16 + **trueno-gpu** 0.4 | ✅ Complete | Pure Rust, any GPU vendor. CUDA via PTX JIT (no nvcc). See §5.10. |
+| Checkpoint management | Atomic save, resume, NaN scan, filtered load | **aprender** 0.4.11 | ✅ Complete | `AprWriter::write()` atomic (F-CKPT-009), `AprReader::open_filtered()` (F-CKPT-016), `read_tensor_f32_checked()` (F-CKPT-013), `validate_tensor_shape()` (F-CKPT-014) — 18/18 contracts |
+| Knowledge distillation | KL-divergence, progressive, text-based | **entrenar** 0.7 | ✅ Complete | `apr distill` — standard, progressive, ensemble, text-based (GH-455) |
+| Model merging | SLERP, TIES, DARE | **aprender** 0.4.11 | ✅ Complete | `apr merge` — 5 strategies |
+| Pruning | Wanda, SparseGPT, structured | **aprender** 0.4.11 | ✅ Complete | `apr prune` — 6 methods |
+| Quantization | INT4, INT8, Q4K, Q6K | **aprender** 0.4.11 | ✅ Complete | `apr quantize` — 4 formats |
+| SIMD tensor ops | AVX2, AVX-512, NEON matmul | **trueno** 0.16.3 | ✅ Complete | 6% faster than NumPy at 256×256 |
+| GPU compute | wgpu (Vulkan/Metal/DX12), CUDA PTX JIT | **trueno** 0.16.3 + **trueno-gpu** 0.4.35 | ✅ Complete | Pure Rust, any GPU vendor. wgpu cosine=0.999863 on Blackwell. See §25. |
 | Speculative decoding | Draft model + verification | **realizar** 0.8 | ⚠️ Planned | GH-10: `apr run --speculative` not yet implemented |
 | KV cache management | PagedAttention, CoW | **realizar** 0.8 | ✅ Complete | vLLM-style paged KV |
 | Data loading | Parquet, JSONL, Arrow, HF Hub | **alimentar** 0.2 | ✅ Complete | Zero-copy Arrow RecordBatches |
 | Data quality | Null/outlier/drift detection | **alimentar** 0.2 | ✅ Complete | 100-point quality scoring |
 | Data decontamination | N-gram overlap detection | **alimentar** 0.2 | ✅ **Wired** | `apr data decontaminate` — n-gram overlap vs benchmarks (alimentar#30, aprender#415) |
 | HPO | TPE, Hyperband, ASHA | **entrenar** 0.7 | ✅ Complete | `apr tune --strategy tpe` |
-| Compile to binary | Model + runtime → executable | **aprender** 0.27 | ✅ Complete | `apr compile` |
+| Compile to binary | Model + runtime → executable | **aprender** 0.4.11 | ✅ Complete | `apr compile` |
 | Correctness proofs | Kani bounded model checking | **provable-contracts** | ✅ Complete | 262 proof obligations |
 | Quality gates | Compliance enforcement | **pmat** | ✅ Complete | 30+ automated checks |
 | **DPO/ORPO alignment** | Preference optimization | **entrenar** 0.7 | ✅ **Wired** | `make align` → `apr finetune --method dpo` (GH-8: dedicated `apr align` planned) |

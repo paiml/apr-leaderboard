@@ -26,8 +26,8 @@ apr import qwen-7b.gguf -o qwen-7b.apr --enforce-provenance
 # Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU
 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 
-# Blackwell sm_121: GPU parity gate blocks inference (GH-559: Q4K dequant error)
-# Fix pending in trueno-gpu PTX codegen. Do NOT use SKIP_PARITY_GATE=1.
+# GPU: auto-dispatches CUDA → wgpu (Vulkan) → CPU. wgpu cosine=0.999863 on sm_121.
+# CUDA FP32 accumulation fix pending (GH-561). wgpu is the production GPU path.
 ```
 
 **Input format (JSONL):**

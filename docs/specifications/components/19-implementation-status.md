@@ -89,9 +89,9 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
-| YAML configs | 22 | — | models (7) + recipes (9) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
+| YAML configs | 24 | — | models (7) + recipes (11) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
 | Shell scripts | 21 + 4 canaries | — | 21 pipeline scripts + 4 GPU canary/falsification scripts |
-| Makefile targets | 53 | — | `make verify` + `make validate` + `make dogfood` |
+| Makefile targets | 54 | — | `make verify` + `make validate` + `make dogfood` |
 | Contract tests | 22/22 | 22/22 | `make check-contracts` (pass@k ×5, throughput ×2, data ×3, decon ×1, eval ×3, distill ×2, structure ×6) |
 | Spec sections | 25 | — | §1-24 + §25 GPU Compute Architecture |
 | Config validity | 20/20 | 20/20 | `bashrs config lint` in `make validate` (zero Python) |
@@ -117,6 +117,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `recipe-g-wgpu-proof.yaml` | `configs/recipes/` | Qwen2.5-Coder-1.5B | wgpu training proof (§22.14) | ✅ Complete |
 | `recipe-h-32b-distill.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | 32B→7B reasoning distillation | ✅ Complete |
 | `recipe-i-humaneval-qlora.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | QLoRA on teacher+instruct data (PMAT-008) | ✅ Complete |
+| `recipe-j-merge-specialists.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | TIES merge code+reasoning specialists (PMAT-010) | ✅ Complete |
+| `recipe-k-final-artifact.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | Prune+quantize+compile final submission (PMAT-011) | ✅ Complete |
 | `distill-32b-7b-text.yaml` | `configs/distill/` | Qwen2.5-Coder-7B-Instruct | Text-based distillation config (PMAT-007) | ✅ Complete |
 | `coding-benchmarks.yaml` | `configs/eval/` | — | Benchmark suite definitions + targets + baselines | ✅ Complete |
 | `leaderboard.yaml` | `configs/pipeline/` | — | Forjar infrastructure manifest | ✅ Complete |

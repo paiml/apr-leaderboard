@@ -425,3 +425,59 @@ make compare-results \
 **Falsifiable:** If HumanEval stays below 86% after training, the approach is falsified. Expected: 85.37% → 87%+ from domain-targeted training data.
 
 **Why combined data?** The 32B teacher completions target the 25 specific HumanEval failures (analyzed via `scripts/generate-distill-prompts.sh`), while the instruct corpus provides broad coding pattern coverage. Together they should improve both the specific failure cases and overall code generation quality.
+
+## 9.10 Recipe J: "Specialist Merge" (PMAT-010)
+
+**Target:** TIES merge code-specialist + reasoning-specialist. Hypothesis H3: merged model beats any single specialist on at least one benchmark.
+
+**Inputs:**
+- Code specialist from PMAT-008 (QLoRA on code instruct data)
+- Reasoning specialist from PMAT-007 (distilled from 32B teacher)
+- Base model: Qwen2.5-Coder-7B-Instruct Q4K
+
+```bash
+# TIES merge at density 0.2 (20% of task vector kept)
+apr merge checkpoints/qwen-7b-code-specialist.apr \
+    checkpoints/qwen-7b-reasoning-specialist.apr \
+    --strategy ties --density 0.2 \
+    --base-model checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
+    -o checkpoints/qwen-7b-merged.apr
+
+# Evaluate
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b-merged.apr
+```
+
+**Config:** `configs/recipes/recipe-j-merge-specialists.yaml`
+
+**Falsifiable:** If merged model scores below best input specialist on ALL benchmarks (AC-024). Expected: merged model picks up complementary strengths from both specialists.
+
+## 9.11 Recipe K: "Final Artifact" (PMAT-011)
+
+**Target:** Produce the leaderboard submission: prune → INT4 quantize → compile → standalone binary.
+
+```bash
+# Step 1: Wanda prune at 20% using calibration data
+apr prune checkpoints/qwen-7b-optimized.apr \
+    --method wanda --target-ratio 0.2 \
+    --calibration data/calibration.jsonl \
+    -o checkpoints/qwen-7b-pruned.apr
+
+# Step 2: INT4 quantize
+apr quantize checkpoints/qwen-7b-pruned.apr \
+    --scheme int4 \
+    -o checkpoints/qwen-7b-pruned-int4.apr
+
+# Step 3: Compile to standalone binary
+apr compile checkpoints/qwen-7b-pruned-int4.apr \
+    --release --lto --strip \
+    -o checkpoints/qwen-coder-7b
+
+# Step 4: Validate AC-022 success gate
+make validate-ac022
+```
+
+**Config:** `configs/recipes/recipe-k-final-artifact.yaml`
+
+**Success gate (AC-022):** ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP
+
+**Hypothesis H4:** INT4 quantization loses <2% pass@1 (AC-023). Current Q4K model already at 85.37% — INT4 from FP16 intermediate may differ.
