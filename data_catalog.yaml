@@ -38,6 +38,60 @@ datasets:
     location: data/reasoning-preferences.jsonl
     lifecycle: retained
 
+  distill-prompts:
+    purpose: "99 targeted coding prompts for 32B teacher distillation (PMAT-007)"
+    classification: internal
+    format: jsonl
+    location: data/distill/distill-prompts.jsonl
+    records: 99
+    categories: 11
+    sources:
+      - "HumanEval failure analysis (25 failed problems → 11 categories)"
+    lifecycle: retained
+    generate: "scripts/generate-distill-prompts.sh"
+
+  teacher-completions:
+    purpose: "32B teacher model completions for text-based distillation (PMAT-007)"
+    classification: internal
+    format: jsonl
+    location: data/distill/teacher-completions.jsonl
+    sources:
+      - "apr run --batch-jsonl on 32B teacher (temperature=0.8)"
+    lifecycle: retained
+    generate: "make distill-generate"
+
+  combined-training:
+    purpose: "Merged teacher completions + instruct corpus for QLoRA (PMAT-008)"
+    classification: internal
+    format: jsonl
+    location: data/combined-training.jsonl
+    sources:
+      - "data/distill/teacher-completions.jsonl"
+      - "data/instruct-corpus.jsonl"
+    lifecycle: ephemeral
+    generate: "make combine-training-data"
+
+  calibration:
+    purpose: "128 random code samples for Wanda/SparseGPT pruning calibration (PMAT-011)"
+    classification: internal
+    format: jsonl
+    location: data/calibration.jsonl
+    records: 128
+    sources:
+      - "Random sample from instruct-corpus.jsonl (seed=42)"
+    lifecycle: retained
+    generate: "make prepare-calibration-data"
+
+  preference-pairs:
+    purpose: "DPO preference pairs from N-sampling eval results (PMAT-014)"
+    classification: internal
+    format: jsonl
+    location: data/preference-pairs.jsonl
+    sources:
+      - "N-sampling eval (NUM_SAMPLES=10, TEMPERATURE=0.8)"
+    lifecycle: retained
+    generate: "make generate-preference-pairs"
+
 external_datasets:
   bigcode-starcoderdata:
     purpose: "StarCoder training data (code fine-tuning source)"
@@ -68,6 +122,9 @@ benchmarks:
 data_lineage:
   raw_source: "Ground truth corpora (depyler, hf-gtc, jax-gtc, vllm-gtc)"
   extraction: "apr data prep -> Python AST parsing -> instruction/response pairs"
+  distillation: "32B teacher -> apr run --batch-jsonl -> teacher completions -> combine with instruct corpus"
+  calibration: "Random 128-sample subset from instruct corpus (seed=42)"
   training: "apr finetune -> LoRA/QLoRA adapters -> .apr checkpoint"
+  alignment: "N-sampling eval -> preference pairs -> apr finetune --method dpo"
   evaluation: "scripts/eval-pass-at-k.sh -> apr run -> sandbox execution -> scoring"
   submission: "scripts/submit.sh -> apr export -> apr publish -> HuggingFace Hub"
