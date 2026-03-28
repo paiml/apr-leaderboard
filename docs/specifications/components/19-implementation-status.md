@@ -59,6 +59,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make distill-finetune` | `apr finetune --method qlora` | ✅ Wired | QLoRA fine-tune 7B on teacher completions (PMAT-007) |
 | `make distill-eval` | `scripts/eval-pass-at-k.sh` | ✅ Wired | Evaluate distilled model on HumanEval (PMAT-007) |
 | `make combine-training-data` | `scripts/combine-training-data.sh` | ✅ Working | Merge distill + instruct data for QLoRA (PMAT-008) |
+| `make validate-teacher` | `scripts/validate-teacher.sh` | ✅ Working | Verify teacher model quality before distillation (§12.2) |
+| `make failure-analysis` | `scripts/failure-analysis.sh` | ✅ Working | Always-fail/borderline/always-pass categorization |
 
 ## 19.2 Shell Scripts
 
@@ -77,6 +79,9 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `scripts/distill-generate.sh` | 32B teacher batch inference → coding completions JSONL (PMAT-007) | ✅ Working |
 | `scripts/generate-distill-prompts.sh` | Generate targeted distillation prompts from HumanEval failure analysis | ✅ Working |
 | `scripts/combine-training-data.sh` | Merge teacher completions + instruct corpus, deduplicate, shuffle | ✅ Working |
+| `scripts/validate-teacher.sh` | Validate teacher model meets minimum pass@1 threshold for distillation | ✅ Working |
+| `scripts/failure-analysis.sh` | Analyze HumanEval failures: always-fail, borderline, always-pass | ✅ Working |
+| `scripts/oracle-analysis.sh` | Compute oracle upper bound across all runs and strategies | ✅ Working |
 
 ## 19.3 Quality Metrics
 
@@ -85,8 +90,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
 | YAML configs | 22 | — | models (7) + recipes (9) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
-| Shell scripts | 18 + 4 canaries | — | 18 pipeline scripts + 4 GPU canary/falsification scripts |
-| Makefile targets | 52 | — | `make verify` + `make validate` + `make dogfood` |
+| Shell scripts | 21 + 4 canaries | — | 21 pipeline scripts + 4 GPU canary/falsification scripts |
+| Makefile targets | 53 | — | `make verify` + `make validate` + `make dogfood` |
 | Contract tests | 22/22 | 22/22 | `make check-contracts` (pass@k ×5, throughput ×2, data ×3, decon ×1, eval ×3, distill ×2, structure ×6) |
 | Spec sections | 25 | — | §1-24 + §25 GPU Compute Architecture |
 | Config validity | 20/20 | 20/20 | `bashrs config lint` in `make validate` (zero Python) |

@@ -71,8 +71,10 @@ tasks:
   livecodebench:
     type: code_generation
     metric: pass@1
+    n_samples: 500                                       # ~500 problems (rolling dataset)
     temperature: 0.0
     max_tokens: 2048
+    decontamination: time_based                          # Exclude problems published within 90 days
     description: "LiveCodeBench — competitive programming (contamination-free)"
 
   multipl-e:
@@ -140,3 +142,31 @@ apr_baselines:
   "qwen2.5-coder-1.5b-q4k":
     humaneval: 0.5915
     notes: "Q4K GGUF import, CPU, greedy, max_tokens=512"
+
+# Oracle analysis (multi-run upper bound, measured 2026-03-28)
+oracle:
+  "qwen2.5-coder-7b-instruct-q4k":
+    humaneval: 0.9634                                    # 158/164 across all runs × strategies
+    always_fail: 6                                       # max_fill, maximum, intersection, tri, order_by_points, generate_integers
+    inconsistent: 39
+    always_pass: 119
+
+# Prompt strategies (§5.6)
+prompt_strategies:
+  standard:
+    description: "Vanilla completion — task description + code prompt"
+    best_for: [humaneval, mbpp]
+    stop_tokens: ["\nclass ", "\ndef ", "\n#", "\nif __name__"]
+  few-shot:
+    description: "In-context examples (trivial add(a,b) exemplar)"
+    best_for: [humaneval]
+    exemplar_count: 1
+    notes: "Best 7B HumanEval strategy (+1.83pp). Hurts MBPP and 32B."
+  scot:
+    description: "Structured chain-of-thought reasoning before code"
+    best_for: []
+    notes: "Hurts ≤7B models (-3.05pp). May help ≥32B."
+  cgo:
+    description: "Code-guided optimization — use helper functions"
+    best_for: []
+    notes: "83.54% on HumanEval. 1 unique win (is_nested)."

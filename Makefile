@@ -18,7 +18,7 @@
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history leaderboard \
         export publish model-card \
         pipeline pipeline-plan \
-        check inspect qa compare-hf bench verify dogfood validate clean failure-analysis \
+        check inspect qa compare-hf bench verify dogfood validate clean failure-analysis validate-teacher \
         prove-wgpu \
         docs docs-serve book
 
@@ -204,6 +204,10 @@ DISTILL_PROMPTS ?= data/distill/distill-prompts.jsonl
 DISTILL_OUTPUT ?= data/distill/teacher-completions.jsonl
 DISTILL_STUDENT ?= checkpoints/qwen2.5-coder-7b-instruct-q4k.apr
 DISTILL_MODEL ?= checkpoints/qwen2.5-coder-7b-distilled-q4k.apr
+
+validate-teacher:
+	@test -f "$(TEACHER)" || { echo "ERROR: TEACHER model not found: $(TEACHER)"; exit 1; }
+	./scripts/validate-teacher.sh "$(TEACHER)" humaneval 0.60
 
 distill-generate: $(DISTILL_PROMPTS)
 	@echo "=== Stage 1: Generate teacher completions ==="
