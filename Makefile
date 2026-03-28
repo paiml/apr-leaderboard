@@ -18,7 +18,7 @@
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history leaderboard \
         export publish model-card \
         pipeline pipeline-plan \
-        check inspect qa compare-hf bench verify dogfood validate clean failure-analysis validate-teacher validate-ac022 \
+        check inspect qa compare-hf bench verify dogfood validate clean failure-analysis validate-teacher validate-ac022 status \
         prove-wgpu \
         docs docs-serve book
 
@@ -299,6 +299,9 @@ failure-analysis:
 
 validate-ac022:
 	./scripts/validate-ac022.sh $(RESULTS_DIR)
+
+status:
+	@./scripts/project-status.sh
 
 # -- Submission ------------------------------------------------------------------
 
