@@ -151,7 +151,7 @@ All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan)
 
 ```
 apr-leaderboard/
-├── Makefile                    # 50 orchestration targets
+├── Makefile                    # 51 orchestration targets
 ├── scripts/
 │   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k (batch + N-sampling)
 │   ├── eval-helpers.sh          # Extraction, scoring, batch generation helpers
@@ -168,7 +168,7 @@ apr-leaderboard/
 │   └── leaderboard-summary.sh  # Generate ranked markdown leaderboard
 ├── configs/
 │   ├── models/                 # 7 per-model YAML configs
-│   ├── recipes/                # 8 multi-stage pipeline recipes (YAML)
+│   ├── recipes/                # 9 multi-stage pipeline recipes (YAML)
 │   ├── eval/                   # Benchmark suite definitions (YAML)
 │   ├── distill/                # Text-based distillation configs (YAML)
 │   └── pipeline/               # Forjar manifest + batuta playbook (YAML)

@@ -58,6 +58,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make distill-generate` | `scripts/distill-generate.sh` | ✅ Working | Text-based distillation: 32B teacher completions (PMAT-007) |
 | `make distill-finetune` | `apr finetune --method qlora` | ✅ Wired | QLoRA fine-tune 7B on teacher completions (PMAT-007) |
 | `make distill-eval` | `scripts/eval-pass-at-k.sh` | ✅ Wired | Evaluate distilled model on HumanEval (PMAT-007) |
+| `make combine-training-data` | `scripts/combine-training-data.sh` | ✅ Working | Merge distill + instruct data for QLoRA (PMAT-008) |
 
 ## 19.2 Shell Scripts
 
@@ -75,6 +76,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `scripts/compare-results.sh` | Per-problem delta analysis between two result files | ✅ Working |
 | `scripts/distill-generate.sh` | 32B teacher batch inference → coding completions JSONL (PMAT-007) | ✅ Working |
 | `scripts/generate-distill-prompts.sh` | Generate targeted distillation prompts from HumanEval failure analysis | ✅ Working |
+| `scripts/combine-training-data.sh` | Merge teacher completions + instruct corpus, deduplicate, shuffle | ✅ Working |
 
 ## 19.3 Quality Metrics
 
@@ -82,9 +84,9 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
-| YAML configs | 20 | — | models (7) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) + distill (1) |
-| Shell scripts | 14 + 4 canaries | — | 14 pipeline scripts + 4 GPU canary/falsification scripts |
-| Makefile targets | 50 | — | `make verify` + `make validate` + `make dogfood` |
+| YAML configs | 22 | — | models (7) + recipes (9) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
+| Shell scripts | 15 + 4 canaries | — | 15 pipeline scripts + 4 GPU canary/falsification scripts |
+| Makefile targets | 51 | — | `make verify` + `make validate` + `make dogfood` |
 | Contract tests | 18/18 | 18/18 | `make check-contracts` (pass@k ×5, throughput ×2, data ×2, decon ×1, eval ×3, structure ×5) |
 | Spec sections | 25 | — | §1-24 + §25 GPU Compute Architecture |
 | Config validity | 20/20 | 20/20 | `bashrs config lint` in `make validate` (zero Python) |
@@ -109,6 +111,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `recipe-f-qwen3-qlora.yaml` | `configs/recipes/` | Qwen3-8B | QLoRA instruct pipeline (§9.6) | ✅ Complete |
 | `recipe-g-wgpu-proof.yaml` | `configs/recipes/` | Qwen2.5-Coder-1.5B | wgpu training proof (§22.14) | ✅ Complete |
 | `recipe-h-32b-distill.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | 32B→7B reasoning distillation | ✅ Complete |
+| `recipe-i-humaneval-qlora.yaml` | `configs/recipes/` | Qwen2.5-Coder-7B-Instruct | QLoRA on teacher+instruct data (PMAT-008) | ✅ Complete |
+| `distill-32b-7b-text.yaml` | `configs/distill/` | Qwen2.5-Coder-7B-Instruct | Text-based distillation config (PMAT-007) | ✅ Complete |
 | `coding-benchmarks.yaml` | `configs/eval/` | — | Benchmark suite definitions + targets + baselines | ✅ Complete |
 | `leaderboard.yaml` | `configs/pipeline/` | — | Forjar infrastructure manifest | ✅ Complete |
 | `leaderboard-playbook.yaml` | `configs/pipeline/` | — | Batuta playbook DAG | ✅ Complete |
