@@ -467,7 +467,7 @@ check-contracts:
 		[ $$(echo "$$ttft < 500" | bc) -eq 1 ] && echo "  FT-TPUT-002 (ttft<500): PASS ($${ttft}ms)" && PASS=$$((PASS+1)) || { echo "  FT-TPUT-002: FAIL ($${ttft}ms)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-TPUT: SKIP (no bench results)"; fi; \
 	echo "-- benchmark data (FT-DATA-001..003) --"; \
-	for bench in humaneval mbpp; do \
+	for bench in humaneval mbpp bigcodebench; do \
 		f="data/benchmarks/$${bench}.jsonl"; \
 		if [ -f "$$f" ]; then \
 			lines=$$(wc -l < "$$f"); \
