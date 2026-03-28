@@ -33,7 +33,7 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B, 7B, 32B) and Qwen3-4
 |----------|--------|-------------|-------|
 | few-shot (trivial `add(a,b)`) | **87.20%** | +1.83pp | Best — simplest exemplar wins |
 | few-shot (3-exemplar) | 85.98% | +0.61pp | Complex exemplars hurt slightly |
-| standard | 84.76-85.37% | baseline | Variance across runs |
+| standard | 84.76-85.98% | baseline | Variance across runs (85.98% on Intel x86_64) |
 | cgo | 83.54% | -1.83pp | "Use helper functions" prompt (fixed from 0%) |
 | scot | 82.32% | -3.05pp | Reasoning overhead hurts small model |
 
