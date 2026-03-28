@@ -14,7 +14,7 @@
 
 .PHONY: import import-plan \
         prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download generate-training-data generate-preference-pairs \
-        finetune finetune-instruct align merge prune quantize distill compile \
+        finetune finetune-instruct align merge prune quantize distill distill-generate distill-finetune distill-eval compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history leaderboard \
         export publish model-card \
         pipeline pipeline-plan \
@@ -192,6 +192,40 @@ distill:
 		--temperature $(DIST_TEMP) \
 		--alpha $(DIST_ALPHA) \
 		--verbose
+
+# -- Text-Based Distillation (PMAT-007) ----------------------------------------
+
+DISTILL_CONFIG ?= configs/distill/distill-32b-7b-text.yaml
+DISTILL_PROMPTS ?= data/distill/distill-prompts.jsonl
+DISTILL_OUTPUT ?= data/distill/teacher-completions.jsonl
+DISTILL_STUDENT ?= checkpoints/qwen2.5-coder-7b-instruct-q4k.apr
+DISTILL_MODEL ?= checkpoints/qwen2.5-coder-7b-distilled-q4k.apr
+
+distill-generate: $(DISTILL_PROMPTS)
+	@echo "=== Stage 1: Generate teacher completions ==="
+	./scripts/distill-generate.sh $(DISTILL_CONFIG)
+
+distill-finetune: $(DISTILL_OUTPUT)
+	@echo "=== Stage 2: Fine-tune 7B student on teacher completions ==="
+	@test -f "$(DISTILL_STUDENT)" || { echo "ERROR: Student not found: $(DISTILL_STUDENT)"; exit 1; }
+	@test -f "$(DISTILL_OUTPUT)" || { echo "ERROR: Teacher completions not found. Run: make distill-generate"; exit 1; }
+	$(APR) finetune "$(DISTILL_STUDENT)" \
+		--method qlora \
+		--rank 32 \
+		--data "$(DISTILL_OUTPUT)" \
+		--output "$(DISTILL_MODEL)" \
+		--epochs 3 \
+		--learning-rate 0.0002 \
+		--verbose
+
+distill-eval: $(DISTILL_MODEL)
+	@echo "=== Stage 3: Evaluate distilled model ==="
+	@test -f "$(DISTILL_MODEL)" || { echo "ERROR: Distilled model not found. Run: make distill-finetune"; exit 1; }
+	@mkdir -p $(RESULTS_DIR)
+	./scripts/eval-pass-at-k.sh humaneval "$(DISTILL_MODEL)" "$(RESULTS_DIR)"
+
+$(DISTILL_PROMPTS):
+	./scripts/generate-distill-prompts.sh
 
 compile:
 	@test -f "$(CHECKPOINT)" || { echo "ERROR: Model not found at $(CHECKPOINT)"; exit 1; }

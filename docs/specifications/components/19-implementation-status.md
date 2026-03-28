@@ -55,6 +55,9 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `make check-contracts` | Inline awk + jq + python3 | ✅ Working | 15 falsification tests (pass@k, throughput, data, eval, structure) |
 | `make generate-preference-pairs` | `scripts/generate-preference-pairs.sh` | ✅ Working | Generate DPO pairs from N-sampling eval (PMAT-014) |
 | `make generate-training-data` | `scripts/generate-training-data.sh` | ✅ Working | Synthetic instruct pairs from teacher model (PMAT-004) |
+| `make distill-generate` | `scripts/distill-generate.sh` | ✅ Working | Text-based distillation: 32B teacher completions (PMAT-007) |
+| `make distill-finetune` | `apr finetune --method qlora` | ✅ Wired | QLoRA fine-tune 7B on teacher completions (PMAT-007) |
+| `make distill-eval` | `scripts/eval-pass-at-k.sh` | ✅ Wired | Evaluate distilled model on HumanEval (PMAT-007) |
 
 ## 19.2 Shell Scripts
 
@@ -70,6 +73,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | `scripts/leaderboard-summary.sh` | Generate ranked markdown leaderboard from all result JSONs | ✅ Working |
 | `scripts/eval-sweep.sh` | Run eval across multiple prompt strategies sequentially | ✅ Working |
 | `scripts/compare-results.sh` | Per-problem delta analysis between two result files | ✅ Working |
+| `scripts/distill-generate.sh` | 32B teacher batch inference → coding completions JSONL (PMAT-007) | ✅ Working |
+| `scripts/generate-distill-prompts.sh` | Generate targeted distillation prompts from HumanEval failure analysis | ✅ Working |
 
 ## 19.3 Quality Metrics
 
@@ -77,12 +82,12 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 |---|---|---|---|
 | `apr` CLI version | 0.4.11 | ≥ 0.4.10 | `apr --version` |
 | Subcommand smoke test | 19/19 OK | 19/19 | `make verify` |
-| YAML configs | 19 | — | models (7) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) |
-| Shell scripts | 12 + 4 canaries | — | 12 pipeline scripts + 4 GPU canary/falsification scripts |
-| Makefile targets | 47 | — | `make verify` + `make validate` + `make dogfood` |
+| YAML configs | 20 | — | models (7) + recipes (8) + eval (1) + pipeline (2) + data catalog (1) + distill (1) |
+| Shell scripts | 14 + 4 canaries | — | 14 pipeline scripts + 4 GPU canary/falsification scripts |
+| Makefile targets | 50 | — | `make verify` + `make validate` + `make dogfood` |
 | Contract tests | 18/18 | 18/18 | `make check-contracts` (pass@k ×5, throughput ×2, data ×2, decon ×1, eval ×3, structure ×5) |
 | Spec sections | 25 | — | §1-24 + §25 GPU Compute Architecture |
-| Config validity | 19/19 | 19/19 | `bashrs config lint` in `make validate` (zero Python) |
+| Config validity | 20/20 | 20/20 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
 ## 19.4 Config Templates (§4)

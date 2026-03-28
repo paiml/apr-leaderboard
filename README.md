@@ -128,16 +128,20 @@ All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan)
 ## Roadmap
 
 **Completed:**
+- 7B baseline (PMAT-006): 85.37% HumanEval pass@1 (≥85% gate met)
+- Pipeline wiring (PMAT-017): all shell scripts call real `apr` CLI
 - N-sampling (PMAT-003): `make eval-humaneval NUM_SAMPLES=10 TEMPERATURE=0.8`
 - Preference pairs (PMAT-014): `make generate-preference-pairs`
 - Synthetic training data (PMAT-004): `make generate-training-data`
 - GPU fix (PMAT-037): wgpu Vulkan fallback, cosine=0.999863
 - 18/18 contract falsification tests passing
 
+**In progress:**
+1. 32B→7B text-based distillation (PMAT-007): `make distill-generate` → `make distill-finetune`
+
 **Next (actionable now):**
-1. 32B MBPP eval (running on gx10)
 2. BigCodeBench eval (first score)
-3. 32B→7B reasoning distillation (recipe-h ready)
+3. LoRA fine-tune on curated code data (PMAT-008)
 
 **Pipeline experiments (require upstream `apr` features):**
 4. DPO with execution feedback for HumanEval+ gains
@@ -147,12 +151,14 @@ All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan)
 
 ```
 apr-leaderboard/
-├── Makefile                    # 47 orchestration targets
+├── Makefile                    # 50 orchestration targets
 ├── scripts/
 │   ├── eval-pass-at-k.sh       # Generate → sandbox execute → Chen et al. pass@k (batch + N-sampling)
 │   ├── eval-helpers.sh          # Extraction, scoring, batch generation helpers
 │   ├── generate-training-data.sh # PMAT-004: Synthetic instruct pairs from teacher model
 │   ├── generate-preference-pairs.sh # PMAT-014: DPO pairs from N-sampling eval
+│   ├── distill-generate.sh      # PMAT-007: 32B teacher batch inference → completions
+│   ├── generate-distill-prompts.sh # PMAT-007: Targeted prompts from failure analysis
 │   ├── canary-pytorch-gpu.py    # GH-559: PyTorch GPU canary (hardware validation)
 │   ├── falsify-ptx-implementations.py # GH-559: 5 PTX variants via cuModuleLoadData
 │   ├── pipeline.sh             # YAML-driven multi-stage pipeline
@@ -164,6 +170,7 @@ apr-leaderboard/
 │   ├── models/                 # 7 per-model YAML configs
 │   ├── recipes/                # 8 multi-stage pipeline recipes (YAML)
 │   ├── eval/                   # Benchmark suite definitions (YAML)
+│   ├── distill/                # Text-based distillation configs (YAML)
 │   └── pipeline/               # Forjar manifest + batuta playbook (YAML)
 ├── data_catalog.yaml           # Data governance + lineage
 ├── contracts/
@@ -196,6 +203,9 @@ apr-leaderboard/
 | `make prove-wgpu` | Dual GPU wgpu training proof |
 | `make generate-training-data TEACHER=...` | PMAT-004: synthetic instruct pairs from teacher |
 | `make generate-preference-pairs EVAL_WORK_DIR=...` | PMAT-014: DPO pairs from N-sampling |
+| `make distill-generate` | PMAT-007: 32B teacher → coding completions |
+| `make distill-finetune` | PMAT-007: QLoRA fine-tune 7B on teacher data |
+| `make distill-eval` | PMAT-007: evaluate distilled model |
 | `make check-contracts` | 18 falsification tests (pass@k, throughput, decon, eval) |
 | `make eval-sweep` | Sweep all result JSONs, tabulate pass@k |
 | `make leaderboard` | Generate ranked markdown leaderboard from results |

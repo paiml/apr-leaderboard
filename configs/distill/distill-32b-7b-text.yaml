@@ -1,0 +1,49 @@
+# Text-based distillation: 32B teacher generates coding completions,
+# then 7B student is fine-tuned on those completions.
+#
+# Stage 1: apr distill --config this.yaml --stage generate
+#   → Generates coding completions from 32B teacher via batch inference
+# Stage 2: apr finetune --method qlora --data distill-output.jsonl
+#   → Fine-tunes 7B student on teacher completions
+#
+# Prerequisites:
+#   - Teacher: checkpoints/qwen2.5-coder-32b-instruct-q4km.apr (90.85% HumanEval)
+#   - Student: checkpoints/qwen2.5-coder-7b-instruct-q4k.apr (85.37% HumanEval)
+#
+# Target: close the 5.48pp gap (90.85% - 85.37%) on HumanEval
+#
+# Usage:
+#   make distill-generate   # Stage 1: generate teacher completions on gx10
+#   make distill-finetune   # Stage 2: fine-tune 7B student
+#   make distill-eval       # Stage 3: evaluate distilled model
+
+teacher:
+  model: "checkpoints/qwen2.5-coder-32b-instruct-q4km.apr"
+  gpu: true
+  max_tokens: 512
+  temperature: 0.8
+  top_p: 0.95
+
+student:
+  checkpoint: "checkpoints/qwen2.5-coder-7b-instruct-q4k.apr"
+
+synthetic_data:
+  prompts: "data/distill/distill-prompts.jsonl"
+  output: "data/distill/teacher-completions.jsonl"
+  target_tokens: 500000
+  samples_per_prompt: 1
+  min_completion_tokens: 10
+  max_prompt_chars: 2048
+
+finetune:
+  method: qlora
+  rank: 32
+  learning_rate: 0.0002
+  epochs: 3
+  output: "checkpoints/qwen2.5-coder-7b-distilled-q4k.apr"
+
+eval:
+  benchmark: humaneval
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard

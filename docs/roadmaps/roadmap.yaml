@@ -110,7 +110,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: Establish Qwen2.5-Coder-7B apr-native baseline
-  status: inprogress
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-02-28T18:41:03Z
@@ -131,7 +131,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Qwen2.5-Coder-7B: reasoning distillation from 32B teacher'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-02-28T18:41:11Z
@@ -343,7 +343,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: Wire apr-leaderboard scaffolding to real aprender API
-  status: inprogress
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-02-28T18:42:04Z
