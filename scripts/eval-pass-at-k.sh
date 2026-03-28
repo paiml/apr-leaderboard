@@ -287,6 +287,12 @@ for problem_idx in $(seq 0 $((TOTAL_PROBLEMS - 1))); do
                 if [[ -n "$ENTRY_POINT" && "$ENTRY_POINT" != "null" && "$HAS_CODE_PROMPT" != "true" ]]; then
                     echo "check(${ENTRY_POINT})"
                 fi
+                # BigCodeBench: test code defines unittest.TestCase but no runner
+                if echo "$TEST_CODE" | grep -q 'unittest.TestCase'; then
+                    echo ""
+                    echo "if __name__ == '__main__':"
+                    echo "    unittest.main()"
+                fi
             } > "$TEST_FILE"
         elif [[ "$HAS_TEST_LIST" == "true" ]]; then
             {

@@ -61,7 +61,7 @@ build_instruction() {
     if [[ "$benchmark" == "humaneval" ]]; then
         task_desc="Complete the following Python function."
     elif [[ "$benchmark" == "bigcodebench" ]]; then
-        task_desc="Write a Python function to solve this task with all necessary imports."
+        task_desc="Complete the following Python function. Return ONLY the function body (no imports, no def line)."
     elif [[ "$benchmark" == "mbpp" && -n "$problem_json" ]]; then
         local func_name test_examples
         func_name="$(jq -r '.test_list[0] // ""' <<< "$problem_json" 2>/dev/null | grep -oP '(?<=assert )\w+' | head -1)"
@@ -118,7 +118,13 @@ generate_batch() {
         local problem_file="${WORK_DIR}/problems/${problem_idx}.json"
         local prompt instruction
 
-        prompt="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$problem_file" 2>/dev/null)"
+        # BigCodeBench: use code_prompt (completion mode) so model sees function name + imports.
+        # Tests call task_func() directly — instruct_prompt doesn't mention the function name.
+        if [[ "$BENCHMARK" == "bigcodebench" ]]; then
+            prompt="$(jq -r '.code_prompt // .instruct_prompt // .prompt // ""' < "$problem_file" 2>/dev/null)"
+        else
+            prompt="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$problem_file" 2>/dev/null)"
+        fi
 
         if [[ -z "$prompt" || "$prompt" == "null" ]]; then
             echo "SKIP" > "${WORK_DIR}/completions/${problem_idx}.py"
@@ -238,7 +244,12 @@ generate_worker() {
         # Read problem
         local task_id prompt instruction
         task_id="$(jq -r '.task_id // .name // "unknown"' < "$problem_file" 2>/dev/null)"
-        prompt="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$problem_file" 2>/dev/null)"
+        # BigCodeBench: use code_prompt (completion mode) — tests call task_func() directly
+        if [[ "$BENCHMARK" == "bigcodebench" ]]; then
+            prompt="$(jq -r '.code_prompt // .instruct_prompt // .prompt // ""' < "$problem_file" 2>/dev/null)"
+        else
+            prompt="$(jq -r '.instruct_prompt // .prompt // .text // .instruction // ""' < "$problem_file" 2>/dev/null)"
+        fi
 
         if [[ -z "$prompt" || "$prompt" == "null" ]]; then
             echo "SKIP" > "$completion_file"
