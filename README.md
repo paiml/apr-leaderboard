@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/paiml/apr-leaderboard/actions/workflows/ci.yml/badge.svg)](https://github.com/paiml/apr-leaderboard/actions/workflows/ci.yml)
 
-HuggingFace leaderboard pipeline for the sovereign Rust AI stack. Proves that a single `apr` binary — with zero Python and no GPU vendor lock-in — can compete on code generation benchmarks (HumanEval, MBPP, BigCodeBench). GPU compute via wgpu (Vulkan/Metal/DX12) or optional CUDA backend. Eval hardware: gx10 NVIDIA Blackwell GB10 (119 GB unified) + AMD Radeon Pro W5700X (wgpu/Vulkan).
+HuggingFace leaderboard pipeline for the sovereign Rust AI stack. Proves that a single `apr` binary — with zero Python and no GPU vendor lock-in — can compete on code generation benchmarks (HumanEval, MBPP, BigCodeBench). GPU compute via wgpu (Vulkan/Metal/DX12) or optional CUDA backend. Eval hardware: Intel x86_64 (283 GB, 32 cores, AVX2), gx10 NVIDIA Blackwell GB10 (119 GB unified, wgpu/Vulkan).
 
 **[Read the full specification](https://paiml.github.io/apr-leaderboard/)**
 
