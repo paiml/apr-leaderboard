@@ -13,11 +13,11 @@ RESULTS_DIR="${RESULTS_DIR:-results}"
 echo "# ${BENCHMARK^} Oracle Analysis"
 echo ""
 
-python3 << 'PYEOF'
+python3 << PYEOF
 import json, glob, sys, os
 
-benchmark = sys.argv[1] if len(sys.argv) > 1 else "humaneval"
-results_dir = os.environ.get("RESULTS_DIR", "results")
+benchmark = "${BENCHMARK}"
+results_dir = "${RESULTS_DIR}"
 
 runs = []
 for f in sorted(glob.glob(f"{results_dir}/{benchmark}_*.json")):

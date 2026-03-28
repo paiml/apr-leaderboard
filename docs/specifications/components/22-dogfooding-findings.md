@@ -70,6 +70,18 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B, 7B, 32B) and Qwen3-4
 
 **Actionable insight:** Standard prompting is actually the strongest when unioned across runs (156/164). CGO has 1 unique win, standard has 3 unique wins. N-sampling with temperature>0 should recover most inconsistent problems (Chen et al. pass@10).
 
+**7B MBPP Oracle Analysis (multi-run, multi-strategy):**
+
+| Metric | Value |
+|--------|-------|
+| Oracle (best per problem across all runs) | **87.60%** (438/500) |
+| Standard (union of all standard runs) | 86.60% (433/500) |
+| Few-shot (union of all few-shot runs) | 77.00% (385/500) |
+| Gap (oracle - best single strategy) | 1.00pp |
+| Never solved (any strategy) | 62 problems |
+
+**MBPP insight:** Standard dominates (53 unique wins vs 5 for few-shot). Oracle 87.60% is well above the 80% AC-022 gate. Current best single run is 76.2% — the 11.4pp gap to oracle is from run-to-run variance. N-sampling should close this gap significantly.
+
 **Perplexity baseline (WikiText-2):**
 | Model | Perplexity | Cross-Entropy | Tokens | Eval Time |
 |-------|-----------|---------------|--------|-----------|
