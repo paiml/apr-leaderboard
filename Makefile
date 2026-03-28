@@ -520,7 +520,7 @@ check-contracts:
 	else echo "  FT-DIST-002: SKIP (no prompts)"; fi; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
-		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]" 2>/dev/null \
+		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]; assert len(d['falsification_tests'])>0; assert 'TODO' not in str(d) and 'PLACEHOLDER' not in str(d)" 2>/dev/null \
 		&& echo "  $$(basename $$f): valid" && PASS=$$((PASS+1)) \
 		|| { echo "  $$(basename $$f): INVALID"; FAIL=$$((FAIL+1)); }; \
 	done; \

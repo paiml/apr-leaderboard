@@ -76,6 +76,32 @@ else
     PREFLIGHT_PASS=false
 fi
 
+# Check 5: Contract falsification tests
+printf "  %-40s" "contract falsification tests"
+CONTRACT_OUTPUT="$(make check-contracts 2>&1 || true)"
+FAIL_COUNT="$(echo "$CONTRACT_OUTPUT" | grep -oP '\d+ failed' | grep -oP '\d+' || echo "0")"
+PASS_COUNT="$(echo "$CONTRACT_OUTPUT" | grep -oP '\d+ passed' | grep -oP '\d+' || echo "0")"
+if [[ "$FAIL_COUNT" -eq 0 && "$PASS_COUNT" -gt 0 ]]; then
+    echo "PASS (${PASS_COUNT} tests)"
+else
+    echo "FAIL (${FAIL_COUNT} failed)"
+    PREFLIGHT_PASS=false
+fi
+
+# Check 6: Minimum eval score threshold
+printf "  %-40s" "HumanEval pass@1 >= 80%"
+if ls "${RESULTS_DIR}"/humaneval_*.json > /dev/null 2>&1; then
+    BEST_SCORE="$(jq -s '[.[] | select(.results.pass_at_1 != null)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1' "${RESULTS_DIR}"/humaneval_*.json 2>/dev/null || echo "0")"
+    if awk "BEGIN{exit !($BEST_SCORE >= 80.0)}" 2>/dev/null; then
+        echo "PASS (${BEST_SCORE}%)"
+    else
+        echo "FAIL (${BEST_SCORE}% < 80%)"
+        PREFLIGHT_PASS=false
+    fi
+else
+    echo "SKIP (no HumanEval results)"
+fi
+
 echo ""
 if ! $PREFLIGHT_PASS; then
     echo "ERROR: Pre-submission checks failed. Fix issues above before submitting."
