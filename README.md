@@ -134,7 +134,7 @@ All results produced by `apr run` (zero Python inference). GPU via wgpu (Vulkan)
 - Preference pairs (PMAT-014): `make generate-preference-pairs`
 - Synthetic training data (PMAT-004): `make generate-training-data`
 - GPU fix (PMAT-037): wgpu Vulkan fallback, cosine=0.999863
-- 18/18 contract falsification tests passing
+- 21/21 contract falsification tests passing (6 contracts)
 
 **In progress:**
 1. 32B→7B text-based distillation (PMAT-007): `make distill-generate` → `make distill-finetune`
@@ -206,7 +206,7 @@ apr-leaderboard/
 | `make distill-generate` | PMAT-007: 32B teacher → coding completions |
 | `make distill-finetune` | PMAT-007: QLoRA fine-tune 7B on teacher data |
 | `make distill-eval` | PMAT-007: evaluate distilled model |
-| `make check-contracts` | 18 falsification tests (pass@k, throughput, decon, eval) |
+| `make check-contracts` | 21 falsification tests (pass@k, throughput, decon, eval, distill) |
 | `make eval-sweep` | Sweep all result JSONs, tabulate pass@k |
 | `make leaderboard` | Generate ranked markdown leaderboard from results |
 
