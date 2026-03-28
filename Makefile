@@ -497,6 +497,20 @@ check-contracts:
 			&& echo "  FT-EVAL-003 (latest>=80%): PASS ($${latest_score}%)" && PASS=$$((PASS+1)) \
 			|| { echo "  FT-EVAL-003: FAIL ($${latest_score}% < 80%)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-EVAL-001: SKIP (no results)"; fi; \
+	echo "-- distillation (FT-DIST-001..002) --"; \
+	if ls results/humaneval_*.json 1>/dev/null 2>&1; then \
+		best32=$$(jq -s '[.[] | select(.config.max_tokens >= 512 and .results.pass_at_1 > 88)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1 // 0' results/humaneval_*.json 2>/dev/null || echo "0"); \
+		best7=$$(jq -s '[.[] | select(.results.pass_at_1 > 80 and .results.pass_at_1 < 88)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1 // 0' results/humaneval_*.json 2>/dev/null || echo "0"); \
+		[ $$(echo "$$best32 > $$best7" | bc) -eq 1 ] \
+			&& echo "  FT-DIST-001 (teacher>student): PASS (32B=$${best32}% > 7B=$${best7}%)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DIST-001: FAIL (32B=$${best32}% vs 7B=$${best7}%)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-DIST-001: SKIP (no results)"; fi; \
+	if [ -f data/distill/distill-prompts.jsonl ]; then \
+		cats=$$(python3 -c "import json; kinds=set(); [kinds.add(json.loads(l).get('kind','')) for l in open('data/distill/distill-prompts.jsonl')]; print(len(kinds))" 2>/dev/null || echo "0"); \
+		[ "$$cats" -ge 10 ] \
+			&& echo "  FT-DIST-002 (>=10 categories): PASS ($$cats categories)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DIST-002: FAIL ($$cats < 10 categories)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-DIST-002: SKIP (no prompts)"; fi; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
 		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]" 2>/dev/null \

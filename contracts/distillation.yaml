@@ -1,0 +1,58 @@
+metadata:
+  version: "1.0.0"
+  description: "Text-based distillation quality contract (PMAT-007)"
+  author: "PAIML Engineering"
+  references:
+    - "Hinton et al., Distilling the Knowledge in a Neural Network, arXiv:1503.02531"
+    - "West et al., Symbolic Knowledge Distillation, NAACL 2022"
+
+equations:
+  distillation_gain:
+    formula: "pass@1(student_after) - pass@1(student_before) > 0"
+    domain: "temperature > 0, epochs >= 1, prompts >= 10"
+    codomain: "[-100, 100] percentage points"
+    invariants:
+      - "distilling from a weaker teacher should not improve student"
+      - "zero-epoch training should not change model"
+      - "targeted prompts should improve failure categories more than random"
+
+  teacher_quality:
+    formula: "pass@1(teacher) > pass@1(student_before)"
+    domain: "teacher and student use same benchmark"
+    codomain: "boolean"
+    invariants:
+      - "teacher must be strictly better than student on target benchmark"
+      - "teacher quality bounds student improvement ceiling"
+
+proof_obligations:
+  - type: bound
+    property: "Teacher outperforms student on HumanEval"
+    formal: "pass_at_1(32B) > pass_at_1(7B)"
+    tolerance: 0.01
+
+  - type: monotonicity
+    property: "Training decreases loss"
+    formal: "loss(epoch_n) < loss(epoch_0) for n >= 1"
+
+  - type: preservation
+    property: "Distillation preserves existing capabilities"
+    formal: "pass_at_1(after) >= pass_at_1(before) - 2.0"
+
+falsification_tests:
+  - id: FT-DIST-001
+    rule: "Teacher baseline exceeds student"
+    prediction: "32B pass@1 (90.85%) > 7B pass@1 (85.37%)"
+    test: "Compare results/humaneval_20260320_172617.json vs results/humaneval_20260311_212905.json"
+    if_fails: "Teacher is not better — distillation is pointless"
+
+  - id: FT-DIST-002
+    rule: "Distillation prompts cover failure categories"
+    prediction: "data/distill/distill-prompts.jsonl has >= 10 categories"
+    test: "Count distinct 'kind' values in prompts JSONL"
+    if_fails: "Prompts are too narrow to improve diverse failures"
+
+  - id: FT-DIST-003
+    rule: "Training data is decontaminated"
+    prediction: "Teacher completions have <1% overlap with HumanEval problems"
+    test: "N-gram overlap check on teacher output"
+    if_fails: "Distillation is memorizing test data"
