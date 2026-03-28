@@ -189,7 +189,7 @@ GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory
 **Status (2026-03-27): FIXED — single-prompt working, batch mode partial.**
 
 - **Single-prompt** `apr run --gpu`: wgpu (Vulkan), cosine=0.999863, token-for-token parity.
-- **Batch** `--batch-jsonl`: wgpu batch disabled for production (fused QKV not uploaded + 28 GB F32 OOM). Enable with `WGPU_BATCH=1`. Needs Q4K wgpu shader (PMAT-363) on gx10 — reads 7.5 GB raw Q4K, handles fused QKV. GH-560.
+- **Batch** `--batch-jsonl`: GH-560 OOM fixed — single-pass dequant (56 GB → 28 GB peak), lm_head extracted inline, `init_kv_cache()` added. Contract-bound: `gpu-weight-residency-v1` + `gpu-multi-backend-parity-v1`. Needs testing on gx10 with `WGPU_BATCH=1`.
 - **CPU batch** (default): Proven reliable, ~3 hours for 164 HumanEval, 84.76% pass@1.
 
 The CUDA cosine=-0.005 on sm_121 (GH-559) is NOT a JIT bug — falsification proved the
