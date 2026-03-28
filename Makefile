@@ -13,7 +13,7 @@
 .DELETE_ON_ERROR:
 
 .PHONY: import import-plan \
-        prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download generate-training-data generate-preference-pairs combine-training-data \
+        prep-data prep-data-audit data-split data-balance decontaminate data-quality benchmark-download generate-training-data generate-preference-pairs combine-training-data prepare-calibration-data \
         finetune finetune-instruct align merge prune quantize distill distill-generate distill-finetune distill-eval compile \
         eval-humaneval eval-mbpp eval-bigcodebench eval-all eval-perplexity eval-sweep compare-results results-history leaderboard \
         export publish model-card \
@@ -120,6 +120,10 @@ generate-training-data:
 	@test -f "$(TEACHER)" || { echo "ERROR: Teacher model not found: $(TEACHER)"; exit 1; }
 	@mkdir -p data/synthetic
 	./scripts/generate-training-data.sh "$(TEACHER)" data/synthetic $(NUM_TRAIN_PROMPTS) $(MAX_TOKENS)
+
+# §12.0.1: Calibration data for Wanda/SparseGPT pruning
+prepare-calibration-data:
+	./scripts/prepare-calibration-data.sh data/calibration.jsonl 128
 
 # PMAT-008: Combine training data from multiple sources
 combine-training-data:
