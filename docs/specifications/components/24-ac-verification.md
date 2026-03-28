@@ -177,17 +177,17 @@ Existing checks: merge-without-finetune, finetune-after-prune, distill-after-fin
 
 `apr data decontaminate`: 0/164 HumanEval + 0/974 MBPP contaminated. Report: `clean.jsonl`.
 
-## 24.13 Recommendations (Updated 2026-03-24)
+## 24.13 Recommendations (Updated 2026-03-28)
 
-**Completed (11 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542).
+**Completed (14 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 51 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based).
 
 **Next steps:**
 
 | Priority | Action | Expected Gain | Dependency |
 |----------|--------|---------------|------------|
-| 1 | BigCodeBench sandbox deps | First real score | Install 139 Python libs |
-| 2 | 32B MBPP CPU re-run | ~77%+ definitive | CPU only |
-| 3 | N-sampling (N=5) | pass@5 data | CPU or GPU |
-| 4 | 32B→7B distill | +2-3pp on 7B | `apr distill` + GPU |
-| 5 | DPO alignment | +2-4pp on HE+ | `apr align` + data |
-| 6 | HumanEval+ eval | AC-022 gate | EvalPlus harness |
+| 1 | 32B→7B distill training run | +2-3pp on 7B | gx10, `make distill-generate` |
+| 2 | BigCodeBench eval | First real score | gx10, uv + 52 pip deps |
+| 3 | QLoRA fine-tune (Recipe I) | +1-2pp on 7B | Training data + gx10 |
+| 4 | DPO alignment | +2-4pp on HE+ | `apr align` + preference data |
+| 5 | HumanEval+ eval | AC-022 gate | EvalPlus harness |
+| 6 | CUDA FP32 fix (GH-561) | GPU parity | FP64 PTX builder in trueno |

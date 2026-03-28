@@ -390,3 +390,38 @@ make compare-results \
 **Expected:** Close the 3.65pp gap (90.85% → 87.20%). Progressive distillation with temperature 4.0 provides soft probability distributions that transfer the teacher's reasoning patterns into the smaller student network.
 
 **Why not just use 32B?** The 32B model runs at ~14 tok/s (294s/problem) vs 7B at ~85 tok/s (112s/problem). For production inference, 7B is 2.6x faster. Distillation aims to get 32B quality at 7B speed.
+
+## 9.9 Recipe I: "HumanEval QLoRA" (Targeted Fine-Tuning)
+
+**Target:** Push 7B model past 87% HumanEval pass@1 using combined teacher completions + instruct corpus.
+
+**Data sources:**
+- Teacher completions (PMAT-007): 32B generates 99 targeted coding completions for problem areas where 7B fails (string manipulation, mathematical reasoning, list operations, edge cases)
+- Instruct corpus (PMAT-004): 15K instruction-completion pairs from depyler ground-truth AST extractions
+
+```bash
+# Stage 1: Generate teacher completions (run on gx10)
+make distill-generate
+
+# Stage 2: Combine all training data (dedup + shuffle)
+make combine-training-data
+
+# Stage 3: QLoRA fine-tune 7B student
+make distill-finetune
+
+# Stage 4: Evaluate on HumanEval
+make distill-eval
+
+# Compare with baseline
+make compare-results \
+    BASE=results/humaneval_7b_standard.json \
+    NEW=results/humaneval_7b_distilled.json
+```
+
+**Config:** `configs/recipes/recipe-i-humaneval-qlora.yaml`
+
+**Method:** QLoRA (rank 32, lr 2e-4, 3 epochs) — same method proven working in §22.7 and §23.1.4.
+
+**Falsifiable:** If HumanEval stays below 86% after training, the approach is falsified. Expected: 85.37% → 87%+ from domain-targeted training data.
+
+**Why combined data?** The 32B teacher completions target the 25 specific HumanEval failures (analyzed via `scripts/generate-distill-prompts.sh`), while the instruct corpus provides broad coding pattern coverage. Together they should improve both the specific failure cases and overall code generation quality.

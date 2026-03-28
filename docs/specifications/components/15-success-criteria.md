@@ -13,7 +13,7 @@
 
 | Metric | Target | Stretch | Notes |
 |--------|--------|---------|-------|
-| Pipeline commands | ≤ 10 | ≤ 6 | Config-driven pipeline counts as 1 |
+| Makefile targets | 51 | — | Config-driven: `make pipeline RECIPE=...` wraps multi-stage pipeline |
 | Total binary size (compiled, 7B INT4) | < 5GB | < 4GB | 3.5GB weights + runtime |
 | Wall-clock (import → submit) | < 24h (GPU) | < 8h (GPU) | CPU-only: much longer |
 | Python dependencies | 0 | 0 | External sandbox for eval only |
