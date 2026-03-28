@@ -53,6 +53,23 @@ Real end-to-end dogfooding with Qwen2.5-Coder models (1.5B, 7B, 32B) and Qwen3-4
 
 **Cross-benchmark insight:** Few-shot helps HumanEval (function completion with signature) but hurts MBPP (prose description + test assertions). The exemplar primes the model for HumanEval's completion format but adds noise for MBPP's from-scratch generation. For 32B, standard prompting is always optimal — the larger model doesn't need format priming.
 
+**7B Oracle Analysis (multi-run, multi-strategy):**
+
+| Metric | Value |
+|--------|-------|
+| Oracle (best per problem across all runs) | **96.34%** (158/164) |
+| Standard (union of all standard runs) | 95.12% (156/164) |
+| Few-shot (union of all few-shot runs) | 93.29% (153/164) |
+| CGO (union of all CGO runs) | 83.54% (137/164) |
+| Gap (oracle - best single strategy) | 1.22pp |
+| Never solved (any strategy) | 6 problems |
+
+**6 always-fail problems** (true 7B Q4K limitations): `max_fill`, `maximum`, `intersection`, `tri`, `order_by_points`, `generate_integers`. These require teacher knowledge transfer (PMAT-007).
+
+**39 inconsistent problems** pass in some runs but fail in others. Of these, 16 have <50% pass rate (need distillation/improvement) and 23 have ≥50% pass rate (recoverable via N-sampling).
+
+**Actionable insight:** Standard prompting is actually the strongest when unioned across runs (156/164). CGO has 1 unique win, standard has 3 unique wins. N-sampling with temperature>0 should recover most inconsistent problems (Chen et al. pass@10).
+
 **Perplexity baseline (WikiText-2):**
 | Model | Perplexity | Cross-Entropy | Tokens | Eval Time |
 |-------|-----------|---------------|--------|-----------|
