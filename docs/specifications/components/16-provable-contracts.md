@@ -26,13 +26,14 @@ apr-leaderboard acceptance --verify
 
 **Current contracts (in `contracts/` directory):**
 
-| Contract | Equations | Proof Obligations | Falsification Tests |
-|---|---|---|---|
-| `pass-at-k.yaml` | 1 (`pass_at_k = 1 - C(n-c,k)/C(n,k)`) | 3 (bound, monotonicity, equivalence) | 3 (FT-001, FT-002, FT-003) |
-| `decontamination.yaml` | 2 (ngram_overlap, contamination_rate) | 3 (bound, gate, monotonicity) | 3 (FT-DECON-001..003) |
-| `inference-throughput.yaml` | 2 (tokens_per_second, time_to_first_token) | 2 (CPU tps >= 1.0, TTFT < 5s) | 2 (FT-TPUT-001..002) |
-| `lora-algebra.yaml` | 3 (lora_forward, lora_merge, adapter_params) | 3 (rank bound, merge equivalence, param compression) | 3 (FT-LORA-001..003) |
-| `quantization.yaml` | 3 (quantize_dequantize, size_reduction, ordering) | 3 (identity approx, size <50%, golden ordering) | 3 (FT-QUANT-001..003) |
+| Contract | Equations | Proof Obligations | Falsification Tests | Makefile Tests |
+|---|---|---|---|---|
+| `pass-at-k.yaml` | 1 (`pass_at_k = 1 - C(n-c,k)/C(n,k)`) | 3 (bound, monotonicity, equivalence) | 3 (FT-001..003) | 5 (FT-001..005) |
+| `inference-throughput.yaml` | 2 (tokens_per_second, time_to_first_token) | 2 (CPU tps >= 1.0, TTFT < 5s) | 2 (FT-TPUT-001..002) | 2 |
+| `decontamination.yaml` | 2 (ngram_overlap, contamination_rate) | 3 (bound, gate, monotonicity) | 3 (FT-DECON-001..003) | 1 (FT-DECON-001) |
+| `distillation.yaml` | 2 (distillation_gain, teacher_quality) | 3 (bound, monotonicity, preservation) | 3 (FT-DIST-001..003) | 2 (FT-DIST-001..002) |
+| `lora-algebra.yaml` | 3 (lora_forward, lora_merge, adapter_params) | 3 (rank bound, merge equivalence, param compression) | 3 (FT-LORA-001..003) | 0 (pending) |
+| `quantization.yaml` | 3 (quantize_dequantize, size_reduction, ordering) | 3 (identity approx, size <50%, golden ordering) | 3 (FT-QUANT-001..003) | 0 (pending) |
 
 **Cross-project contracts (in `../provable-contracts/contracts/`):**
 
@@ -110,12 +111,17 @@ If the binding is missing from `contracts/aprender/binding.yaml`, the build fail
 
 ## 16.5 Falsification Test Results
 
-Tests run against actual implementation (§24.9-§24.11):
+Tests run via `make check-contracts` (22/22 passing):
 
-| Contract | FTs | Status | Notes |
+| Contract | FTs Wired | Status | Notes |
 |---|---|---|---|
-| `pass-at-k.yaml` | 3/3 | ✅ All pass | Monotonicity also verified |
+| `pass-at-k.yaml` | 5/3 | ✅ All pass | FT-001..005 (boundary + high-c tests) |
 | `inference-throughput.yaml` | 2/2 | ✅ All pass | 2.5 tok/s, 385ms TTFT |
-| `quantization.yaml` | 1/3 | ⚠️ Partial | FT-QUANT-003 enforced; FT-001/002 need model ops |
+| `decontamination.yaml` | 1/3 | ✅ Partial | FT-DECON-001 wired; FT-002/003 need `apr data decontaminate` (GH-11) |
+| `distillation.yaml` | 2/3 | ✅ Partial | FT-DIST-001 (teacher>student), FT-DIST-002 (categories); FT-003 needs training run |
+| `quantization.yaml` | 0/3 | ⏳ Pending | Requires quantization round-trip model ops |
 | `lora-algebra.yaml` | 0/3 | ⏳ Pending | Requires LoRA tensor operations |
-| `decontamination.yaml` | 0/3 | ⏳ Pending | Requires `apr data decontaminate` (GH-11) |
+
+**Additional tests:** 3 benchmark data validations (HumanEval, MBPP, BigCodeBench), 3 eval result checks, 6 contract structure validations.
+
+See `contracts/CONTRACT_STATUS.md` for full audit trail.
