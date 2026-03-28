@@ -388,6 +388,6 @@ See also:
 | 2 | Run parity gate on wgpu (F-PARITY-001) | Critical | **DONE** — cosine=0.999863 on sm_121 |
 | 3 | Smart backend dispatch in realizar | Medium | **DONE** — CUDA → wgpu → CPU auto-fallback |
 | 4 | Wire wgpu into batch path (GH-560) | Critical | Single-prompt DONE. Batch disabled (fused QKV + OOM). |
-| 5 | Push trueno to unblock Q4K wgpu shader | Critical | Fixing 51 `--all-features` lint errors (agent running) |
+| 5 | Push trueno to unblock Q4K wgpu shader | Critical | **DONE** — 51 lint errors fixed, pushed to origin, gx10 updated |
 | 6 | Fix CUDA FP32 precision (GH-561) | High | Needs FP64 PTX builder in trueno-gpu |
 | 7 | Benchmark wgpu vs CUDA vs cuBLAS | Low | Planned |
