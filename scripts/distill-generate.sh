@@ -69,13 +69,9 @@ with open('$PROMPTS') as f:
         prompt = d['prompt']
         chat_prompt = f'<|im_start|>system\nYou are a Python programming expert. Write clean, correct, well-documented Python code.<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n'
         batch_entry = {
-            'id': f'distill-{i:04d}',
+            'custom_id': f'distill-{i:04d}',
             'prompt': chat_prompt,
-            'metadata': {
-                'source': d.get('source', ''),
-                'kind': d.get('kind', ''),
-                'original_prompt': prompt
-            }
+            'max_tokens': int('${MAX_TOKENS:-512}')
         }
         print(json.dumps(batch_entry))
 " > "$BATCH_INPUT"
@@ -96,6 +92,7 @@ echo "  This may take 1-3 hours depending on hardware."
 echo ""
 
 BATCH_OUTPUT=$(mktemp /tmp/distill-output-XXXXXX.jsonl)
+BATCH_LOG=$(mktemp /tmp/distill-log-XXXXXX.log)
 
 "$APR" run "$TEACHER" \
     --batch-jsonl "$BATCH_INPUT" \
@@ -104,23 +101,29 @@ BATCH_OUTPUT=$(mktemp /tmp/distill-output-XXXXXX.jsonl)
     --top-k 40 \
     $GPU_FLAG \
     --verbose \
-    > "$BATCH_OUTPUT" 2>&1 || {
+    > "$BATCH_OUTPUT" 2>"$BATCH_LOG" || {
     echo "ERROR: Batch inference failed"
-    cat "$BATCH_OUTPUT"
-    rm -f "$BATCH_OUTPUT"
+    tail -20 "$BATCH_LOG"
+    rm -f "$BATCH_OUTPUT" "$BATCH_LOG"
     exit 1
 }
 
-# Convert batch output to instruction-completion JSONL format
+echo ""
+tail -3 "$BATCH_LOG"
+rm -f "$BATCH_LOG"
+
+# Convert batch output to instruction-completion JSONL format.
+# apr run --batch-jsonl outputs one JSON per line to stdout (no ID echo).
+# Completions arrive in order matching input prompts.
 python3 -c "
 import json, sys
 
-prompts = {}
+prompt_list = []
 with open('$PROMPTS') as f:
-    for i, line in enumerate(f):
-        prompts[f'distill-{i:04d}'] = json.loads(line)
+    for line in f:
+        prompt_list.append(json.loads(line))
 
-# Parse batch output (may be mixed with log lines)
+# Parse batch output — each line with 'text' is a completion (in order)
 results = []
 with open('$BATCH_OUTPUT') as f:
     for line in f:
@@ -129,23 +132,24 @@ with open('$BATCH_OUTPUT') as f:
             continue
         try:
             d = json.loads(line)
-            if 'id' in d and 'text' in d:
+            if 'text' in d:
                 results.append(d)
         except json.JSONDecodeError:
             continue
 
 written = 0
+filtered = 0
 min_tokens = 10
 with open('$OUTPUT', 'w') as out:
-    for r in results:
-        rid = r.get('id', '')
+    for i, r in enumerate(results):
         text = r.get('text', '').strip()
-        tokens = r.get('num_generated', len(text.split()))
+        tokens = r.get('tokens_generated', len(text.split()))
 
         if tokens < min_tokens:
+            filtered += 1
             continue
 
-        prompt_data = prompts.get(rid, {})
+        prompt_data = prompt_list[i] if i < len(prompt_list) else {}
         record = {
             'instruction': prompt_data.get('prompt', ''),
             'response': text,
@@ -160,7 +164,7 @@ with open('$OUTPUT', 'w') as out:
         written += 1
 
 print(f'Wrote {written}/{len(results)} completions to $OUTPUT')
-print(f'Filtered {len(results) - written} short completions (< {min_tokens} tokens)')
+print(f'Filtered {filtered} short completions (< {min_tokens} tokens)')
 "
 
 rm -f "$BATCH_OUTPUT"

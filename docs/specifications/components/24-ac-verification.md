@@ -179,7 +179,7 @@ Existing checks: merge-without-finetune, finetune-after-prune, distill-after-fin
 
 ## 24.13 Recommendations (Updated 2026-03-28)
 
-**Completed (14 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 51 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based).
+**Completed (15 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 51 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based), **wgpu batch fix (GH-560: FFN buffer overflow + KV cache length)**.
 
 **Next steps:**
 

@@ -186,11 +186,11 @@ SafeTensors imports produce F16/BF16 tensors that realizar cannot run inference 
 
 GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). GPU is mandatory for production eval.
 
-**Status (2026-03-27): FIXED — single-prompt working, batch mode partial.**
+**Status (2026-03-28): FIXED — single-prompt AND batch mode working via wgpu.**
 
 - **Single-prompt** `apr run --gpu`: wgpu (Vulkan), cosine=0.999863, token-for-token parity.
-- **Batch** `--batch-jsonl`: GH-560 OOM fixed — single-pass dequant (56 GB → 28 GB peak), lm_head extracted inline, `init_kv_cache()` added. Contract-bound: `gpu-weight-residency-v1` + `gpu-multi-backend-parity-v1`. Needs testing on gx10 with `WGPU_BATCH=1`.
-- **CPU batch** (default): Proven reliable, ~3 hours for 164 HumanEval, 84.76% pass@1.
+- **Batch** `--batch-jsonl`: GH-560 FIXED (2026-03-28) — two bugs: FFN buffer overflow in trueno (`attn_out_buf` was hidden_dim=3584, needs intermediate_dim=18944; fix: `ffn_silu_buf`) + KV cache pre-filled length in realizar (`vec![0.0; ...]` → `Vec::with_capacity()` + `clear()`). Verified on gx10: identical output to CPU, 1.1-2.0 tok/s on 7B. Contract-bound: `gpu-weight-residency-v1` + `gpu-multi-backend-parity-v1`.
+- **CPU batch** (default): Proven reliable, ~3 hours for 164 HumanEval, 84.76-85.98% pass@1.
 
 The CUDA cosine=-0.005 on sm_121 (GH-559) is NOT a JIT bug — falsification proved the
 PTX and JIT are both correct. Individual kernels produce correct results (RMSNorm diff=5e-7,
@@ -216,8 +216,8 @@ See §25 (GPU Compute Architecture) for full specification, provable contracts, 
   sequential accumulation matching CPU.
 
 **Active tickets:**
-- GH-560: wgpu batch wired, CPU LM head bottleneck (needs GPU LM head)
-- GH-561: Fix CUDA FP32 precision — Kahan in ALL kernels or FP64 accumulators
+- GH-560: **CLOSED** (2026-03-28) — wgpu batch fully working. Two-bug fix: trueno `e24a6f6c` + realizar `e600bbff`.
+- GH-561: Fix CUDA FP32 precision — Kahan in ALL kernels or FP64 accumulators (not started)
 
 ### 19.6.3 `apr serve` for .apr Files
 

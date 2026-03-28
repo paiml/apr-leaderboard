@@ -158,11 +158,15 @@ apr run checkpoints/qwen2.5-coder-1.5b-q4k.apr \
 
 GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). Works on NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs. GPU is mandatory for production eval — never fall back to CPU.
 
-**Blackwell sm_121 GPU status (2026-03-27): FIXED via wgpu (Vulkan).**
+**Blackwell sm_121 GPU status (2026-03-28): wgpu batch WORKS.**
 
-`apr run --gpu` auto-dispatches: CUDA (parity fails) → **wgpu (cosine=0.999863)** → CPU. Token-for-token parity confirmed between wgpu and CPU output.
+`apr run --gpu` auto-dispatches: CUDA (parity fails) → **wgpu (Vulkan)** → CPU. Single-prompt and batch mode both produce identical output to CPU.
 
-**Root cause (corrected 2026-03-27):** NOT a JIT bug. Individual CUDA kernels produce correct results (RMSNorm diff=5e-7, Q GEMV ~1%). The cosine=-0.005 is FP32 non-associativity: parallel GPU accumulation order ≠ sequential CPU order, compounding through 280 operations. Falsified by loading our exact PTX via Python ctypes → cosine=1.0. PyTorch avoids this via TF32 accumulators. wgpu avoids it with sequential accumulation matching CPU. See §25 for full architecture specification.
+**GH-560 two-bug fix (2026-03-28):** wgpu batch had two bugs causing garbage output:
+1. **FFN buffer overflow** (trueno): SiLU(gate)×up wrote to `attn_out_buf` (hidden_dim=3584) but needs `intermediate_dim` (18944). wgpu robustness silently dropped OOB writes → 81% of FFN truncated. Fix: dedicated `ffn_silu_buf`.
+2. **KV cache pre-filled** (realizar): `vec![0.0; max_seq * kv_dim]` starts at full length. `forward_layer` uses `extend_from_slice` + `len()` for seq_len → attention over max_seq zero-vectors. Fix: `Vec::with_capacity()` + `clear()`.
+
+**CUDA root cause:** FP32 non-associativity — parallel GPU accumulation order ≠ sequential CPU order, compounding through 280 operations. cosine=-0.005. Falsified JIT hypothesis by loading exact PTX via Python ctypes → cosine=1.0. wgpu avoids via sequential accumulation matching CPU. GH-561 (FP64 accumulators) pending. See §25 for full architecture specification.
 
 `SKIP_PARITY_GATE=1` is **forbidden** (Toyota Way).
 

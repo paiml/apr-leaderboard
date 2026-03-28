@@ -26,8 +26,9 @@ apr import qwen-7b.gguf -o qwen-7b.apr --enforce-provenance
 # Eliminates ~80s per-invocation overhead on gx10 sm_121 Blackwell GPU
 apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 
-# GPU: auto-dispatches CUDA → wgpu (Vulkan) → CPU. wgpu cosine=0.999863 on sm_121.
-# CUDA FP32 accumulation fix pending (GH-561). wgpu is the production GPU path.
+# GPU: auto-dispatches CUDA → wgpu (Vulkan) → CPU.
+# wgpu batch WORKS (GH-560 fixed 2026-03-28): identical output to CPU, 1.1-2.0 tok/s on 7B.
+# CUDA still broken (cosine=-0.005, GH-561 pending). wgpu is the production GPU path.
 ```
 
 **Input format (JSONL):**
@@ -48,7 +49,7 @@ apr run model.apr --batch-jsonl prompts.jsonl --max-tokens 512
 | `--temperature` | `0.0` | Sampling temperature (0.0 = greedy) |
 | `--top-k` | `1` | Top-k sampling (1 = greedy) |
 
-Auto-detects model format (GGUF or APR). GPU is mandatory for production eval. On Blackwell sm_121, GPU is blocked by parity gate (GH-559: Q4K dequant error). Never bypass the gate — fix the root cause in trueno-gpu. Model stays resident across all prompts.
+Auto-detects model format (GGUF or APR). GPU auto-dispatches: CUDA (parity gate) → wgpu (Vulkan) → CPU. On Blackwell sm_121, CUDA blocked by parity gate (cosine=-0.005, GH-561). wgpu batch works after GH-560 two-bug fix: FFN buffer overflow in trueno (attn_out_buf was hidden_dim, needs intermediate_dim) + KV cache pre-filled length in realizar. Never bypass the parity gate — fix root cause. Model stays resident across all prompts.
 
 ## 6.1.3 Evaluate (Baseline)
 
