@@ -34,6 +34,7 @@ apr-leaderboard acceptance --verify
 | `distillation.yaml` | 2 (distillation_gain, teacher_quality) | 3 (bound, monotonicity, preservation) | 3 (FT-DIST-001..003) | 2 (FT-DIST-001..002) |
 | `lora-algebra.yaml` | 3 (lora_forward, lora_merge, adapter_params) | 3 (rank bound, merge equivalence, param compression) | 3 (FT-LORA-001..003) | 0 (pending) |
 | `quantization.yaml` | 3 (quantize_dequantize, size_reduction, ordering) | 3 (identity approx, size <50%, golden ordering) | 3 (FT-QUANT-001..003) | 0 (pending) |
+| `dpo-alignment.yaml` | 3 (dpo_loss, preference_symmetry, gradient_correctness) | 3 (untrained=log2, symmetry, monotonicity) | 3 (FT-DPO-001..003) | 0 (pending) |
 
 **Cross-project contracts (in `../provable-contracts/contracts/`):**
 

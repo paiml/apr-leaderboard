@@ -12,9 +12,10 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | lora-algebra.yaml | 3 | 3 | 3 | — | Pending |
 | quantization.yaml | 3 | 3 | 3 | — | Pending |
 | distillation.yaml | 2 | 3 | 3 | FT-DIST-001..002 (2) | Active |
+| dpo-alignment.yaml | 3 | 3 | 3 | — | Pending |
 
 **Active:** Falsification tests wired in `make check-contracts` and passing.
-**Pending:** Contract YAML exists with equations/proofs/FTs, but tests require upstream `apr` features (LoRA merge, quantization round-trip).
+**Pending:** Contract YAML exists with equations/proofs/FTs, but tests require upstream `apr` features (LoRA merge, quantization round-trip, DPO loss).
 
 ## Makefile Test Breakdown
 
@@ -38,7 +39,7 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | FT-DIST-002 | distillation | >= 10 prompt categories | PASS |
 | Structure | all | Valid YAML with required sections | PASS (×6) |
 
-**Total: 22 passed, 0 failed**
+**Total: 23 passed, 0 failed**
 
 ## Cross-Project Contracts
 
