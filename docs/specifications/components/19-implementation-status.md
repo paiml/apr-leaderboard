@@ -218,7 +218,7 @@ See §25 (GPU Compute Architecture) for full specification, provable contracts, 
 
 **Active tickets:**
 - GH-560: **CLOSED** (2026-03-28) — wgpu batch fully working. Two-bug fix: trueno `e24a6f6c` + realizar `e600bbff`.
-- GH-561: Fix CUDA FP32 precision — Kahan in ALL kernels or FP64 accumulators (not started)
+- GH-561: **IN PROGRESS** — FP64 accumulators in NF4 GEMM forward + transpose (trueno `9e021c35`, `81a9c16f`). NF4 forward pass produces correct values. Remaining: 172 `fma_f32_inplace` sites across backward GEMM, RMSNorm, attention, LayerNorm kernels. Backward kernels produce NaN gradients → LoRA weights corrupted → NaN on next forward pass.
 
 ### 19.6.3 `apr serve` for .apr Files
 
