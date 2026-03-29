@@ -99,7 +99,7 @@ with open('$OUTPUT', 'w') as out:
 print(f'Combined: {len(items)} unique entries')
 for name, count in sources_count.items():
     print(f'  {name}: {count} contributed')
-" "\${SOURCES[@]}"
+" "${SOURCES[@]}"
 
 FINAL_COUNT=$(wc -l < "$OUTPUT")
 echo ""
