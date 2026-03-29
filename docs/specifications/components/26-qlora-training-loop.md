@@ -33,6 +33,11 @@
 | LoRA tensor creation | `apr-cli/src/commands/finetune.rs:create_lora_tensors` | Kaiming init A, zero B |
 | APR writer | `aprender/src/serialization/apr.rs` | Writes .apr with metadata + tensors |
 | Model loading | `realizar/src/gguf/` | `OwnedQuantizedModel` from .apr files |
+| Autograd engine | `aprender/src/autograd/` | Tape-based reverse-mode AD (independent from entrenar) |
+| Optimizers | `aprender/src/nn/optim/` | SGD, Adam, AdamW, RMSprop |
+| Loss functions | `aprender/src/nn/loss.rs` | MSE, L1, SmoothL1, CrossEntropy |
+| LoRA adapter | `aprender/src/transfer/lora.rs` | `LoRAAdapter` with `apply()` and `delta_weight()` |
+| QLoRA example | `entrenar/examples/llama2/finetune_qlora.rs` | Complete QLoRA training example (~300 lines) |
 
 ### 26.2.3 What is MISSING
 
@@ -159,6 +164,10 @@ For 7B Q4K, rank 32, 28 layers:
 | `adamw-kernel-v1` | `adamw-kernel-v1.yaml` | `adam_moments`, `adam_variance`, `bias_correction`, `weight_update` |
 | `loss-functions-v1` | `loss-functions-v1.yaml` | `nll` (causal LM loss = NLL on response tokens) |
 | `classification-finetune-v1` | `classification-finetune-v1.yaml` | `softmax_sum`, `label_bounds` |
+| `qlora-hyperparameters-v1` | `qlora-hyperparameters-v1.yaml` | `learning_rate_scaling`, `lora_alpha_ratio`, `warmup_fraction` |
+| `batch-training-v1` | `batch-training-v1.yaml` | `gradient_accumulation`, `gradient_clipping`, `batch_loss` |
+| `training-loop-v1` | `training-loop-v1.yaml` | `ema_loss`, `warmup_lr`, `val_split` |
+| `lora-gradient-flow-v1` | `lora-gradient-flow-v1.yaml` | Autograd-aware transpose for LoRA gradient flow |
 
 ### 26.6.2 New Contract: `qlora-training-loop-v1`
 
