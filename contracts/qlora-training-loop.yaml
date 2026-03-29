@@ -1,0 +1,157 @@
+metadata:
+  version: 1.0.0
+  created: '2026-03-29'
+  author: PAIML Engineering
+  description: QLoRA training loop — frozen Q4K base + trainable LoRA A/B adapters
+  references:
+    - 'Hu et al. (2021) LoRA: Low-Rank Adaptation'
+    - 'Dettmers et al. (2023) QLoRA: Efficient Finetuning of Quantized LLMs'
+    - 'Loshchilov & Hutter (2017) Decoupled Weight Decay Regularization'
+  depends_on:
+    - lora-algebra-v1
+    - adamw-kernel-v1
+    - loss-functions-v1
+equations:
+  frozen_base:
+    formula: ∂L/∂W_base = 0 (no gradient flows to frozen base weights)
+    domain: W_base ∈ NF4/Q4K quantized, frozen during training
+    codomain: W_base unchanged after any number of training steps
+    invariants:
+      - hash(W_base_before) == hash(W_base_after) for each train_step
+      - Only LoRA A, B parameters receive gradients
+    preconditions:
+      - '!input.is_empty()'
+    lean_theorem: Theorems.Frozen_Base
+  lora_forward:
+    formula: h = dequant(W_nf4) @ x + (x @ A) @ B * (alpha/r)
+    domain: W_nf4 ∈ Q4K, A ∈ R^{n×r}, B ∈ R^{r×m}, x ∈ R^{1×n}
+    codomain: h ∈ R^{1×m}
+    invariants:
+      - Output shape matches base layer output shape
+      - When B = 0, output = base model output (zero-init invariant)
+      - 'LoRA storage: r*(m+n) << m*n for small r'
+    preconditions:
+      - '!input.is_empty()'
+    lean_theorem: Theorems.Lora_Forward
+  response_only_loss:
+    formula: L = -(1/R) * sum_{i=P}^{T-1} log softmax(logits_i)[t_{i+1}]
+    domain: logits ∈ R^{T×V}, tokens ∈ {0..V-1}^T, P = prompt_len, R = T - P
+    codomain: L ∈ [0, +inf)
+    invariants:
+      - Loss >= 0 (negative log of probability)
+      - Only response positions (P..T-1) contribute to loss
+      - Prompt token changes do not affect loss gradient on LoRA params
+    preconditions:
+      - '!input.is_empty()'
+    lean_theorem: Theorems.Response_Only_Loss
+  loss_progress:
+    formula: E[L(theta_{t+1})] <= E[L(theta_t)] for sufficiently small lr
+    domain: theta = {A_l, B_l} for all LoRA layers l, lr > 0 small
+    codomain: Training makes progress
+    invariants:
+      - Monotonic loss decrease in expectation (SGD convergence theorem)
+      - Loss at epoch N < loss at epoch 0 (empirical, averaged over samples)
+    preconditions:
+      - '!input.is_empty()'
+    lean_theorem: Theorems.Loss_Progress
+proof_obligations:
+  - type: invariant
+    property: Base weights frozen
+    formal: hash(W_base) unchanged after train_step
+    applies_to: all
+  - type: invariant
+    property: LoRA zero-init
+    formal: B=0 => lora_forward(x) = base_forward(x)
+    applies_to: all
+  - type: invariant
+    property: Response-only masking
+    formal: Prompt tokens excluded from loss computation
+    applies_to: all
+  - type: bound
+    property: Loss non-negative
+    formal: NLL loss >= 0
+    applies_to: all
+  - type: invariant
+    property: Loss progress
+    formal: avg_loss(epoch_N) < avg_loss(epoch_0) within 3 epochs
+    applies_to: all
+  - type: invariant
+    property: Shape preservation
+    formal: lora_output.shape == base_output.shape
+    applies_to: all
+  - type: frame
+    property: Only LoRA params modified
+    formal: modifies(A, B, m, v) AND preserves(W_base, embeddings, lm_head)
+    applies_to: all
+falsification_tests:
+  - id: FALSIFY-QT-001
+    rule: Frozen base
+    prediction: Base weight hash unchanged after 10 training steps
+    test: Hash Q4K weights before/after train_step loop
+    if_fails: Gradient leaked to frozen base weights
+  - id: FALSIFY-QT-002
+    rule: LoRA zero init
+    prediction: Model output identical with B=0 LoRA vs no LoRA
+    test: Compare logits with/without zero-initialized LoRA
+    if_fails: LoRA injection changes output even with B=0
+  - id: FALSIFY-QT-003
+    rule: Response-only loss
+    prediction: Gradient on LoRA unchanged when prompt tokens permuted
+    test: Compute gradient with original vs shuffled prompt, compare
+    if_fails: Loss mask not excluding prompt positions
+  - id: FALSIFY-QT-004
+    rule: Loss non-negative
+    prediction: NLL loss >= 0 for random logits and valid labels
+    test: proptest with random logits and uniform class labels
+    if_fails: Log-sum-exp numerical instability
+  - id: FALSIFY-QT-005
+    rule: Loss progress
+    prediction: avg_loss(step_100) < avg_loss(step_0) on training data
+    test: Train 100 steps, compare first vs last loss (average 10 runs)
+    if_fails: Learning rate too high, gradient explosion, or bug in optimizer
+  - id: FALSIFY-QT-006
+    rule: AdamW decoupled
+    prediction: AdamW(g, lambda) != Adam(g + lambda*theta) for lambda > 0
+    test: proptest comparing AdamW vs L2-regularized Adam
+    if_fails: Weight decay coupled in gradient (L2 reg instead of decoupled)
+  - id: FALSIFY-QT-007
+    rule: Shape preservation
+    prediction: LoRA output shape == base layer output shape
+    test: proptest with random dimensions (m, n, r)
+    if_fails: Dimension mismatch in LoRA matmul
+  - id: FALSIFY-QT-008
+    rule: Gradient flow
+    prediction: grad(A) != 0 and grad(B) != 0 after step 1
+    test: Run one train_step, check gradient norms > 0
+    if_fails: Gradient not flowing through LoRA path
+kani_harnesses:
+  - id: KANI-QT-001
+    obligation: Frozen base invariant
+    property: Base weights unchanged
+    bound: 4
+    strategy: stub_float
+  - id: KANI-QT-002
+    obligation: Shape preservation
+    property: LoRA output shape matches base
+    bound: 8
+    strategy: bounded_int
+  - id: KANI-QT-003
+    obligation: Loss non-negative
+    property: NLL >= 0
+    bound: 4
+    strategy: stub_float
+qa_gate:
+  id: F-QT-001
+  name: QLoRA Training Loop Contract
+  description: End-to-end QLoRA training quality gate
+  checks:
+    - frozen_base
+    - lora_zero_init
+    - response_only_loss
+    - loss_non_negative
+    - loss_progress
+    - adamw_decoupled
+    - shape_preservation
+    - gradient_flow
+  pass_criteria: All 8 falsification tests pass
+  falsification: Allow gradient to flow to base weights (remove .detach())
