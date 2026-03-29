@@ -9,7 +9,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Make Target | Script/Command | Status | Notes |
 |---|---|---|---|
 | `make import` | `apr import hf://$(MODEL) -o $(CHECKPOINT)` | ✅ Working | Real HF download, GGUF and SafeTensors paths |
-| `make finetune` | `apr finetune $(CHECKPOINT) --method lora ...` | ✅ Wired | LoRA/QLoRA via entrenar |
+| `make finetune` | `apr finetune $(CHECKPOINT) --method lora ...` | ✅ Working | LoRA/QLoRA via entrenar, CUDA training verified on gx10 (GH-561 backward GEMM f64 fix) |
 | `make merge` | `apr merge $(MODELS) --strategy slerp ...` | ✅ Wired | SLERP/TIES/DARE/Linear |
 | `make prune` | `apr prune $(CHECKPOINT) --method wanda ...` | ✅ Wired | Wanda/magnitude pruning |
 | `make quantize` | `apr quantize $(CHECKPOINT) --scheme int4 ...` | ✅ Wired | INT4/INT8/Q4K/Q5K/Q6K |
@@ -154,7 +154,7 @@ All ML operations are provided by `apr` CLI v0.4.11. Verified via `make verify`:
 | `apr run` | ✅ OK | `scripts/eval-pass-at-k.sh` (generate completions), `--batch-jsonl` batch mode |
 | `apr serve` | ✅ OK | (HTTP API — partial: doesn't bind for .apr files) |
 | `apr chat` | ✅ OK | (interactive — not used by pipeline) |
-| `apr finetune` | ⚠️ Partial | Adapter creation works; training loop is stub (no forward/backward/optimizer). Creates LoRA A/B tensors with random init, writes APR, exits without training. |
+| `apr finetune` | ⚠️ Partial | Training loop runs on gx10 with CUDA (backward GEMM f64 fix, GH-561). Loss: 13.61 train → 12.02 val on 3-sample test. APR adapter export (§26 Phase 3) not yet implemented. |
 | `apr merge` | ✅ OK | `make merge`, `scripts/pipeline.sh` |
 | `apr prune` | ✅ OK | `make prune`, `scripts/pipeline.sh` |
 | `apr quantize` | ✅ OK | `make quantize`, `scripts/pipeline.sh` |
@@ -218,7 +218,7 @@ See §25 (GPU Compute Architecture) for full specification, provable contracts, 
 
 **Active tickets:**
 - GH-560: **CLOSED** (2026-03-28) — wgpu batch fully working. Two-bug fix: trueno `e24a6f6c` + realizar `e600bbff`.
-- GH-561: **IN PROGRESS** — FP64 accumulators in NF4 GEMM forward + transpose (trueno `9e021c35`, `81a9c16f`). NF4 forward pass produces correct values. Remaining: 172 `fma_f32_inplace` sites across backward GEMM, RMSNorm, attention, LayerNorm kernels. Backward kernels produce NaN gradients → LoRA weights corrupted → NaN on next forward pass.
+- GH-561: **IN PROGRESS** — FP64 accumulators in NF4 GEMM forward + backward. Forward NF4 GEMM fixed previously (trueno `9e021c35`, `81a9c16f`). Backward GEMM (6 variants) now also fixed with f64 accumulators — training verified on gx10: loss 13.61→12.02, no NaN. Remaining: other kernels (RMSNorm backward, softmax backward, etc.) still use f32 accumulators but are lower priority — training converges without them.
 
 ### 19.6.3 `apr serve` for .apr Files
 
@@ -254,3 +254,7 @@ All three phases of the GPU-SHARE specification implemented and tested:
 ### 19.6.8 Perplexity Baseline (2026-03-05)
 
 `apr eval --dataset wikitext-2`: perplexity 6.63, cross-entropy 1.89. Throughput: 2.5 tok/s on CPU, 385ms TTFT.
+
+### 19.6.9 MBPP Eval (2026-03-29)
+
+MBPP result: 74.80% pass@1 (374/500) few-shot 7B Q4K. Duplicate MBPP eval runs on Intel were killed — were burning 32 cores for 4 days with no additional value over the completed result.

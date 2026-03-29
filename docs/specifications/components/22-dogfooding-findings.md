@@ -166,7 +166,9 @@ GPU inference uses wgpu (Vulkan/Metal/DX12) or CUDA (optional). Works on NVIDIA,
 1. **FFN buffer overflow** (trueno): SiLU(gate)×up wrote to `attn_out_buf` (hidden_dim=3584) but needs `intermediate_dim` (18944). wgpu robustness silently dropped OOB writes → 81% of FFN truncated. Fix: dedicated `ffn_silu_buf`.
 2. **KV cache pre-filled** (realizar): `vec![0.0; max_seq * kv_dim]` starts at full length. `forward_layer` uses `extend_from_slice` + `len()` for seq_len → attention over max_seq zero-vectors. Fix: `Vec::with_capacity()` + `clear()`.
 
-**CUDA root cause:** FP32 non-associativity — parallel GPU accumulation order ≠ sequential CPU order, compounding through 280 operations. cosine=-0.005. Falsified JIT hypothesis by loading exact PTX via Python ctypes → cosine=1.0. wgpu avoids via sequential accumulation matching CPU. GH-561 (FP64 accumulators) pending. See §25 for full architecture specification.
+**CUDA root cause:** FP32 non-associativity — parallel GPU accumulation order ≠ sequential CPU order, compounding through 280 operations. cosine=-0.005. Falsified JIT hypothesis by loading exact PTX via Python ctypes → cosine=1.0. wgpu avoids via sequential accumulation matching CPU. See §25 for full architecture specification.
+
+**GH-561 fix (2026-03-29):** f64 accumulators applied to NF4 GEMM forward kernel and all 6 backward GEMM variants (naive/tiled/tiled_unrolled × A/B). Training verified on gx10: loss 13.61→12.02, no NaN. CUDA inference still blocked by parity gate (162 remaining inference kernels with f32 accumulators).
 
 `SKIP_PARITY_GATE=1` is **forbidden** (Toyota Way).
 
