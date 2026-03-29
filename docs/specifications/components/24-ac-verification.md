@@ -177,17 +177,20 @@ Existing checks: merge-without-finetune, finetune-after-prune, distill-after-fin
 
 `apr data decontaminate`: 0/164 HumanEval + 0/974 MBPP contaminated. Report: `clean.jsonl`.
 
-## 24.13 Recommendations (Updated 2026-03-28)
+## 24.13 Recommendations (Updated 2026-03-29)
 
-**Completed (15 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 51 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based), **wgpu batch fix (GH-560: FFN buffer overflow + KV cache length)**.
+**Completed (17 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 56 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based), **wgpu batch fix (GH-560: FFN buffer overflow + KV cache length)**, **distillation data generation (99/99 teacher completions)**, **wgpu batch HumanEval (84.15%, first GPU eval)**.
+
+**Blockers:**
+- `apr finetune` training loop is a stub — adapter creation works but `execute_training()` doesn't call entrenar. Spec: §26. Bridge implementation needed in aprender.
 
 **Next steps:**
 
 | Priority | Action | Expected Gain | Dependency |
 |----------|--------|---------------|------------|
-| 1 | 32B→7B distill training run | +2-3pp on 7B | gx10, `make distill-generate` |
-| 2 | BigCodeBench eval | First real score | gx10, uv + 52 pip deps |
-| 3 | QLoRA fine-tune (Recipe I) | +1-2pp on 7B | Training data + gx10 |
+| 1 | Wire `apr finetune` → entrenar training loop | Enables QLoRA training | §26 bridge implementation |
+| 2 | MBPP Intel re-eval | Push past 80% AC-022 gate | Running (~4h remaining) |
+| 3 | BigCodeBench eval | First real score | Intel, uv + 52 pip deps |
 | 4 | DPO alignment | +2-4pp on HE+ | `apr align` + preference data |
 | 5 | HumanEval+ eval | AC-022 gate | EvalPlus harness |
 | 6 | CUDA FP32 fix (GH-561) | GPU parity | FP64 PTX builder in trueno |
