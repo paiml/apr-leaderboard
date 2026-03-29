@@ -153,7 +153,7 @@ All ML operations are provided by `apr` CLI v0.4.11. Verified via `make verify`:
 | `apr run` | ✅ OK | `scripts/eval-pass-at-k.sh` (generate completions), `--batch-jsonl` batch mode |
 | `apr serve` | ✅ OK | (HTTP API — partial: doesn't bind for .apr files) |
 | `apr chat` | ✅ OK | (interactive — not used by pipeline) |
-| `apr finetune` | ✅ OK | `make finetune`, `scripts/pipeline.sh` |
+| `apr finetune` | ⚠️ Partial | Adapter creation works; training loop is stub (no forward/backward/optimizer). Creates LoRA A/B tensors with random init, writes APR, exits without training. |
 | `apr merge` | ✅ OK | `make merge`, `scripts/pipeline.sh` |
 | `apr prune` | ✅ OK | `make prune`, `scripts/pipeline.sh` |
 | `apr quantize` | ✅ OK | `make quantize`, `scripts/pipeline.sh` |
