@@ -94,9 +94,17 @@ of cuBLAS throughput.
 
 **Zero-unsafe mandate:** trueno-gpu currently has 68 `extern "C"` function pointers,
 137 `unsafe` blocks, and 18 `unsafe impl` blocks — all for CUDA driver/cuBLAS/cuBLASLt
-FFI. ALL of these are eliminated. The replacement is wgpu (safe Rust API for Vulkan/
-Metal/DX12 GPU compute). The PTX code generator (~5,500 lines) becomes dead code and
-is removed. All GPU compute goes through WGSL compute shaders.
+FFI. ALL of these are eliminated — not feature-gated, REMOVED. The replacement is wgpu
+(safe Rust API for Vulkan/Metal/DX12 GPU compute). The PTX code generator (~5,500
+lines), CUDA driver bindings, cuBLAS/cuBLASLt bindings — all deleted. All GPU compute
+goes through WGSL compute shaders via wgpu.
+
+**Single backend: wgpu only.** There is no CUDA feature flag, no dual-backend. wgpu
+speaks Vulkan on NVIDIA GPUs, accessing the same hardware including tensor cores via
+`VK_KHR_cooperative_matrix`. The CUDA driver API is just one FFI path to the GPU —
+Vulkan is another, and wgpu makes it safe Rust. Burn/CubeCL proves Vulkan GEMM
+matches CUDA performance on the same NVIDIA hardware. The 5-10% historical gap is
+driver maturity, not hardware access — it closes as Vulkan extensions mature.
 
 **CUTLASS algorithm in WGSL (not C++ transpilation):** CUTLASS is C++ templates — decy
 handles C, not C++. Instead, we read the CUTLASS algorithm (MIT licensed, ~200 lines of
@@ -107,6 +115,7 @@ actual logic) and reimplement the tiling strategy in WGSL:
 - Double-buffered shared memory (load tile N+1 while computing tile N)
 - Serpentine traversal for register reuse in inner loop
 - Epilogue: transpose through shared memory for coalesced global stores
+- Tensor cores via `VK_KHR_cooperative_matrix` when available (wgpu extension)
 
 **NF4 transpilation via decy:** The NF4 dequantization kernels are transpiled from
 bitsandbytes' `csrc/kernels.cu` (2400 LOC) using `../decy` (C-to-Rust transpiler).
@@ -571,18 +580,27 @@ pub fn nf4_gemm_wgsl(
 }
 ```
 
-**Step 0d: Eliminate ALL unsafe CUDA FFI from trueno-gpu**
+**Step 0d: Delete ALL CUDA code from trueno-gpu**
 
-Remove 68 `extern "C"` function pointers, 137 `unsafe` blocks, 18 `unsafe impl` blocks:
+Not feature-gated — REMOVED entirely. Single backend: wgpu.
 
-| Remove | Files | Lines | Replacement |
-|--------|-------|-------|-------------|
-| CUDA driver FFI | `driver/sys/mod.rs` | ~800 | wgpu safe API |
-| cuBLAS FFI | `driver/cublas_sys.rs` | ~200 | WGSL tiled GEMM |
-| cuBLASLt FFI | `driver/cublaslt_sys.rs` | ~300 | WGSL tiled GEMM |
-| CUDA safe wrappers | `driver/*.rs` (6 files) | ~1500 | wgpu wrappers |
-| PTX code generator | `ptx/` (entire dir) | ~5500 | WGSL shaders |
-| **Total removed** | **~23 files** | **~8300 lines** | **Zero unsafe** |
+| Delete | Files | Lines | Why |
+|--------|-------|-------|-----|
+| CUDA driver FFI | `driver/sys/mod.rs` | ~800 | wgpu replaces all CUDA driver calls |
+| cuBLAS FFI | `driver/cublas_sys.rs` | ~200 | WGSL tiled GEMM replaces cuBLAS |
+| cuBLASLt FFI | `driver/cublaslt_sys.rs` | ~300 | WGSL tiled GEMM replaces cuBLASLt |
+| CUDA safe wrappers | `driver/context.rs`, `module.rs`, `stream.rs`, `graph.rs`, `cublas.rs`, `cublaslt.rs` | ~1500 | wgpu device/queue/buffer (safe) |
+| CUDA memory | `driver/memory/buffer.rs`, `transfer.rs` | ~400 | wgpu::Buffer (safe) |
+| PTX code generator | `ptx/` (entire directory) | ~5500 | WGSL shaders replace PTX |
+| CUDA feature flags | `Cargo.toml`, `lib.rs` | ~50 | No `cuda` feature, no `cfg(feature = "cuda")` |
+| **Total deleted** | **~23 files** | **~8750 lines** | **Zero unsafe, single backend** |
+
+After deletion, trueno-gpu has:
+- Zero `extern "C"` declarations
+- Zero `unsafe` blocks
+- Zero `unsafe impl` blocks
+- One GPU backend: wgpu (safe Rust API → Vulkan/Metal/DX12)
+- WGSL compute shaders for all GPU operations
 
 **Step 0e: Batch collation**
 
@@ -750,5 +768,6 @@ make eval-humaneval CHECKPOINT=checkpoints/merged.apr
 - Unsloth (Han & Han, 2024) — Triton kernel fusions for 2-5x QLoRA speedup (https://github.com/unslothai/unsloth)
 - bitsandbytes (Dettmers, 2023) — NF4 dequantization kernels (csrc/kernels.cu, transpiled via decy)
 - Chen et al. (2016) "Training Deep Nets with Sublinear Memory Cost" arXiv:1604.06174 — gradient checkpointing
-- NVIDIA cuBLAS documentation — cublasGemmEx BF16 compute with FP32 accumulation
+- Vulkan VK_KHR_cooperative_matrix — tensor core access from Vulkan (same hardware as CUDA wmma)
+- Burn/CubeCL — proof that Vulkan GEMM matches CUDA on same NVIDIA GPU
 - decy (PAIML) — C-to-Rust transpiler for bitsandbytes kernel transpilation
