@@ -624,6 +624,9 @@ Before deleting ANY CUDA code, the following parity tests must pass:
 | 100-sample stability | No NaN/Inf over 1 epoch | MUST PASS |
 | HumanEval inference parity | wgpu pass@1 = CUDA pass@1 (already proven: 84.15%) | **PASSED** |
 | WgpuTrainer unit tests | Forward/backward/AdamW match CPU reference | **PASSED** (3/3) |
+| **CUDA↔wgpu forward GEMM** | max error < 0.01 on gx10 GB10 | **PASSED** |
+| **CUDA↔wgpu backward GEMM** | grad_a + grad_b max error < 0.01 | **PASSED** |
+| **CUDA↔wgpu AdamW** | params max error < 1e-4 after 1 step | **PASSED** |
 
 **Step 0f: Delete CUDA code from ALL affected repos (ONLY after 0e passes)**
 
