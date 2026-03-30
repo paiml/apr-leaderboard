@@ -598,21 +598,20 @@ delete it until wgpu training produces equivalent results.
 
 ```
 Prove-then-delete order:
-1. Implement wgpu backward GEMM (tiled, same shader as forward)
-2. Implement wgpu backward fused ops (RMSNorm, SwiGLU, RoPE)
-3. Run 3-sample training via wgpu path
+1. ✅ Implement wgpu backward GEMM (tiled, same shader as forward) — dae8a812
+2. ✅ Implement wgpu AdamW + gradient clipping (WGSL kernels) — dae8a812
+3. Run 3-sample training via WgpuTrainer
 4. Compare loss curve: wgpu vs CUDA (must match within ε < 0.1)
 5. Run 100-sample training via wgpu (stability test)
-6. ONLY THEN delete CUDA code
+6. ONLY THEN delete CUDA code from ALL repos
 ```
 
-The backward pass reuses the same `TILED_GEMM_SHADER` as forward, with transposed
-arguments per the GEMM backward formulas:
-- `∂L/∂A = ∂L/∂C @ B^T` — WGSL_GEMM(grad_output, weight_transposed)
-- `∂L/∂B = A^T @ ∂L/∂C` — WGSL_GEMM(input_transposed, grad_output)
-
-The NF4 base weights are re-dequantized in the backward pass (same as forward,
-dequant buffer reused). Gradients only flow through LoRA A/B.
+**DONE:** `WgpuTrainer` in `entrenar/src/autograd/wgpu_training.rs` provides:
+- `matmul_forward()` — CUTLASS-style tiled GEMM via WGSL
+- `matmul_backward()` — backward GEMM via transposed tiled GEMM
+- `adamw_step()` — WGSL elementwise AdamW kernel
+- `clip_gradients()` — WGSL gradient clipping
+- 3/3 unit tests pass (forward parity, backward parity, AdamW direction)
 
 **Step 0e: Parity gate — wgpu training matches CUDA training**
 
@@ -620,25 +619,66 @@ Before deleting ANY CUDA code, the following parity tests must pass:
 
 | Test | Criterion | Status |
 |------|-----------|--------|
-| 3-sample loss match | `|loss_wgpu - loss_cuda| < 0.1` after 1 epoch | MUST PASS |
-| Gradient norm match | `|grad_norm_wgpu - grad_norm_cuda| / grad_norm_cuda < 0.05` | MUST PASS |
+| 3-sample loss match | `\|loss_wgpu - loss_cuda\| < 0.1` after 1 epoch | MUST PASS |
+| Gradient norm match | `\|norm_wgpu - norm_cuda\| / norm_cuda < 0.05` | MUST PASS |
 | 100-sample stability | No NaN/Inf over 1 epoch | MUST PASS |
-| HumanEval inference parity | wgpu pass@1 = CUDA pass@1 (already proven: 84.15%) | PASSED |
+| HumanEval inference parity | wgpu pass@1 = CUDA pass@1 (already proven: 84.15%) | **PASSED** |
+| WgpuTrainer unit tests | Forward/backward/AdamW match CPU reference | **PASSED** (3/3) |
 
-**Step 0f: Delete CUDA code (ONLY after 0e passes)**
+**Step 0f: Delete CUDA code from ALL affected repos (ONLY after 0e passes)**
 
-| Delete | Files | Lines | Why |
-|--------|-------|-------|-----|
-| CUDA driver FFI | `driver/sys/mod.rs` | ~800 | wgpu replaces all CUDA driver calls |
-| cuBLAS FFI | `driver/cublas_sys.rs` | ~200 | WGSL tiled GEMM replaces cuBLAS |
-| cuBLASLt FFI | `driver/cublaslt_sys.rs` | ~300 | WGSL tiled GEMM replaces cuBLASLt |
-| CUDA safe wrappers | 6 files in `driver/` | ~1500 | wgpu device/queue/buffer (safe) |
-| CUDA memory | `driver/memory/` | ~400 | wgpu::Buffer (safe) |
-| PTX code generator | `ptx/` (entire directory) | ~5500 | WGSL shaders replace PTX |
-| CUDA feature flags | `Cargo.toml`, `lib.rs` | ~50 | No `cuda` feature |
-| **Total deleted** | **~23 files** | **~8750 lines** | **Zero unsafe, single backend** |
+Deletion spans 3 repos. All have wgpu replacements proven.
 
-After deletion, trueno-gpu has:
+**trueno-gpu (primary — owns the CUDA FFI):**
+
+| Delete | Files | Lines | Replacement |
+|--------|-------|-------|-------------|
+| CUDA driver FFI | `driver/sys/mod.rs` | ~800 | wgpu safe API |
+| cuBLAS FFI | `driver/cublas_sys.rs` | ~200 | WGSL tiled GEMM |
+| cuBLASLt FFI | `driver/cublaslt_sys.rs` | ~300 | WGSL tiled GEMM |
+| CUDA safe wrappers | 6 files in `driver/` | ~1500 | wgpu wrappers |
+| CUDA memory | `driver/memory/` | ~400 | wgpu::Buffer |
+| PTX code generator | `ptx/` (entire directory) | ~5500 | WGSL shaders |
+| CUDA feature flags | `Cargo.toml`, `lib.rs` | ~50 | Remove `cuda` feature |
+| **Total** | **~23 files** | **~8750 lines** | |
+
+**entrenar (training — depends on trueno-gpu CUDA):**
+
+| Delete | Files | Lines | Replacement |
+|--------|-------|-------|-------------|
+| `CudaTrainer` | `autograd/cuda_training.rs` | ~350 | `WgpuTrainer` (already built) |
+| CUDA backward ops | `autograd/cuda_backward/*.rs` | ~600 | `WgpuTrainer::matmul_backward()` |
+| CUDA forward ops | `autograd/cuda_forward.rs` | ~200 | `WgpuTrainer::matmul_forward()` |
+| CUDA optimizer | `autograd/cuda_optim.rs` | ~300 | `WgpuTrainer::adamw_step()` |
+| `cuda` feature | `Cargo.toml` | ~10 | `gpu` feature (wgpu via trueno) |
+| **Total** | **~8 files** | **~1460 lines** | |
+
+**realizar (inference — depends on trueno-gpu CUDA):**
+
+| Delete | Files | Lines | Replacement |
+|--------|-------|-------|-------------|
+| CUDA batch inference | `infer/batch_cuda.rs` | ~400 | `batch_wgpu.rs` (already default) |
+| CUDA module loading | `infer/cuda_*.rs` | ~300 | wgpu forward pass |
+| `cuda` feature | `Cargo.toml` | ~10 | `gpu` feature (wgpu via trueno) |
+| **Total** | **~4 files** | **~710 lines** | |
+
+**qwen-coder-deploy (config — no code changes):**
+
+| Update | Files | Change |
+|--------|-------|--------|
+| forjar manifests | `forjar-gpu*.yaml` | `--features cuda` → `--features gpu` |
+| Spec docs | `docs/specifications/*.yaml` | Reference wgpu not CUDA |
+
+**apr-leaderboard (orchestration — no code changes):**
+
+| Update | Files | Change |
+|--------|-------|--------|
+| `APR_NO_GPU` env var | scripts/*.sh | Still works (wgpu respects it) |
+| MEMORY.md | memory/ | Update GPU status |
+
+**Grand total across all repos: ~33 files, ~10,920 lines deleted.**
+
+After deletion:
 - Zero `extern "C"` declarations
 - Zero `unsafe` blocks
 - Zero `unsafe impl` blocks
