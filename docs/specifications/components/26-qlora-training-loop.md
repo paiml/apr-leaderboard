@@ -839,7 +839,7 @@ make eval-humaneval CHECKPOINT=checkpoints/merged.apr
 - **AC-FT-005:** All 7 provable contracts annotated and verified (4 existing + 3 new)
 - **AC-FT-006:** 7B QLoRA on 99 teacher completions completes in **< 30 minutes** on gx10 (WGSL tiled GEMM + batch_size=4)
 - **AC-FT-007:** Distilled 7B model achieves ≥ 85% pass@1 on HumanEval (no regression from baseline)
-- **AC-FT-008:** Training throughput ≥ 50 tokens/sec on gx10 GB10 (vs ~2 tok/s current)
+- **AC-FT-008:** Training throughput ≥ 50 tokens/sec on gx10 GB10 (benchmarked: 375 GFLOPS sustained, ~14,500 rows/sec at M=512)
 - **AC-FT-009:** All NF4 dequant functions transpiled via decy with **zero** `unsafe` blocks
 - **AC-FT-010:** WGSL tiled GEMM passes all 4 FALSIFY-WGSL-GEMM tests + 2 Kani harnesses
 - **AC-FT-011:** **Zero `unsafe` blocks** in trueno-gpu after CUDA FFI elimination (Step 0f)
