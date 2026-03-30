@@ -101,10 +101,20 @@ goes through WGSL compute shaders via wgpu.
 
 **Single backend: wgpu only.** There is no CUDA feature flag, no dual-backend. wgpu
 speaks Vulkan on NVIDIA GPUs, accessing the same hardware including tensor cores via
-`VK_KHR_cooperative_matrix`. The CUDA driver API is just one FFI path to the GPU —
-Vulkan is another, and wgpu makes it safe Rust. Burn/CubeCL proves Vulkan GEMM
-matches CUDA performance on the same NVIDIA hardware. The 5-10% historical gap is
-driver maturity, not hardware access — it closes as Vulkan extensions mature.
+`VK_KHR_cooperative_matrix` (confirmed on gx10 GB10: revision 2, BF16+FP8 enabled).
+
+**Falsified claims (corrected):** Vulkan GEMM does NOT match CUDA on discrete GPUs —
+the gap is 20-50% on A100 due to architectural limits (no `cp.async` equivalent in
+SPIR-V, smaller cooperative matrix sizes in KHR vs CUDA wmma, Vulkan vectorization
+limited to line size 4 vs 8). However, on GB10 unified memory (our target hardware),
+the gap effectively disappears because `cp.async` optimizes discrete GPU memory
+transfers which are irrelevant on unified memory. llama.cpp benchmarks show Vulkan
+matching or exceeding CUDA on GB10 for token generation.
+
+**wgpu cooperative matrix status:** Shipped in wgpu v29.0.0 (2026-03-19), experimental.
+Not yet standardized by W3C (gpuweb issue #4195 open). Load/store/multiply-add
+implemented. CubeCL issue #1053: BF16+F32 mixed accumulation has known issues — use
+F32 accumulation throughout until resolved.
 
 **CUTLASS algorithm in WGSL (not C++ transpilation):** CUTLASS is C++ templates — decy
 handles C, not C++. Instead, we read the CUTLASS algorithm (MIT licensed, ~200 lines of
