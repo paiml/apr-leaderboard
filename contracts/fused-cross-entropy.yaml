@@ -1,0 +1,104 @@
+metadata:
+  version: 1.0.0
+  created: 2026-03-30
+  author: PAIML
+  description: >
+    Fused cross-entropy loss — chunked logsumexp computation that avoids
+    materializing the full [batch × seq_len, vocab_size] logit/softmax tensors.
+    Based on Unsloth's cross_entropy_loss.py implementation.
+  references:
+    - "Unsloth kernels/cross_entropy_loss.py (Triton kernel reference)"
+    - "Dao et al. FlashAttention-2 — memory-efficient attention pattern"
+    - "Dettmers et al. QLoRA — response-only loss masking"
+  depends_on:
+    - cross-entropy-kernel-v1
+    - loss-functions-v1
+
+equations:
+  chunked_logsumexp:
+    formula: "logsumexp(x) = logsumexp([logsumexp(chunk_1), ..., logsumexp(chunk_C)])"
+    domain: "x ∈ ℝ^V, chunks of size ≤ 65536"
+    codomain: "scalar ∈ ℝ"
+    invariants:
+      - "Algebraic decomposition is exact (not approximate)"
+      - "Result matches unfused logsumexp within ε < 1e-6"
+      - "Numerically stable: uses max subtraction per chunk"
+
+  fused_forward:
+    formula: "CE(x, y) = -x[y] + logsumexp(x)"
+    domain: "x ∈ ℝ^V (logits); y ∈ {0,...,V-1} (label)"
+    codomain: "loss ∈ ℝ≥0"
+    invariants:
+      - "Loss is non-negative"
+      - "Only logsumexp scalar saved for backward (not full softmax)"
+      - "Computation in FP32 internally, storage in native dtype"
+
+  fused_backward:
+    formula: "∂CE/∂x_i = exp(x_i - logsumexp(x)) - 𝟙{i=y}"
+    domain: "x ∈ ℝ^V; logsumexp ∈ ℝ (saved from forward)"
+    codomain: "grad ∈ ℝ^V"
+    invariants:
+      - "Gradient written in-place into logits buffer (no allocation)"
+      - "Sum of gradient = 0 (softmax sums to 1, minus 1 for label)"
+      - "Gradient elements in [-1, 1]"
+
+  memory_bound:
+    formula: "peak_extra_memory = O(B × T) for logsumexp, not O(B × T × V)"
+    domain: "B (batch), T (seq_len), V (vocab_size)"
+    codomain: "bytes"
+    invariants:
+      - "For V=32000, B=4, T=512: saves ~500 MB vs unfused"
+      - "For V=256000: saves ~8 GB vs unfused"
+      - "No separate softmax tensor materialized"
+
+  response_masking:
+    formula: "loss = -(1/R) · Σ_{i∈response} CE(logits_i, label_i)"
+    domain: "Sequence with prompt_len P, total_len T"
+    codomain: "scalar loss ∈ ℝ≥0"
+    invariants:
+      - "Tokens with label=-100 are masked (zero loss contribution)"
+      - "R = count of non-masked response tokens"
+      - "Prompt tokens do not contribute to gradient"
+
+falsification_tests:
+  - id: FALSIFY-FCE-001
+    rule: Fused = unfused equivalence
+    prediction: "|fused_ce(logits, labels) - naive_ce(logits, labels)| < 1e-5"
+    test: "Compare for random logits with vocab_size in {1000, 32000, 128256}"
+    if_fails: "Chunked logsumexp decomposition has numerical error"
+  - id: FALSIFY-FCE-002
+    rule: Backward parity
+    prediction: "fused backward gradient matches unfused backward within ε < 1e-4"
+    test: "Compare gradients for random inputs, multiple vocab sizes"
+    if_fails: "In-place backward gradient computation diverges"
+  - id: FALSIFY-FCE-003
+    rule: Chunking correctness
+    prediction: "Single-chunk result = multi-chunk result (exact)"
+    test: "Compare n_chunks=1 vs n_chunks=4 for vocab_size=65536"
+    if_fails: "Chunk boundary handling introduces error"
+  - id: FALSIFY-FCE-004
+    rule: Memory bound
+    prediction: "Peak memory with fused CE < peak memory with unfused CE by ≥ V×B×T×2 bytes"
+    test: "Measure peak allocator usage for both paths"
+    if_fails: "Temporary allocations leak in fused path"
+  - id: FALSIFY-FCE-005
+    rule: Response masking
+    prediction: "Tokens with label=-100 produce zero gradient"
+    test: "Set half of labels to -100, verify zero gradient at those positions"
+    if_fails: "Masking applied incorrectly or after gradient computation"
+
+kani_harnesses:
+  - id: KANI-FCE-001
+    obligation: chunked_logsumexp
+    property: "logsumexp decomposition is algebraically exact"
+    bound: "n_chunks in [1..4], n_values in [1..16]"
+    strategy: stub_float
+    solver: cadical
+    harness: "logsumexp_decomposition"
+  - id: KANI-FCE-002
+    obligation: fused_backward
+    property: "Gradient sum equals zero (softmax property)"
+    bound: "vocab_size in [2..16]"
+    strategy: stub_float
+    solver: cadical
+    harness: "ce_gradient_sum_zero"

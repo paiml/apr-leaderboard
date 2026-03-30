@@ -1,0 +1,109 @@
+metadata:
+  version: 1.0.0
+  created: 2026-03-30
+  author: PAIML
+  description: >
+    NF4 (4-bit NormalFloat) dequantization — codebook LUT + blockwise absmax scaling.
+    Transpiled from bitsandbytes/csrc/kernels.cu via decy (C-to-Rust transpiler).
+    Covers the quantize/dequantize roundtrip and GPU/CPU parity.
+  references:
+    - "Dettmers et al. 2023 QLoRA §3.1 NormalFloat4"
+    - "bitsandbytes/csrc/kernels.cu:26-153 (NF4 LUT + quantize/dequantize)"
+    - "decy C-to-Rust transpiler (../decy)"
+  depends_on:
+    - q4k-q6k-superblock-v1
+
+equations:
+  nf4_codebook:
+    formula: "NF4_LUT[i] = Φ⁻¹((i + 0.5) / 16) normalized to [-1, 1]"
+    domain: "i ∈ {0, 1, ..., 15}"
+    codomain: "NF4_LUT[i] ∈ [-1.0, 1.0]"
+    invariants:
+      - "LUT has exactly 16 entries"
+      - "LUT[0] = -1.0"
+      - "LUT[7] = 0.0"
+      - "LUT[15] = 1.0"
+      - "LUT is strictly monotonically increasing"
+      - "Values are quantiles of standard normal distribution"
+
+  blockwise_dequant:
+    formula: "x_{2i} = NF4_LUT[byte[i] >> 4] × absmax[2i / blocksize]"
+    formula_alt: "x_{2i+1} = NF4_LUT[byte[i] & 0x0F] × absmax[(2i+1) / blocksize]"
+    domain: "byte ∈ u8; absmax ∈ f32; blocksize ∈ {32, 64, 128, 256}"
+    codomain: "x ∈ BF16 or f32"
+    invariants:
+      - "Output element count = 2 × input byte count"
+      - "absmax index = floor(element_index / blocksize)"
+      - "absmax array has ceil(n_elements / blocksize) entries"
+
+  quantize_nf4:
+    formula: "dQuantizeNF4(x) = argmin_{i ∈ [0,15]} |NF4_LUT[i] - x|"
+    domain: "x ∈ [-1.0, 1.0] (after normalization by absmax)"
+    codomain: "code ∈ {0, 1, ..., 15}"
+    invariants:
+      - "Binary search tree with 15 hardcoded thresholds (midpoints)"
+      - "Returns nearest codebook entry"
+      - "O(1) time (no loops, balanced BST)"
+
+  roundtrip_fidelity:
+    formula: "quantize(dequant(code)) = code for all 16 NF4 codes"
+    domain: "code ∈ {0, 1, ..., 15}"
+    codomain: "code ∈ {0, 1, ..., 15}"
+    invariants:
+      - "Roundtrip preserves index (exact)"
+      - "dequant(quantize(x)) ≈ x within half-bin width"
+
+falsification_tests:
+  - id: FALSIFY-NF4-001
+    rule: LUT ordering
+    prediction: "NF4_LUT is strictly monotonically increasing"
+    test: "Assert NF4_LUT[i] < NF4_LUT[i+1] for all i in [0..14]"
+    if_fails: "Codebook values copied incorrectly from Dettmers paper"
+  - id: FALSIFY-NF4-002
+    rule: Roundtrip fidelity
+    prediction: "dQuantizeNF4(dDequantizeNF4(code)) == code for all 16 codes"
+    test: "Exhaustive test over all 16 values"
+    if_fails: "Binary search thresholds miscalculated"
+  - id: FALSIFY-NF4-003
+    rule: Blockwise scale correctness
+    prediction: "max|dequant(quantize(x)) - x| < 2 × absmax / 16"
+    test: "Property test with 10000 random f32 vectors, blocksize=64"
+    if_fails: "absmax indexing off-by-one or block boundary error"
+  - id: FALSIFY-NF4-004
+    rule: GPU/CPU parity
+    prediction: "|nf4_dequant_gpu(data) - nf4_dequant_cpu(data)| < 1e-6"
+    test: "Compare PTX kernel output with CPU reference for 1M packed bytes"
+    if_fails: "PTX kernel NF4 LUT or indexing diverges from CPU"
+  - id: FALSIFY-NF4-005
+    rule: Decy transpilation parity
+    prediction: "|rust_dequant(data) - c_dequant(data)| < 1e-7"
+    test: "Run original C and transpiled Rust on same 1M inputs, compare"
+    if_fails: "Decy transpilation introduced subtle type or rounding difference"
+  - id: FALSIFY-NF4-006
+    rule: Nibble unpacking
+    prediction: "Byte 0xAB unpacks to high=0xA, low=0xB (not reversed)"
+    test: "Verify packed byte with known NF4 codes"
+    if_fails: "Endianness or shift direction wrong in unpack"
+
+kani_harnesses:
+  - id: KANI-NF4-001
+    obligation: quantize_nf4
+    property: "dQuantizeNF4 returns value in [0..15] for any input"
+    bound: "exhaustive over 16 input codes"
+    strategy: exhaustive
+    solver: cadical
+    harness: "nf4_quantize_range"
+  - id: KANI-NF4-002
+    obligation: blockwise_dequant
+    property: "absmax index never exceeds absmax array bounds"
+    bound: "n in [1..4096], blocksize in {32, 64, 128, 256}"
+    strategy: bounded_int
+    solver: cadical
+    harness: "nf4_absmax_bounds"
+  - id: KANI-NF4-003
+    obligation: roundtrip_fidelity
+    property: "quantize(dequant(i)) == i for all i in [0..15]"
+    bound: "exhaustive over 16 codes"
+    strategy: exhaustive
+    solver: cadical
+    harness: "nf4_roundtrip_exact"

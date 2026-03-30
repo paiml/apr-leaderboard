@@ -475,9 +475,11 @@ Tier 3 algorithms (CUDA kernels → trueno PTX builder):
 - `kDequantizeBlockwise` algorithm → PTX kernel via trueno's builder
 - `kQuantizeBlockwise` algorithm → PTX kernel via trueno's builder
 
-**Step 0b: cuBLAS GEMM wrapper in trueno-gpu**
+**Step 0b: cuBLAS GEMM wrapper in trueno-gpu (using existing FFI)**
 
-Add `cublas_gemm_bf16` to trueno-gpu's CUDA driver:
+trueno-gpu already has hand-written cuBLAS FFI bindings in `driver/cublaslt_sys.rs`
+(same sovereign stack pattern as the CUDA driver API — `dlopen`, no external crates).
+Add `cublas_gemm_bf16` using the existing cuBLASLt infrastructure:
 
 ```rust
 /// cuBLAS GEMM for training: BF16 inputs, FP32 accumulation, BF16 output.
