@@ -590,19 +590,52 @@ pub fn nf4_gemm_wgsl(
 }
 ```
 
-**Step 0d: Delete ALL CUDA code from trueno-gpu**
+**Step 0d: wgpu training backward pass (MUST prove before deleting CUDA)**
 
-Not feature-gated — REMOVED entirely. Single backend: wgpu.
+Implement the backward GEMM for LoRA gradients via WGSL tiled GEMM. This is the
+critical path — CUDA training works today (f64 fix, ec94f8cb), and we MUST NOT
+delete it until wgpu training produces equivalent results.
+
+```
+Prove-then-delete order:
+1. Implement wgpu backward GEMM (tiled, same shader as forward)
+2. Implement wgpu backward fused ops (RMSNorm, SwiGLU, RoPE)
+3. Run 3-sample training via wgpu path
+4. Compare loss curve: wgpu vs CUDA (must match within ε < 0.1)
+5. Run 100-sample training via wgpu (stability test)
+6. ONLY THEN delete CUDA code
+```
+
+The backward pass reuses the same `TILED_GEMM_SHADER` as forward, with transposed
+arguments per the GEMM backward formulas:
+- `∂L/∂A = ∂L/∂C @ B^T` — WGSL_GEMM(grad_output, weight_transposed)
+- `∂L/∂B = A^T @ ∂L/∂C` — WGSL_GEMM(input_transposed, grad_output)
+
+The NF4 base weights are re-dequantized in the backward pass (same as forward,
+dequant buffer reused). Gradients only flow through LoRA A/B.
+
+**Step 0e: Parity gate — wgpu training matches CUDA training**
+
+Before deleting ANY CUDA code, the following parity tests must pass:
+
+| Test | Criterion | Status |
+|------|-----------|--------|
+| 3-sample loss match | `|loss_wgpu - loss_cuda| < 0.1` after 1 epoch | MUST PASS |
+| Gradient norm match | `|grad_norm_wgpu - grad_norm_cuda| / grad_norm_cuda < 0.05` | MUST PASS |
+| 100-sample stability | No NaN/Inf over 1 epoch | MUST PASS |
+| HumanEval inference parity | wgpu pass@1 = CUDA pass@1 (already proven: 84.15%) | PASSED |
+
+**Step 0f: Delete CUDA code (ONLY after 0e passes)**
 
 | Delete | Files | Lines | Why |
 |--------|-------|-------|-----|
 | CUDA driver FFI | `driver/sys/mod.rs` | ~800 | wgpu replaces all CUDA driver calls |
 | cuBLAS FFI | `driver/cublas_sys.rs` | ~200 | WGSL tiled GEMM replaces cuBLAS |
 | cuBLASLt FFI | `driver/cublaslt_sys.rs` | ~300 | WGSL tiled GEMM replaces cuBLASLt |
-| CUDA safe wrappers | `driver/context.rs`, `module.rs`, `stream.rs`, `graph.rs`, `cublas.rs`, `cublaslt.rs` | ~1500 | wgpu device/queue/buffer (safe) |
-| CUDA memory | `driver/memory/buffer.rs`, `transfer.rs` | ~400 | wgpu::Buffer (safe) |
+| CUDA safe wrappers | 6 files in `driver/` | ~1500 | wgpu device/queue/buffer (safe) |
+| CUDA memory | `driver/memory/` | ~400 | wgpu::Buffer (safe) |
 | PTX code generator | `ptx/` (entire directory) | ~5500 | WGSL shaders replace PTX |
-| CUDA feature flags | `Cargo.toml`, `lib.rs` | ~50 | No `cuda` feature, no `cfg(feature = "cuda")` |
+| CUDA feature flags | `Cargo.toml`, `lib.rs` | ~50 | No `cuda` feature |
 | **Total deleted** | **~23 files** | **~8750 lines** | **Zero unsafe, single backend** |
 
 After deletion, trueno-gpu has:
@@ -612,7 +645,7 @@ After deletion, trueno-gpu has:
 - One GPU backend: wgpu (safe Rust API → Vulkan/Metal/DX12)
 - WGSL compute shaders for all GPU operations
 
-**Step 0e: Batch collation**
+**Step 0g: Batch collation**
 
 Add batch_size parameter to training config. Collate multiple samples into
 a single `[batch_size × seq_len, hidden_dim]` tensor. Pad shorter sequences,
@@ -766,8 +799,10 @@ make eval-humaneval CHECKPOINT=checkpoints/merged.apr
 - **AC-FT-008:** Training throughput ≥ 50 tokens/sec on gx10 GB10 (vs ~2 tok/s current)
 - **AC-FT-009:** All NF4 dequant functions transpiled via decy with **zero** `unsafe` blocks
 - **AC-FT-010:** WGSL tiled GEMM passes all 4 FALSIFY-WGSL-GEMM tests + 2 Kani harnesses
-- **AC-FT-011:** **Zero `unsafe` blocks** in trueno-gpu after CUDA FFI elimination
-- **AC-FT-012:** trueno-gpu has **zero `extern "C"` declarations** (no FFI of any kind)
+- **AC-FT-011:** **Zero `unsafe` blocks** in trueno-gpu after CUDA FFI elimination (Step 0f)
+- **AC-FT-012:** trueno-gpu has **zero `extern "C"` declarations** after Step 0f
+- **AC-FT-013:** wgpu training loss matches CUDA training loss within ε < 0.1 (Step 0e parity gate)
+- **AC-FT-014:** CUDA code deleted ONLY after AC-FT-013 passes (prove-then-delete)
 
 ## 26.10 References
 
