@@ -73,10 +73,10 @@ apr finetune model.apr --method qlora --data train.jsonl --output distilled.apr
 For each linear layer `W ∈ ℝ^{m×n}` in the transformer, with batch size `B_s`:
 
 ```
-W_bf16 = DequantNF4→BF16(W_nf4)     # Custom kernel: NF4 LUT lookup × absmax (transpiled via decy)
-h_base = cuBLAS_GEMM(x, W_bf16^T)   # cublasGemmEx: BF16 inputs, FP32 accumulation
-h_lora = cuBLAS_GEMM(cuBLAS_GEMM(x, A), B) * (α/r)  # Two small GEMMs via cuBLAS
-h = h_base + h_lora                  # Fused with cuBLAS addmm (alpha=s, beta=1)
+W_f32 = DequantNF4→F32(W_nf4)       # WGSL shader: NF4 LUT lookup × absmax (algorithm from decy)
+h_base = WGSL_GEMM(x, W_f32^T)      # Tiled GEMM: CUTLASS-style 128×128, shared memory, safe Rust
+h_lora = WGSL_GEMM(WGSL_GEMM(x, A), B) * (α/r)  # Two small GEMMs via same shader
+h = h_base + h_lora                  # Fused add in epilogue (alpha=s, beta=1)
 ```
 
 Where:
@@ -86,18 +86,33 @@ Where:
 - `α` — LoRA alpha scaling (e.g., 64)
 - `x ∈ ℝ^{B_s×n}` — batched input hidden states (batch_size × hidden_dim), BF16
 
-**Critical architecture decision (from Unsloth analysis):** All GEMM operations use cuBLAS
-(via `cublasGemmEx`), NOT custom PTX kernels. Custom kernels handle only the NF4→BF16
-dequantization and element-wise fusions (RMSNorm, SwiGLU, RoPE, cross-entropy). This
-matches the universal industry pattern: bitsandbytes, Unsloth, torchtune, and PEFT all
-use cuBLAS for GEMM. Custom GEMM kernels are 10-50x slower than cuBLAS for training-sized
-matrices.
+**Critical architecture decision (from Unsloth + CUTLASS analysis):** All GEMM operations
+use a CUTLASS-style tiled GEMM implemented in WGSL compute shaders via wgpu (safe Rust
+API). NO cuBLAS FFI, NO CUDA driver FFI, NO `unsafe` code. The tiling algorithm is
+derived from NVIDIA's open-source CUTLASS library (MIT licensed) which achieves 90-95%
+of cuBLAS throughput.
 
-**Transpilation via decy:** The NF4 dequantization kernels are transpiled from
+**Zero-unsafe mandate:** trueno-gpu currently has 68 `extern "C"` function pointers,
+137 `unsafe` blocks, and 18 `unsafe impl` blocks — all for CUDA driver/cuBLAS/cuBLASLt
+FFI. ALL of these are eliminated. The replacement is wgpu (safe Rust API for Vulkan/
+Metal/DX12 GPU compute). The PTX code generator (~5,500 lines) becomes dead code and
+is removed. All GPU compute goes through WGSL compute shaders.
+
+**CUTLASS algorithm in WGSL (not C++ transpilation):** CUTLASS is C++ templates — decy
+handles C, not C++. Instead, we read the CUTLASS algorithm (MIT licensed, ~200 lines of
+actual logic) and reimplement the tiling strategy in WGSL:
+- Thread-block tile: 128×128×8 (output tile × K-step)
+- Warp tile: 32×64 (per-warp output region)
+- Thread micro-tile: 8×8 (per-thread output, outer-product accumulation)
+- Double-buffered shared memory (load tile N+1 while computing tile N)
+- Serpentine traversal for register reuse in inner loop
+- Epilogue: transpose through shared memory for coalesced global stores
+
+**NF4 transpilation via decy:** The NF4 dequantization kernels are transpiled from
 bitsandbytes' `csrc/kernels.cu` (2400 LOC) using `../decy` (C-to-Rust transpiler).
 Tier 1 functions (pure math: NF4 LUT, `dQuantizeNF4`, `dDequantizeNF4`) transpile
-directly. Tier 3 functions (CUDA kernels) have their algorithms transpiled and
-re-parallelized via trueno-gpu's PTX builder.
+directly to safe Rust. Tier 3 functions (CUDA kernels) have their algorithms transpiled
+and reimplemented as WGSL compute shaders for wgpu.
 
 ### 26.4.2 Causal Language Model Loss (Fused Cross-Entropy)
 
@@ -122,18 +137,18 @@ Where `R = T - P` is the number of response tokens.
 
 ### 26.4.3 Backward Pass (LoRA only, with gradient checkpointing)
 
-Gradients flow only through LoRA A and B matrices. All backward GEMMs use cuBLAS:
+Gradients flow only through LoRA A and B matrices. All backward GEMMs use WGSL tiled GEMM:
 
 ```
 # Re-dequantize base weight for backward (gradient checkpointing: not saved from forward)
-W_bf16 = DequantNF4→BF16(W_nf4)
+W_f32 = DequantNF4→F32(W_nf4)     # WGSL dequant shader
 
 # Gradient w.r.t. input (for upstream layers)
-∂L/∂x = cuBLAS_GEMM(∂L/∂h, W_bf16) + cuBLAS_GEMM(cuBLAS_GEMM(∂L/∂h, B^T), A^T) * (α/r)
+∂L/∂x = WGSL_GEMM(∂L/∂h, W_f32) + WGSL_GEMM(WGSL_GEMM(∂L/∂h, B^T), A^T) * (α/r)
 
-# LoRA gradients (via cuBLAS addmm_ with fused scaling)
-∂L/∂B = cuBLAS_GEMM((A^T @ x)^T, ∂L/∂h) * (α/r)   # addmm_(alpha=α/r, beta=0)
-∂L/∂A = cuBLAS_GEMM(x^T, ∂L/∂h @ B^T) * (α/r)     # addmm_(alpha=α/r, beta=0)
+# LoRA gradients (via WGSL GEMM with fused scaling in epilogue)
+∂L/∂B = WGSL_GEMM((A^T @ x)^T, ∂L/∂h) * (α/r)   # epilogue alpha=α/r, beta=0
+∂L/∂A = WGSL_GEMM(x^T, ∂L/∂h @ B^T) * (α/r)     # epilogue alpha=α/r, beta=0
 ```
 
 Base weights `W_nf4` receive no gradient (frozen). The autograd engine skips the
@@ -233,7 +248,7 @@ metadata:
     - lora-algebra-v1
     - adamw-kernel-v1
     - loss-functions-v1
-    - cublas-gemm-wrapper-v1        # NEW
+    - wgsl-gemm-tiled-v1            # NEW (replaces cublas-gemm-wrapper-v1)
     - nf4-dequantization-v1         # NEW
     - fused-cross-entropy-v1        # NEW
 equations:
@@ -243,8 +258,8 @@ equations:
       - Base weights unchanged after training step
       - Only LoRA A/B receive gradients
       - Autograd skips frozen subgraph (topological pruning)
-  lora_forward_cublas:
-    formula: h = cublasGemmEx(DequantBF16(W_nf4), x) + cublasGemmEx(cublasGemmEx(x, A), B) * (α/r)
+  lora_forward_wgsl:
+    formula: h = WGSL_GEMM(DequantF32(W_nf4), x) + WGSL_GEMM(WGSL_GEMM(x, A), B) * (α/r)
     invariants:
       - Output shape matches base layer output shape
       - LoRA contribution is zero when B is zero-initialized
@@ -270,53 +285,67 @@ equations:
       - No sample duplication or loss across micro-batches
 ```
 
-**Contract: `cublas-gemm-wrapper-v1`** (NEW)
+**Contract: `wgsl-gemm-tiled-v1`** (NEW — replaces cublas-gemm-wrapper-v1)
 
 ```yaml
 metadata:
   version: 1.0.0
-  description: cuBLAS GEMM wrapper for training — correct dimensions, no OOB
+  description: >
+    WGSL tiled GEMM for training — CUTLASS-derived algorithm, zero unsafe.
+    128×128 thread-block tiles, 8×8 thread micro-tiles, double-buffered shared memory.
+    All via wgpu safe Rust API. No cuBLAS, no FFI.
+  references:
+    - "NVIDIA CUTLASS (MIT licensed) — tiling algorithm reference"
+    - "Burn/CubeCL — proof that Vulkan GEMM can match 70-80% of cuBLAS"
   depends_on:
     - matmul-kernel-v1
 equations:
   gemm_dimensions:
     formula: C[m,n] = α · op(A)[m,k] @ op(B)[k,n] + β · C[m,n]
     invariants:
-      - lda >= max(1, rows(A)) for column-major layout
-      - ldb >= max(1, rows(B)) for column-major layout
-      - ldc >= max(1, m)
-      - Transpose flags match actual memory layout
-  cublas_naive_parity:
-    formula: |cuBLAS(A,B) - naive(A,B)| < ε for all elements
+      - Output buffer has capacity >= m × n elements
+      - Workgroup grid = ceil(m/128) × ceil(n/128)
+      - Each thread computes 8×8 output elements
+  tiled_naive_parity:
+    formula: |WGSL_GEMM(A,B) - naive(A,B)| < ε for all elements
     invariants:
-      - ε < 1e-3 for BF16 inputs with FP32 accumulation
+      - ε < 1e-4 for F32 (no precision loss from tiling)
       - No NaN or Inf in output when inputs are finite
-  bf16_accumulation:
-    formula: cuBLAS uses CUBLAS_COMPUTE_32F for BF16 inputs
+  double_buffer_correctness:
+    formula: smem[write_stage] and smem[read_stage] never alias during compute
     invariants:
-      - Internal accumulation in FP32 (not BF16)
-      - Output cast to BF16 after accumulation
+      - workgroupBarrier() between write and read phases
+      - write_stage ^= 1 toggles correctly
+  zero_unsafe:
+    formula: unsafe_block_count(wgsl_gemm_tiled) = 0
+    invariants:
+      - No extern "C" declarations
+      - No raw pointer dereferencing
+      - All GPU ops via wgpu safe API
 falsification_tests:
-  - id: FALSIFY-CUBLAS-001
+  - id: FALSIFY-WGSL-GEMM-001
     rule: Dimension correctness
-    prediction: cublasGemmEx with m=128, n=3584, k=3584 produces [128,3584] output
-    test: Compare output shape and values against naive matmul
-  - id: FALSIFY-CUBLAS-002
-    rule: Transpose correctness
-    prediction: CUBLAS_OP_T produces same result as explicit transpose + CUBLAS_OP_N
-    test: Compare both paths for random matrices
-  - id: FALSIFY-CUBLAS-003
-    rule: No OOB on non-aligned dimensions
+    prediction: WGSL tiled GEMM with m=128, n=3584, k=3584 produces [128,3584] output
+    test: Compare output shape and values against CPU naive matmul
+  - id: FALSIFY-WGSL-GEMM-002
+    rule: Non-aligned dimensions
     prediction: m=97, n=3584, k=3584 produces correct output (non-power-of-2 M)
-    test: cuBLAS result matches naive for odd M values
-  - id: FALSIFY-CUBLAS-004
+    test: WGSL result matches naive for odd M values (tile boundary handling)
+  - id: FALSIFY-WGSL-GEMM-003
     rule: alpha/beta semantics
     prediction: alpha=2.0 doubles output; beta=1.0 adds to existing C
     test: Verify C_new = 2.0 * A @ B + 1.0 * C_old
+  - id: FALSIFY-WGSL-GEMM-004
+    rule: Tiled = untiled
+    prediction: 128×128 tiled GEMM matches 16×16 naive GEMM within ε < 1e-6
+    test: Same inputs, compare tiled vs naive WGSL shader outputs
 kani_harnesses:
-  - id: KANI-CUBLAS-001
-    property: Leading dimension >= max(1, row_count)
-    bound: m,n,k in [1..64]
+  - id: KANI-WGSL-GEMM-001
+    property: Output buffer index m*N+n never exceeds m*n for all valid (m,n)
+    bound: m,n in [1..256]
+  - id: KANI-WGSL-GEMM-002
+    property: Shared memory index never exceeds 2*TILE_M*TILE_K
+    bound: tile_m,tile_k in [1..128]
 ```
 
 **Contract: `nf4-dequantization-v1`** (NEW — transpiled from bitsandbytes via decy)
@@ -444,82 +473,118 @@ fn create_lora_layer(/* ... */) { /* ... */ }
 | FT-006 | AdamW decoupled | Weight decay applied to θ, not gradient | Compare with L2-regularized Adam |
 | FT-007 | Shape preservation | LoRA output shape = base layer output shape | proptest with random dimensions |
 | FT-008 | Gradient flow | ∂L/∂A ≠ 0 and ∂L/∂B ≠ 0 after first step (B no longer zero) | Check gradient norms after step 1 |
-| FT-009 | cuBLAS vs naive parity | cuBLAS GEMM matches naive matmul within ε < 1e-3 | Random BF16 matrices, compare outputs |
+| FT-009 | WGSL tiled GEMM vs naive parity | Tiled GEMM matches naive matmul within ε < 1e-4 | Random F32 matrices, compare outputs |
 | FT-010 | Gradient checkpoint correctness | Recomputed activations match saved within ε < 1e-6 | Compare with/without checkpointing |
 | FT-011 | Fused CE = unfused CE | Fused cross-entropy matches standard within ε < 1e-5 | Random logits, multiple vocab sizes |
 | FT-012 | Batch loss = mean per-sample | Batch loss equals average of individual sample losses | Compare batch vs sequential processing |
 | FT-013 | NF4 roundtrip | dQuantizeNF4(dDequantizeNF4(i)) == i for all i in [0..15] | Exhaustive 16-value test |
 | FT-014 | Decy transpilation parity | Rust NF4 dequant matches C reference within ε < 1e-7 | 1M random NF4-packed bytes, compare outputs |
+| FT-015 | Zero unsafe | `grep -r "unsafe" trueno-gpu/src/` returns 0 matches | No unsafe blocks, no extern C, no raw pointers |
+| FT-016 | CUDA FFI eliminated | `driver/sys/`, `driver/cublas*`, `ptx/` directories removed | No CUDA dependency in the crate |
 
 ## 26.7 Implementation Plan
 
-### Phase 0: cuBLAS Training GEMM + NF4 Dequant (trueno-gpu + decy)
+### Phase 0: WGSL Tiled GEMM + NF4 Dequant + Eliminate Unsafe FFI (trueno-gpu + decy)
 
-**Priority: HIGHEST — this is the 100-500x speedup.**
+**Priority: HIGHEST — this is the 20-100x speedup + zero-unsafe compliance.**
 
-**Step 0a: Transpile bitsandbytes NF4 kernels via decy**
+**Step 0a: Transpile bitsandbytes NF4 math via decy**
 
 ```bash
-# Tier 1: Pure C math functions → Rust (direct transpilation)
+# Tier 1: Pure C math functions → safe Rust (direct transpilation)
 decy transpile bitsandbytes/csrc/kernels.cu \
   --functions dDequantizeNF4,dQuantizeNF4,nf4_dequantization_lut \
-  --output trueno-gpu/src/kernels/quantize/nf4_bnb.rs
+  --output trueno/src/quantize/nf4_bnb.rs
 ```
 
-Tier 1 functions (pure math, no CUDA deps):
+Tier 1 functions (pure math, zero unsafe):
 - `nf4_dequantization_lut[16]` → `const NF4_LUT: [f32; 16]`
 - `dDequantizeNF4(val)` → `fn dequantize_nf4(val: u8) -> f32`
 - `dQuantizeNF4(x)` → `fn quantize_nf4(x: f32) -> u8`
 
-Tier 3 algorithms (CUDA kernels → trueno PTX builder):
-- `kDequantizeBlockwise` algorithm → PTX kernel via trueno's builder
-- `kQuantizeBlockwise` algorithm → PTX kernel via trueno's builder
+Tier 3 algorithms (CUDA kernels → WGSL compute shaders for wgpu):
+- `kDequantizeBlockwise` algorithm → WGSL compute shader
+- `kQuantizeBlockwise` algorithm → WGSL compute shader
 
-**Step 0b: cuBLAS GEMM wrapper in trueno-gpu (using existing FFI)**
+**Step 0b: CUTLASS-style tiled GEMM in WGSL (replaces cuBLAS entirely)**
 
-trueno-gpu already has hand-written cuBLAS FFI bindings in `driver/cublaslt_sys.rs`
-(same sovereign stack pattern as the CUDA driver API — `dlopen`, no external crates).
-Add `cublas_gemm_bf16` using the existing cuBLASLt infrastructure:
+Implement the CUTLASS tiling algorithm (MIT licensed, ~200 lines of logic) as a
+WGSL compute shader, called via wgpu's safe Rust API. Zero `unsafe`, zero FFI.
+
+```wgsl
+// CUTLASS-derived tiled GEMM in WGSL
+// Thread-block: 128×128 output tile, K-step: 8
+// Each thread: 8×8 micro-tile (outer-product accumulation)
+// Double-buffered workgroup shared memory
+const TILE_M: u32 = 128u;
+const TILE_N: u32 = 128u;
+const TILE_K: u32 = 8u;
+const THREAD_M: u32 = 8u;
+const THREAD_N: u32 = 8u;
+
+var<workgroup> smem_a: array<f32, 2 * 128 * 8>;  // double-buffered
+var<workgroup> smem_b: array<f32, 2 * 8 * 128>;
+
+@compute @workgroup_size(16, 16)  // 256 threads = 8 warps
+fn tiled_gemm(...) {
+    // 1. Each thread computes 8×8 output elements
+    // 2. K-dimension loop with double-buffered shared memory tiles
+    // 3. Inner loop: serpentine 8×8 outer product from shared memory
+    // 4. Epilogue: coalesced store with alpha/beta scaling
+}
+```
 
 ```rust
-/// cuBLAS GEMM for training: BF16 inputs, FP32 accumulation, BF16 output.
-/// Transpiled calling convention from bitsandbytes/csrc/ops.cu:223-231.
-#[provable_contracts_macros::contract("cublas-gemm-wrapper-v1", equation = "gemm_dimensions")]
-pub fn cublas_gemm_bf16(
-    handle: cublasHandle_t,
+/// WGSL tiled GEMM for training: F32, safe Rust via wgpu.
+/// Algorithm from CUTLASS (MIT licensed). Zero unsafe.
+#[provable_contracts_macros::contract("wgsl-gemm-tiled-v1", equation = "gemm_dimensions")]
+pub fn wgsl_gemm_tiled(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     m: u32, n: u32, k: u32,
-    a: &GpuBuffer<bf16>,      // [m, k] or [k, m] depending on transpose
-    b: &GpuBuffer<bf16>,      // [k, n] or [n, k] depending on transpose
-    c: &mut GpuBuffer<bf16>,  // [m, n] output
-    transpose_a: bool,
-    transpose_b: bool,
+    a: &wgpu::Buffer,         // [m, k] F32
+    b: &wgpu::Buffer,         // [k, n] F32
+    c: &wgpu::Buffer,         // [m, n] output
     alpha: f32,
     beta: f32,
 ) -> Result<()> {
-    // cublasGemmEx(handle, op_a, op_b, m, n, k,
-    //   &alpha, a, CUDA_R_16BF, lda, b, CUDA_R_16BF, ldb,
-    //   &beta, c, CUDA_R_16BF, ldc, CUBLAS_COMPUTE_32F, CUBLAS_GEMM_DEFAULT)
+    // Pre-compiled pipeline (created once, reused per training step)
+    // dispatch_workgroups(ceil(m/128), ceil(n/128), 1)
 }
 ```
 
-**Step 0c: NF4 dequant → BF16 → cuBLAS GEMM pipeline**
+**Step 0c: NF4 dequant → F32 → WGSL GEMM pipeline**
 
 ```rust
-/// Dequantize NF4 to BF16, then cuBLAS GEMM. Reuses global dequant buffer.
-/// This is the Unsloth/bitsandbytes universal pattern.
+/// Dequantize NF4 to F32, then tiled GEMM. All via wgpu, zero unsafe.
 #[provable_contracts_macros::contract("nf4-dequantization-v1", equation = "blockwise_dequant")]
-pub fn nf4_gemm_cublas(
-    nf4_weight: &NF4Weight,    // Packed NF4 + absmax
-    input: &GpuBuffer<bf16>,   // [batch, hidden]
-    output: &mut GpuBuffer<bf16>, // [batch, out_dim]
-    dequant_buffer: &mut GpuBuffer<bf16>, // Reused across layers
+pub fn nf4_gemm_wgsl(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    nf4_weight: &wgpu::Buffer,    // Packed NF4 + absmax
+    input: &wgpu::Buffer,         // [batch, hidden] F32
+    output: &wgpu::Buffer,        // [batch, out_dim] F32
+    dequant_buffer: &wgpu::Buffer, // Reused across layers
 ) -> Result<()> {
-    // 1. PTX kernel: dequant NF4 → BF16 into buffer (transpiled from bitsandbytes)
-    // 2. cuBLAS GEMM: output = input @ dequant_buffer^T
+    // 1. WGSL shader: dequant NF4 → F32 (algorithm transpiled from bitsandbytes via decy)
+    // 2. WGSL tiled GEMM: output = input @ dequant_buffer^T
 }
 ```
 
-**Step 0d: Batch collation**
+**Step 0d: Eliminate ALL unsafe CUDA FFI from trueno-gpu**
+
+Remove 68 `extern "C"` function pointers, 137 `unsafe` blocks, 18 `unsafe impl` blocks:
+
+| Remove | Files | Lines | Replacement |
+|--------|-------|-------|-------------|
+| CUDA driver FFI | `driver/sys/mod.rs` | ~800 | wgpu safe API |
+| cuBLAS FFI | `driver/cublas_sys.rs` | ~200 | WGSL tiled GEMM |
+| cuBLASLt FFI | `driver/cublaslt_sys.rs` | ~300 | WGSL tiled GEMM |
+| CUDA safe wrappers | `driver/*.rs` (6 files) | ~1500 | wgpu wrappers |
+| PTX code generator | `ptx/` (entire dir) | ~5500 | WGSL shaders |
+| **Total removed** | **~23 files** | **~8300 lines** | **Zero unsafe** |
+
+**Step 0e: Batch collation**
 
 Add batch_size parameter to training config. Collate multiple samples into
 a single `[batch_size × seq_len, hidden_dim]` tensor. Pad shorter sequences,
@@ -666,13 +731,15 @@ make eval-humaneval CHECKPOINT=checkpoints/merged.apr
 - **AC-FT-001:** `apr finetune model.apr --method qlora --data train.jsonl` trains for N epochs with decreasing loss
 - **AC-FT-002:** Training produces an APR file with trained LoRA weights (not random init)
 - **AC-FT-003:** Merged model passes `apr check` and produces valid inference output
-- **AC-FT-004:** All 14 falsification tests from §26.6.4 pass
+- **AC-FT-004:** All 16 falsification tests from §26.6.4 pass
 - **AC-FT-005:** All 7 provable contracts annotated and verified (4 existing + 3 new)
-- **AC-FT-006:** 7B QLoRA on 99 teacher completions completes in **< 10 minutes** on gx10 (cuBLAS + batch_size=4)
+- **AC-FT-006:** 7B QLoRA on 99 teacher completions completes in **< 30 minutes** on gx10 (WGSL tiled GEMM + batch_size=4)
 - **AC-FT-007:** Distilled 7B model achieves ≥ 85% pass@1 on HumanEval (no regression from baseline)
-- **AC-FT-008:** Training throughput ≥ 100 tokens/sec on gx10 GB10 (vs ~2 tok/s current)
-- **AC-FT-009:** All NF4 dequant functions transpiled via decy with < 5 `unsafe` blocks per 1000 LOC
-- **AC-FT-010:** cuBLAS GEMM wrapper passes all 4 FALSIFY-CUBLAS tests + KANI-CUBLAS-001
+- **AC-FT-008:** Training throughput ≥ 50 tokens/sec on gx10 GB10 (vs ~2 tok/s current)
+- **AC-FT-009:** All NF4 dequant functions transpiled via decy with **zero** `unsafe` blocks
+- **AC-FT-010:** WGSL tiled GEMM passes all 4 FALSIFY-WGSL-GEMM tests + 2 Kani harnesses
+- **AC-FT-011:** **Zero `unsafe` blocks** in trueno-gpu after CUDA FFI elimination
+- **AC-FT-012:** trueno-gpu has **zero `extern "C"` declarations** (no FFI of any kind)
 
 ## 26.10 References
 

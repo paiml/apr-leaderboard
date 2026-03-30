@@ -1,0 +1,97 @@
+metadata:
+  version: 1.0.0
+  created: 2026-03-30
+  author: PAIML
+  description: >
+    WGSL tiled GEMM for QLoRA training — CUTLASS-derived algorithm, zero unsafe.
+    128×128 thread-block tiles, 8×8 thread micro-tiles, double-buffered workgroup
+    shared memory. All via wgpu safe Rust API. No cuBLAS, no FFI, no unsafe.
+  references:
+    - "NVIDIA CUTLASS (MIT licensed) — tiling algorithm reference"
+    - "Burn/CubeCL — proof that Vulkan GEMM reaches 70-80% of cuBLAS"
+    - "CUTLASS efficient_gemm.md — 7-level tiling hierarchy"
+  depends_on:
+    - matmul-kernel-v1
+
+equations:
+  gemm_dimensions:
+    formula: "C[m,n] = α · op(A)[m,k] @ op(B)[k,n] + β · C[m,n]"
+    domain: "m,n,k ∈ ℕ⁺; A,B,C ∈ F32"
+    codomain: "C ∈ F32"
+    invariants:
+      - "Output buffer has capacity >= m × n elements"
+      - "Workgroup grid = ceil(m/TILE_M) × ceil(n/TILE_N)"
+      - "Each thread computes THREAD_M × THREAD_N output elements"
+      - "Shared memory does not exceed device limits"
+    preconditions:
+      - "A, B, C are valid wgpu::Buffer handles"
+      - "m, n, k > 0"
+
+  tiled_naive_parity:
+    formula: "|WGSL_GEMM(A,B) - naive(A,B)|_max < ε"
+    domain: "A ∈ F32^{m×k}; B ∈ F32^{k×n}"
+    codomain: "ε ∈ ℝ⁺"
+    invariants:
+      - "ε < 1e-4 for F32 (no precision loss from tiling)"
+      - "No NaN or Inf in output when inputs are finite"
+
+  double_buffer_correctness:
+    formula: "smem[write_stage] and smem[read_stage] never alias during compute"
+    domain: "write_stage, read_stage ∈ {0, 1}"
+    codomain: "bool"
+    invariants:
+      - "workgroupBarrier() between write and read phases"
+      - "write_stage ^= 1 toggles correctly after each K-tile"
+
+  zero_unsafe:
+    formula: "count(unsafe blocks in implementation) = 0"
+    domain: "source code"
+    codomain: "ℕ"
+    invariants:
+      - "No extern 'C' declarations"
+      - "No raw pointer dereferencing"
+      - "All GPU operations via wgpu safe Rust API"
+      - "No #[allow(unsafe_code)] attributes"
+
+falsification_tests:
+  - id: FALSIFY-WGSL-GEMM-001
+    rule: Dimension correctness
+    prediction: "Tiled GEMM with m=128, n=3584, k=3584 produces [128,3584] output matching naive"
+    test: "Compare output shape and values against CPU naive matmul"
+    if_fails: "Tile boundary handling or output indexing incorrect"
+  - id: FALSIFY-WGSL-GEMM-002
+    rule: Non-aligned dimensions
+    prediction: "m=97, n=3584, k=3584 produces correct output (non-power-of-2 M)"
+    test: "WGSL result matches naive for odd M values"
+    if_fails: "Partial tile at M boundary not handled"
+  - id: FALSIFY-WGSL-GEMM-003
+    rule: alpha/beta semantics
+    prediction: "alpha=2.0 doubles output; beta=1.0 adds to existing C"
+    test: "Verify C_new = 2.0 * A @ B + 1.0 * C_old"
+    if_fails: "Epilogue scaling parameters ignored or swapped"
+  - id: FALSIFY-WGSL-GEMM-004
+    rule: Tiled = untiled
+    prediction: "128×128 tiled GEMM matches 16×16 naive GEMM within ε < 1e-6"
+    test: "Same inputs, compare tiled vs naive WGSL shader outputs"
+    if_fails: "Double buffering introduces data hazard"
+  - id: FALSIFY-WGSL-GEMM-005
+    rule: Zero unsafe verification
+    prediction: "grep -r 'unsafe' in implementation files returns 0 matches"
+    test: "Static analysis of source files"
+    if_fails: "Unsafe code introduced for performance optimization"
+
+kani_harnesses:
+  - id: KANI-WGSL-GEMM-001
+    obligation: gemm_dimensions
+    property: "Output buffer index m*N+n never exceeds capacity for all valid (m,n)"
+    bound: "m,n in [1..256]"
+    strategy: exhaustive
+    solver: cadical
+    harness: "wgsl_gemm_output_bounds"
+  - id: KANI-WGSL-GEMM-002
+    obligation: double_buffer_correctness
+    property: "Shared memory index never exceeds 2*TILE_M*TILE_K"
+    bound: "tile_m in [1..128], tile_k in [1..8]"
+    strategy: exhaustive
+    solver: cadical
+    harness: "wgsl_gemm_smem_bounds"
