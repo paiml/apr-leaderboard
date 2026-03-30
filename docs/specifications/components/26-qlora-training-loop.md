@@ -590,11 +590,81 @@ pub fn nf4_gemm_wgsl(
 }
 ```
 
-**Step 0d: wgpu training backward pass (MUST prove before deleting CUDA)**
+**Step 0d: WgpuTrainingPipeline — complete replacement for CUDA training path**
 
-Implement the backward GEMM for LoRA gradients via WGSL tiled GEMM. This is the
-critical path — CUDA training works today (f64 fix, ec94f8cb), and we MUST NOT
-delete it until wgpu training produces equivalent results.
+NOT a hybrid/hack. A complete GPU training pipeline in wgpu that replaces the entire
+`CudaTrainer` + `CudaBlock` + `CudaBlockScratch` + `GpuTraining` infrastructure.
+
+The CUDA training path (`instruct_pipeline.rs:660-793`) does 6 operations ALL on GPU:
+1. Forward: NF4 dequant → GEMM → RMSNorm → attention → SwiGLU × 28 layers
+2. lm_head: GEMM (hidden → vocab logits)
+3. Loss: fused causal cross-entropy (in-place gradient)
+4. lm_head backward: GEMM (grad_logits → grad_hidden)
+5. Backward: GEMM backward through 28 NF4 layers (LoRA gradients)
+6. Optimizer: AdamW on LoRA weights
+
+`WgpuTrainingPipeline` must do ALL 6 on wgpu. Architecture:
+
+```
+WgpuTrainingPipeline
+├── WgslForwardPass (trueno)          — forward through 28 transformer layers
+│   ├── WGSL NF4 dequant shader       — NF4 → F32 on GPU
+│   ├── WGSL tiled GEMM shader        — CUTLASS-style 64×64
+│   ├── WGSL RMSNorm shader           — already exists in wgsl_forward.rs
+│   ├── WGSL SwiGLU shader            — already exists in wgsl_forward.rs
+│   ├── WGSL RoPE shader              — already exists in wgsl_forward.rs
+│   └── WGSL attention shader         — already exists in wgsl_forward.rs
+├── WgslBackwardPass (NEW)            — backward through 28 layers
+│   ├── Activation checkpointing      — save only layer boundaries
+│   ├── WGSL backward GEMM            — same tiled GEMM with transposed args
+│   ├── WGSL backward RMSNorm         — d/dx of x/rms(x)
+│   ├── WGSL backward SwiGLU          — d/dx of SiLU(gate)×up
+│   └── WGSL backward attention       — Q/K/V gradient through softmax
+├── WgslCrossEntropy (NEW)            — fused loss + in-place gradient
+│   ├── Chunked logsumexp             — never materialize full [T,V] softmax
+│   └── In-place backward             — gradient overwrites logits buffer
+├── WgpuTrainer (EXISTS)              — optimizer + gradient ops
+│   ├── AdamW WGSL kernel             — decoupled weight decay
+│   └── Gradient clipping WGSL        — scale by max_norm/grad_norm
+└── WgpuBlockManager (NEW)            — GPU memory for 28 layers
+    ├── NF4 weight buffers             — packed NF4 + absmax per layer
+    ├── LoRA A/B buffers               — trainable F32 per layer
+    ├── Activation checkpoint buffers  — reused across layers
+    └── Dequant buffer                 — single reusable F32 buffer
+```
+
+**Implementation order (each builds on the previous):**
+
+```
+Step 0d.1: WgpuBlockManager — upload NF4 weights to wgpu::Buffer
+Step 0d.2: WgslForwardPass training mode — save activations at layer boundaries
+Step 0d.3: WgslBackwardPass — backward GEMM + RMSNorm + SwiGLU through 28 layers
+Step 0d.4: WgslCrossEntropy — fused loss on GPU (chunked logsumexp)
+Step 0d.5: Wire into InstructPipeline::wgpu_train_step (replaces cuda_train_step)
+Step 0d.6: End-to-end test — 3-sample 7B training on gx10, compare loss with CUDA
+```
+
+**What already exists (proven):**
+- WGSL tiled GEMM (forward + backward) — `ac65854f`, 375 GFLOPS on GB10
+- WGSL RMSNorm, SwiGLU, RoPE, attention, residual — in `wgsl_forward.rs`
+- NF4 dequant in safe Rust — `2d151d45`, 6/6 tests
+- WgpuTrainer (AdamW + gradient clip) — `dae8a812`, 3/3 tests
+- CUDA↔wgpu parity — 3/3 tests on gx10
+
+**What needs building:**
+- WgpuBlockManager — upload 28 layers of NF4 weights to wgpu buffers
+- WgslForwardPass training mode — checkpoint activations
+- WgslBackwardPass — backward through full transformer stack
+- WgslCrossEntropy — fused chunked cross-entropy
+- Pipeline integration — `InstructPipeline::wgpu_train_step`
+
+**WGSL shaders needed (NEW):**
+- `nf4_dequant.wgsl` — NF4 → F32 on GPU (algorithm from `nf4.rs`, already proven)
+- `backward_rmsnorm.wgsl` — ∂L/∂x = (1/rms) × (γ × ∂L/∂y − x/rms² × mean(x·∂L/∂y·γ))
+- `backward_swiglu.wgsl` — ∂L/∂gate = ∂L/∂h × up × σ(gate)×(1+gate×(1−σ(gate)))
+- `backward_attention.wgsl` — ∂L/∂Q, ∂L/∂K, ∂L/∂V through scaled dot-product
+- `fused_cross_entropy.wgsl` — chunked logsumexp + in-place gradient
+- `transpose.wgsl` — GPU transpose for backward GEMM (avoids CPU roundtrip)
 
 ```
 Prove-then-delete order:
@@ -837,15 +907,17 @@ make eval-humaneval CHECKPOINT=checkpoints/merged.apr
 - **AC-FT-003:** Merged model passes `apr check` and produces valid inference output
 - **AC-FT-004:** All 16 falsification tests from §26.6.4 pass
 - **AC-FT-005:** All 7 provable contracts annotated and verified (4 existing + 3 new)
-- **AC-FT-006:** 7B QLoRA on 99 teacher completions completes in **< 30 minutes** on gx10 (WGSL tiled GEMM + batch_size=4)
+- **AC-FT-006:** 7B QLoRA on 99 teacher completions completes in **< 30 minutes** on gx10 (full WgpuTrainingPipeline, batch_size=4)
 - **AC-FT-007:** Distilled 7B model achieves ≥ 85% pass@1 on HumanEval (no regression from baseline)
 - **AC-FT-008:** Training throughput ≥ 50 tokens/sec on gx10 GB10 (benchmarked: 375 GFLOPS sustained, ~14,500 rows/sec at M=512)
 - **AC-FT-009:** All NF4 dequant functions transpiled via decy with **zero** `unsafe` blocks
 - **AC-FT-010:** WGSL tiled GEMM passes all 4 FALSIFY-WGSL-GEMM tests + 2 Kani harnesses
 - **AC-FT-011:** **Zero `unsafe` blocks** in trueno-gpu after CUDA FFI elimination (Step 0f)
 - **AC-FT-012:** trueno-gpu has **zero `extern "C"` declarations** after Step 0f
-- **AC-FT-013:** wgpu training loss matches CUDA training loss within ε < 0.1 (Step 0e parity gate)
+- **AC-FT-013:** WgpuTrainingPipeline loss matches CUDA training loss within ε < 0.1 on 7B model (Step 0e)
 - **AC-FT-014:** CUDA code deleted ONLY after AC-FT-013 passes (prove-then-delete)
+- **AC-FT-015:** ALL 6 training operations on GPU via wgpu (forward, lm_head, loss, lm_head backward, layer backward, optimizer) — no CPU fallback for any operation
+- **AC-FT-016:** 6 new WGSL shaders (nf4_dequant, backward_rmsnorm, backward_swiglu, backward_attention, fused_cross_entropy, transpose) with falsification tests
 
 ## 26.10 References
 
