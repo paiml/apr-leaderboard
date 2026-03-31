@@ -943,6 +943,29 @@ than it should be. The tiled GEMM (375 GFLOPS) is only used for sub-2GB matmuls.
    The WebGPU spec may eventually raise this limit.
 
 **Recommended fix:** Option 1 (chunk). Estimated effort: ~50 lines in matmul.rs.
+**Status: DONE** — chunked matmul committed (`6665d10e`).
+
+### 26.11.3 Per-Call Buffer Creation in model.forward()
+
+**Status: BLOCKING — primary performance bottleneck**
+
+`InstructPipeline::wgpu_train_step` calls `model.forward()` which uses
+`GpuDevice::matmul()` for each of 196 projections (7 per layer × 28 layers).
+Each `matmul()` call creates shader, buffers, bind group, pipeline, dispatches,
+reads back — ~8ms overhead per call = ~1.6 seconds overhead alone, plus the
+actual compute.
+
+`WgslForwardPass::forward_layer_training` already exists with:
+- Persistent pre-uploaded weight buffers (no per-call alloc)
+- Single command encoder for all 13 passes per layer
+- Tiled GEMM (375 GFLOPS) for M>=4
+- GPU-resident attention (no CPU readback)
+
+**Fix:** Replace `model.forward(&full_ids)` with `WgslForwardPass::forward_layer_training`
+loop. The weights are already uploaded to `WgslForwardPass` during model init.
+This eliminates the per-call buffer overhead and enables the full 375 GFLOPS throughput.
+
+**Estimated speedup:** ~100x (from ~1.6 hrs/sample to ~1 min/sample)
 
 ### 26.11.2 End-to-End Training Verification
 
