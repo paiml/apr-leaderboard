@@ -1025,6 +1025,13 @@ Recomputation in Large Transformer Models", arxiv 2205.05198).
 | 4 | `silu_gate_output` | [B, S, D_ffn] | SiLU(gate)×up = input to down_proj. For LoRA grad. |
 | 5 | `rstd_attn` | [B, S, 1] | RMSNorm reciprocal std. For RMSNorm backward. Tiny. |
 | 6 | `rstd_ffn` | [B, S, 1] | FFN RMSNorm reciprocal std. Tiny. |
+| 7 | `softmax_logsumexp` | [B, H, S] | Compact softmax stats for attention backward (FlashAttention-2 approach). Negligible memory. Required for correct Q/K/V LoRA gradients. |
+
+**FALSIFIED (2026-03-31):** Original 6-tensor list was insufficient — missing
+`softmax_logsumexp` required for correct attention backward. Without it, Q/K/V
+LoRA gradients use a simplified approximation (grad_q ≈ grad_attn_out, grad_k =
+grad_v = 0) which is WRONG. Added 7th tensor per FlashAttention-2 approach
+(logsumexp is [B, H, S] = negligible memory).
 
 **Memory: ~232 MB/layer in FP32 (for 7B, batch=1, seq=2048). 28 layers = ~6.5 GB.**
 Fits easily in GB10's 119 GB unified memory.
@@ -1047,14 +1054,17 @@ Both LoRA gradients need only `x` (saved activation) and the LoRA weights (in me
 1. Fused CE backward → grad_logits (in-place, already done)
 2. lm_head backward: grad_hidden = grad_logits @ embed_weight^T
 3. For each layer L = 27..0:
-   a. Residual backward: grad splits to FFN path + residual
+   a. Residual backward: grad_output duplicated to BOTH FFN sublayer + identity path.
+      After FFN backward, results SUMMED: grad_residual = grad_output + grad_ffn.
+      (NOT split/divided — the same grad feeds both branches, results are added.)
    b. Down projection backward: grad_silu = grad @ W_down^T
    c. SwiGLU backward: grad_gate, grad_up from saved silu_gate_output
    d. Gate/Up backward: grad_ffn_norm = (grad_gate @ W_gate^T + grad_up @ W_up^T)
    e. FFN RMSNorm backward: using saved rstd_ffn
-   f. Residual backward: grad splits to attention path + residual
+   f. Residual backward: grad duplicated to attention sublayer + identity path, results SUMMED.
    g. O projection backward: grad_attn = grad @ W_o^T
-   h. [Attention backward: recompute Q,K from saved attn_norm_out for softmax grad]
+   h. Attention backward: recompute Q,K from saved attn_norm_out, use saved softmax_logsumexp
+      for softmax Jacobian. grad_Q, grad_K, grad_V computed correctly (not approximated).
    i. Q/K/V backward: using saved attn_norm_out
    j. Attention RMSNorm backward: using saved rstd_attn
    k. Accumulate LoRA gradients for all 7 projections
