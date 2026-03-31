@@ -1009,6 +1009,37 @@ pieces are tested (3/3 parity, 375 GFLOPS). Just need to compose them.
 **Estimated effort:** Replace the CPU autograd block (steps 4-6) with ~50 lines of
 GPU dispatch calls. No new shaders needed. No new components needed.
 
+### 26.11.7 Model Loading Bottleneck: Transformer::from_apr() (2026-03-31)
+
+**Status: BLOCKING — 20+ min model load on ARM before training starts**
+
+`InstructPipeline::from_apr()` calls `Transformer::from_apr()` which dequantizes
+ALL Q4K weights to F32 Tensors on CPU. For 7B: 28 layers × 9 weights × ~51-272 MB
+each = ~28 GB of F32 data created on CPU. This takes ~20 min on ARM (gx10).
+
+**Root cause:** The entrenar `Transformer` model requires F32 Tensors. The Q4K
+quantized data from the `.apr` file must be fully dequantized before training starts.
+
+**How realizar solves this:** `batch_wgpu.rs` loads the model via
+`OwnedQuantizedModel` (keeps Q4K), then calls `dequant_model_weights()` which
+dequantizes per-layer and uploads to GPU immediately. Total: ~2 min for streaming
+dequant + upload vs ~20 min for full CPU dequant.
+
+**Fix: bypass Transformer, use OwnedQuantizedModel + WgslForwardPass directly.**
+
+```
+Current (slow):
+  .apr → Transformer::from_apr() [20 min CPU dequant] → F32 Tensors → wgpu upload
+
+Fixed (fast):
+  .apr → OwnedQuantizedModel [seconds, keeps Q4K] → dequant_model_weights()
+       → WgslForwardPass.upload_weight() [streaming, ~2 min] → GPU training
+```
+
+This requires `InstructPipeline` to accept `OwnedQuantizedModel` instead of
+building a `Transformer`. The `WgslForwardPass` handles the full forward pass
+on GPU — no `Transformer` object needed for the forward computation.
+
 ### 26.11.5 GPU-Only Backward: Saved Activations Design (from research)
 
 Based on PyTorch `derivatives.yaml`, Unsloth `fast_lora.py`, ggml backward graph,
