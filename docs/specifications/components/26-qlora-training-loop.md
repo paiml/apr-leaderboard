@@ -1009,6 +1009,74 @@ pieces are tested (3/3 parity, 375 GFLOPS). Just need to compose them.
 **Estimated effort:** Replace the CPU autograd block (steps 4-6) with ~50 lines of
 GPU dispatch calls. No new shaders needed. No new components needed.
 
+### 26.11.5 GPU-Only Backward: Saved Activations Design (from research)
+
+Based on PyTorch `derivatives.yaml`, Unsloth `fast_lora.py`, ggml backward graph,
+QVAC-fabric-llm.cpp, and Korthikanti et al. (MLSys 2023 "Reducing Activation
+Recomputation in Large Transformer Models", arxiv 2205.05198).
+
+**Minimum saved activations per transformer layer for LoRA backward:**
+
+| # | Tensor | Shape | Purpose |
+|---|--------|-------|---------|
+| 1 | `attn_norm_out` | [B, S, D] | Input to Q/K/V projections. For LoRA grad_A/grad_B. |
+| 2 | `attn_output` | [B, S, D] | Input to O projection. For LoRA grad on o_proj. |
+| 3 | `ffn_norm_out` | [B, S, D] | Input to gate/up. For LoRA grad on gate/up/down. |
+| 4 | `silu_gate_output` | [B, S, D_ffn] | SiLU(gate)×up = input to down_proj. For LoRA grad. |
+| 5 | `rstd_attn` | [B, S, 1] | RMSNorm reciprocal std. For RMSNorm backward. Tiny. |
+| 6 | `rstd_ffn` | [B, S, 1] | FFN RMSNorm reciprocal std. Tiny. |
+
+**Memory: ~232 MB/layer in FP32 (for 7B, batch=1, seq=2048). 28 layers = ~6.5 GB.**
+Fits easily in GB10's 119 GB unified memory.
+
+**Key insight from research:** The frozen base weights do NOT need saving for backward
+— they're read-only, already in memory. Dequantize NF4 on-the-fly during backward
+(same as Unsloth). LoRA A/B are trainable parameters, always in memory.
+
+**LoRA gradient formula (from Hu et al. 2021, verified in Unsloth):**
+```
+For h = W_base @ x + (x @ A) @ B * (α/r):
+  grad_B = ((x @ A)^T @ grad_output) * (α/r)    [rank, out_dim]
+  grad_A = (x^T @ (grad_output @ B^T)) * (α/r)  [in_dim, rank]
+  grad_x = grad_output @ W_base^T + (grad_output @ B^T @ A^T) * (α/r)
+```
+Both LoRA gradients need only `x` (saved activation) and the LoRA weights (in memory).
+
+**Backward pass order (mirrors forward in reverse):**
+```
+1. Fused CE backward → grad_logits (in-place, already done)
+2. lm_head backward: grad_hidden = grad_logits @ embed_weight^T
+3. For each layer L = 27..0:
+   a. Residual backward: grad splits to FFN path + residual
+   b. Down projection backward: grad_silu = grad @ W_down^T
+   c. SwiGLU backward: grad_gate, grad_up from saved silu_gate_output
+   d. Gate/Up backward: grad_ffn_norm = (grad_gate @ W_gate^T + grad_up @ W_up^T)
+   e. FFN RMSNorm backward: using saved rstd_ffn
+   f. Residual backward: grad splits to attention path + residual
+   g. O projection backward: grad_attn = grad @ W_o^T
+   h. [Attention backward: recompute Q,K from saved attn_norm_out for softmax grad]
+   i. Q/K/V backward: using saved attn_norm_out
+   j. Attention RMSNorm backward: using saved rstd_attn
+   k. Accumulate LoRA gradients for all 7 projections
+4. GPU AdamW step on all LoRA A/B weights
+
+### 26.11.6 Required Provable Contracts (from research)
+
+**17+ existing backward contracts verified.** 3 new contracts needed:
+
+| New Contract | Purpose | Falsification Test |
+|---|---|---|
+| `saved-activation-correctness-v1` | Cached activation == forward activation bit-identical | Corrupt one cached value, verify backward produces wrong gradient |
+| `lora-backward-formula-v1` | grad_A, grad_B match Hu et al. closed-form vs CPU reference | Swap A/B in formula, verify test catches it |
+| `residual-gradient-flow-v1` | dy/dx = I + d_sublayer/dx for residual connections | Remove residual identity path, verify gradient drops |
+
+**Already well-covered (no new contract needed):**
+- Backward GEMM transpose: `gemm-backward-tiled-v1` (10 falsification tests)
+- Fused CE backward: `fused-cross-entropy-v1`, `inplace-cross-entropy-v1`
+- SiLU/RMSNorm/RoPE backward: `wgpu-backward-training-v1` (6 GPU/CPU parity tests)
+- AdamW: `adamw-kernel-v1` (11 falsification tests, 14 Kani harnesses)
+- LoRA transpose chain: `lora-gradient-flow-v1` (3 tests passing)
+
 ### 26.11.2 End-to-End Training Verification
 
 **Status: COMPLETED on gx10 (pre-chunking run: ~5.5 hrs, 8.77M GPU matmuls, no crash)**
