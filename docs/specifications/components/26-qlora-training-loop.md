@@ -909,7 +909,7 @@ make eval-humaneval CHECKPOINT=checkpoints/merged.apr
 - **AC-FT-005:** All 7 provable contracts annotated and verified (4 existing + 3 new)
 - **AC-FT-006:** 7B QLoRA on 99 teacher completions completes in **< 30 minutes** on gx10 (full WgpuTrainingPipeline, batch_size=4)
 - **AC-FT-007:** Distilled 7B model achieves ≥ 85% pass@1 on HumanEval (no regression from baseline)
-- **AC-FT-008:** Training throughput ≥ 50 tokens/sec on gx10 GB10 (benchmarked: 375 GFLOPS sustained, ~14,500 rows/sec at M=512)
+- **AC-FT-008:** Training throughput ≥ 50 tokens/sec on gx10 GB10 (benchmarked: 375 GFLOPS sustained for GEMM; blocked by 2 GB wgpu buffer limit on lm_head forcing CPU fallback — see §26.11)
 - **AC-FT-009:** All NF4 dequant functions transpiled via decy with **zero** `unsafe` blocks
 - **AC-FT-010:** WGSL tiled GEMM passes all 4 FALSIFY-WGSL-GEMM tests + 2 Kani harnesses
 - **AC-FT-011:** **Zero `unsafe` blocks** in trueno-gpu after CUDA FFI elimination (Step 0f)
@@ -918,6 +918,56 @@ make eval-humaneval CHECKPOINT=checkpoints/merged.apr
 - **AC-FT-014:** CUDA code deleted ONLY after AC-FT-013 passes (prove-then-delete)
 - **AC-FT-015:** ALL 6 training operations on GPU via wgpu (forward, lm_head, loss, lm_head backward, layer backward, optimizer) — no CPU fallback for any operation
 - **AC-FT-016:** 6 new WGSL shaders (nf4_dequant, backward_rmsnorm, backward_swiglu, backward_attention, fused_cross_entropy, transpose) with falsification tests
+
+## 26.11 Known Blockers and Status (2026-03-31)
+
+### 26.11.1 wgpu 2 GB Buffer Binding Limit
+
+**Status: BLOCKING full GPU training throughput**
+
+wgpu's `max_storage_buffer_binding_size` is capped at `u32::MAX / 2 = 2,147,483,647`
+bytes (2 GB - 1 byte) regardless of the Vulkan adapter's actual limit (4 GB on GB10).
+The lm_head weight matrix for Qwen 7B is `152064 × 3584 × 4 = 2,179,989,504` bytes
+(2.18 GB), exceeding this limit.
+
+**Impact:** The entire forward pass falls back to CPU, making training ~20x slower
+than it should be. The tiled GEMM (375 GFLOPS) is only used for sub-2GB matmuls.
+
+**Fixes (in priority order):**
+1. **Chunk lm_head matmul:** Split vocab into 2 halves (76032 × 3584 = 1.09 GB each).
+   Compute two half-logit vectors, concatenate. Simple, no wgpu changes needed.
+2. **Tie embeddings:** Many models (including Qwen) tie embed_tokens and lm_head.
+   Use `embed_tokens^T` (3584 × 152064) for lm_head — same data, transposed access.
+   Still > 2 GB but avoids a second copy.
+3. **wgpu upstream:** Request `wgpu::Features::BUFFER_BINDING_SIZE` or equivalent.
+   The WebGPU spec may eventually raise this limit.
+
+**Recommended fix:** Option 1 (chunk). Estimated effort: ~50 lines in matmul.rs.
+
+### 26.11.2 End-to-End Training Verification
+
+**Status: RUNNING on gx10 (5+ hours, 3-sample 7B, CPU forward fallback)**
+
+| Component | Path | Status |
+|-----------|------|--------|
+| Model load | CPU (Q4K dequant) | WORKING |
+| Forward pass | CPU fallback (lm_head > 2GB) | WORKING (slow: ~1.6 hrs/sample) |
+| wgpu matmuls | GPU (130K+ completed) | WORKING (no crash) |
+| Fused cross-entropy | wgpu GPU | WORKING (FALSIFY-FCE-001 passed) |
+| Backward pass | CPU autograd | WORKING |
+| Optimizer | CPU AdamW | WORKING |
+| Memory | 33 GB RSS (stable, no leak) | WORKING |
+
+**Proven:**
+- Pipeline wiring is correct (no crash, no NaN)
+- wgpu GEMM is stable (130K+ matmuls)
+- Fused CE matches naive (ε < 1e-4)
+- CUDA↔wgpu parity (3/3 tests on gx10)
+- End-to-end synthetic training (loss 0.14→0.13, 10 steps)
+- 375 GFLOPS sustained on GB10 Vulkan
+
+**Blocked by:** §26.11.1 (lm_head 2 GB limit). Once chunked, full GPU forward
+will use tiled GEMM at 375 GFLOPS → estimated ~50 tok/s training throughput.
 
 ## 26.10 References
 

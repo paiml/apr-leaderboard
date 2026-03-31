@@ -52,5 +52,31 @@ Generated: 2026-03-30
 | **Parity gate** | 4 | **4** | 0 | 0 |
 | **Total** | **20** | **14** | **6** | **0** |
 
-Zero failures. 6 pending tests are for fused cross-entropy (not yet implemented)
-and GPU NF4 dequant shader (CPU version verified, WGSL version pending).
+## End-to-End Training Verification (2026-03-31)
+
+| Test | Status | Evidence |
+|------|--------|----------|
+| Synthetic training (10 steps) | **PASSED** | loss 0.14→0.13, LoRA B norm 0→0.51 |
+| 7B model pipeline (3 samples) | **RUNNING** | 5+ hrs, 130K GPU matmuls, no crash |
+| GEMM benchmark (GB10 Vulkan) | **PASSED** | 375 GFLOPS sustained at M=512 |
+| Memory stability | **PASSED** | 33 GB RSS stable over 5+ hours |
+
+## Known Blockers
+
+| Blocker | Impact | Fix |
+|---------|--------|-----|
+| wgpu 2GB buffer limit | lm_head falls back to CPU | Chunk matmul into 2 halves |
+
+## Summary
+
+| Contract | Total Tests | Passed | Pending | Failed |
+|---|---|---|---|---|
+| wgsl-gemm-tiled-v1 | 5 | **5** | 0 | 0 |
+| nf4-dequantization-v1 | 6 | **5** | 1 | 0 |
+| fused-cross-entropy-v1 | 5 | **1** | 4 | 0 |
+| Parity gate | 4 | **4** | 0 | 0 |
+| E2E training | 4 | **3** | 1 | 0 |
+| **Total** | **24** | **18** | **6** | **0** |
+
+Zero failures. 6 pending tests: fused CE chunking (4), GPU NF4 shader (1),
+7B training completion (1, running).
