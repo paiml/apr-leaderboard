@@ -967,26 +967,33 @@ This eliminates the per-call buffer overhead and enables the full 375 GFLOPS thr
 
 **Estimated speedup:** ~100x (from ~1.6 hrs/sample to ~1 min/sample)
 
-### 26.11.8 First PROFILE Results (2026-03-31)
+### 26.11.8 Final PROFILE Results (2026-03-31)
 
-**Training WORKS. Loss decreasing. 7B model, 3 samples, 1 epoch, 7 min total.**
+**315x speedup achieved. 5+ hours → 57 seconds. Loss correct.**
 
 ```
-Pipeline ready in 19.7s (fast path, no Transformer)
-Sample 1: loss=14.95  fwd=164ms  lm_head=189s  ce=67ms  bwd=4.4s  total=194s
-Sample 2: loss=14.71  fwd=59ms   lm_head=187s  ce=69ms  bwd=4.7s  total=192s
-Sample 3: loss=13.28  fwd=11ms   lm_head=10s   ce=37ms  bwd=3.4s  total=14s
-Training complete in 420.5s (7 min)
+Pipeline ready in 20.4s (OwnedQuantizedModel, no Transformer)
+Sample 1: loss=14.95  fwd=56ms  dl=10.3s  norm=4ms  gemm=83ms  ce=899ms  bwd=1.0s  total=12.3s
+Sample 2: loss=14.71  fwd=49ms  dl=9.9s   norm=4ms  gemm=68ms  ce=836ms  bwd=1.0s  total=11.9s
+Sample 3: loss=13.28  fwd=11ms  dl=2.9s   norm=0ms  gemm=7ms   ce=227ms  bwd=262ms total=3.4s
+Training complete in 57.6s
 ```
 
-**Bottleneck: lm_head+norm = 189s (97% of step time)**
+**KAIZEN optimization chain (8 root causes found and fixed):**
 
-Root cause: `dispatch_gemm` chunking downloads 2.18 GB lm_head from GPU to CPU,
-slices into chunks, re-uploads each chunk. The buffer IS already on GPU
-(`lm_head_t_gpu`) — the CPU roundtrip is unnecessary.
+| # | Root cause (five-whys) | Fix | Impact |
+|---|---|---|---|
+| 1 | CPU autograd replays entire forward | Saved activations, GPU-only backward | 5+ hrs → 7 min |
+| 2 | Transformer::from_apr() 28GB CPU dequant | OwnedQuantizedModel → GPU direct | 20 min → 19s init |
+| 3 | WgpuTrainer used 16×16 MATMUL_SHADER | Switch to 64×64 TILED_GEMM_SHADER | 20x GEMM |
+| 4 | 1024 copy_buffer_to_buffer per step | WGSL scatter/gather shaders | 1 dispatch |
+| 5 | Attention 3-pass QK^T recomputation | Store scores in shared memory | 7 min → 69s |
+| 6 | Attention @workgroup_size(1) sequential | 128 threads parallel dot+V sum | 69s → 57s |
+| 7 | 2GB wgpu buffer limit on lm_head | Pre-chunk at init, scatter on GPU | No crash |
+| 8 | Per-step lm_head buffer allocation | Pre-upload at init, reuse | -2s/step |
 
-Fix: use `encoder.copy_buffer_to_buffer` with byte offsets to extract GPU-side
-sub-buffers, avoiding the 4 GB PCIe roundtrip per step.
+**Remaining bottleneck:** GPU attention = 10.3s per step (28 layers × 370ms).
+Sequential loop over seq positions per head. Next: Flash Attention tiling.
 
 ### 26.11.4 CPU Autograd Backward Negates GPU Forward (2026-03-31)
 
