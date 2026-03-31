@@ -1040,6 +1040,83 @@ This requires `InstructPipeline` to accept `OwnedQuantizedModel` instead of
 building a `Transformer`. The `WgslForwardPass` handles the full forward pass
 on GPU — no `Transformer` object needed for the forward computation.
 
+**Implementation (no SATD / no TODO):**
+
+```rust
+// In aprender/crates/apr-cli/src/commands/finetune.rs:
+// Complete path — no fallback, no TODO, no SATD.
+
+// 1. Load Q4K model (seconds, keeps quantized)
+let mapped = MappedAprModel::from_path(model_path)?;
+let q_model = OwnedQuantizedModel::from_apr(&mapped)?;
+
+// 2. Create WgslForwardPass + upload weights (streaming dequant, ~2 min)
+let gpu = GpuDevice::new()?;
+let mut fwd = WgslForwardPass::new(gpu.device, gpu.queue, ...);
+let weights = dequant_model_weights(&q_model)?;
+for (name, data, _, _) in weights {
+    fwd.upload_weight(&name, &data);
+}
+
+// 3. Create InstructPipeline from WgslForwardPass (NEW constructor)
+//    No Transformer::from_apr(). No CPU F32 tensors. No 20-min load.
+let pipeline = InstructPipeline::from_wgsl_forward(fwd, tokenizer, instruct_config)?;
+
+// 4. Train
+let trainer = InstructTrainer::new(pipeline, samples, train_config);
+trainer.train();
+```
+
+**New constructor in entrenar:**
+
+```rust
+/// §26.11.7: Create pipeline from pre-uploaded GPU weights.
+/// No Transformer object. No CPU F32 tensors. All forward/backward on GPU.
+///
+/// Contract: qlora-training-loop-v1 / lora_forward_wgsl
+#[provable_contracts_macros::contract(
+    "qlora-training-loop-v1", equation = "lora_forward_wgsl"
+)]
+pub fn from_wgsl_forward(
+    fwd: WgslForwardPass,
+    tokenizer: Tokenizer,
+    config: InstructConfig,
+    model_config: TransformerConfig,
+) -> Result<Self> {
+    // WgslForwardPass IS the model. No Transformer needed.
+    // LoRA adapters created and uploaded to GPU.
+    // Optimizer states allocated on GPU.
+    // Tokenizer for prompt/response encoding.
+}
+```
+
+**Provable contract: `wgsl-training-pipeline-v1`**
+
+```yaml
+equations:
+  fast_load:
+    formula: "load_time(from_wgsl_forward) < load_time(from_apr) / 5"
+    invariants:
+      - "Q4K model stays quantized until GPU dequant"
+      - "No F32 CPU tensor allocation for projection weights"
+      - "Streaming dequant: one layer at a time, not all 28"
+  no_transformer:
+    formula: "from_wgsl_forward does not construct Transformer"
+    invariants:
+      - "No Transformer::from_apr() call"
+      - "No Transformer::from_safetensors() call"
+      - "Forward pass via WgslForwardPass only"
+falsification_tests:
+  - id: FALSIFY-WGSL-PIPE-001
+    rule: Fast load
+    prediction: "from_wgsl_forward loads 7B model in < 5 min on GB10"
+    test: "Measure wall time, compare with from_apr (~20 min)"
+  - id: FALSIFY-WGSL-PIPE-002
+    rule: No SATD
+    prediction: "grep -r 'TODO\|FIXME\|HACK\|workaround' in from_wgsl_forward = 0"
+    test: "Static analysis"
+```
+
 ### 26.11.5 GPU-Only Backward: Saved Activations Design (from research)
 
 Based on PyTorch `derivatives.yaml`, Unsloth `fast_lora.py`, ggml backward graph,
