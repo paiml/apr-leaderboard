@@ -946,7 +946,12 @@ than it should be. The tiled GEMM (375 GFLOPS) is only used for sub-2GB matmuls.
 
 ### 26.11.2 End-to-End Training Verification
 
-**Status: RUNNING on gx10 (5+ hours, 3-sample 7B, CPU forward fallback)**
+**Status: COMPLETED on gx10 (pre-chunking run: ~5.5 hrs, 8.77M GPU matmuls, no crash)**
+
+The pre-chunking run completed successfully with CPU forward fallback:
+- 8,770,000 GPU matmuls over ~5.5 hours — zero crashes, zero NaN
+- Training loss output not captured (tail truncation), but process exited cleanly
+- New run with chunked lm_head GPU matmul in progress
 
 | Component | Path | Status |
 |-----------|------|--------|
