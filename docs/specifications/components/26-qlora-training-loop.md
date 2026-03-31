@@ -967,6 +967,48 @@ This eliminates the per-call buffer overhead and enables the full 375 GFLOPS thr
 
 **Estimated speedup:** ~100x (from ~1.6 hrs/sample to ~1 min/sample)
 
+### 26.11.4 CPU Autograd Backward Negates GPU Forward (2026-03-31)
+
+**Status: BLOCKING — current design flaw**
+
+The current `wgpu_train_step` does:
+1. GPU forward via `WgslForwardPass` — **fast** (~seconds)
+2. GPU fused cross-entropy — **fast** (milliseconds)
+3. GPU fused CE backward → grad_logits — **fast** (milliseconds)
+4. **CPU `model.forward()` for autograd** — **SLOW** (~1.6 hrs/sample on 7B ARM)
+5. CPU autograd backward — slow
+6. CPU optimizer — fast
+
+Step 4 negates the GPU forward speedup entirely. The CPU `model.forward()` exists
+only to build the autograd graph needed for `backward()`. This is a design flaw:
+the training loop should be **entirely GPU**, not GPU forward + CPU backward.
+
+**Root cause:** entrenar's autograd is tape-based (CPU). To compute LoRA gradients,
+it needs to replay the forward pass through autograd. The GPU forward
+(`WgslForwardPass`) doesn't build an autograd graph — it's stateless.
+
+**Fix: eliminate CPU autograd entirely.** Replace steps 4-6 with:
+
+```
+4. GPU lm_head backward: grad_hidden = grad_logits @ embed_weight   (WGSL tiled GEMM)
+5. GPU backward through 28 layers via WgslBackwardPass              (already built)
+   → LoRA gradients computed on GPU
+6. GPU AdamW via WgpuTrainer::adamw_step                            (already built)
+```
+
+All components exist:
+- `WgslBackwardPass` (`0e548e7e`) — backward through transformer layers
+- `WgpuTrainer::matmul_backward` (`dae8a812`) — backward GEMM
+- `WgpuTrainer::adamw_step` (`dae8a812`) — GPU optimizer
+- `WgslCrossEntropy::backward` (`fed3f0ff`) — in-place grad_logits
+
+**What's missing:** Wiring the backward output (grad_logits) through lm_head backward
+→ WgslBackwardPass → WgpuTrainer::adamw_step in `wgpu_train_step`. The individual
+pieces are tested (3/3 parity, 375 GFLOPS). Just need to compose them.
+
+**Estimated effort:** Replace the CPU autograd block (steps 4-6) with ~50 lines of
+GPU dispatch calls. No new shaders needed. No new components needed.
+
 ### 26.11.2 End-to-End Training Verification
 
 **Status: COMPLETED on gx10 (pre-chunking run: ~5.5 hrs, 8.77M GPU matmuls, no crash)**
