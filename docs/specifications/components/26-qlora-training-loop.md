@@ -967,6 +967,27 @@ This eliminates the per-call buffer overhead and enables the full 375 GFLOPS thr
 
 **Estimated speedup:** ~100x (from ~1.6 hrs/sample to ~1 min/sample)
 
+### 26.11.8 First PROFILE Results (2026-03-31)
+
+**Training WORKS. Loss decreasing. 7B model, 3 samples, 1 epoch, 7 min total.**
+
+```
+Pipeline ready in 19.7s (fast path, no Transformer)
+Sample 1: loss=14.95  fwd=164ms  lm_head=189s  ce=67ms  bwd=4.4s  total=194s
+Sample 2: loss=14.71  fwd=59ms   lm_head=187s  ce=69ms  bwd=4.7s  total=192s
+Sample 3: loss=13.28  fwd=11ms   lm_head=10s   ce=37ms  bwd=3.4s  total=14s
+Training complete in 420.5s (7 min)
+```
+
+**Bottleneck: lm_head+norm = 189s (97% of step time)**
+
+Root cause: `dispatch_gemm` chunking downloads 2.18 GB lm_head from GPU to CPU,
+slices into chunks, re-uploads each chunk. The buffer IS already on GPU
+(`lm_head_t_gpu`) — the CPU roundtrip is unnecessary.
+
+Fix: use `encoder.copy_buffer_to_buffer` with byte offsets to extract GPU-side
+sub-buffers, avoiding the 4 GB PCIe roundtrip per step.
+
 ### 26.11.4 CPU Autograd Backward Negates GPU Forward (2026-03-31)
 
 **Status: BLOCKING — current design flaw**
