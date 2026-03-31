@@ -995,6 +995,42 @@ Training complete in 57.6s
 **Remaining bottleneck:** GPU attention = 10.3s per step (28 layers × 370ms).
 Sequential loop over seq positions per head. Next: Flash Attention tiling.
 
+### 26.11.9 LoRA Weight Updates — Contract-First Design
+
+**Status: NEXT — training computes loss but doesn't update LoRA weights.**
+
+**Governing contracts:**
+- `lora-algebra-v1 / lora_shape`: A[in, rank], B[rank, out]
+- `wgpu-production-training-v1 / C-WGPU-LORA-BWD-001`:
+  - `dL/dB = (α/r) * grad_output^T @ (saved_input @ A)` [rank, out]
+  - `dL/dA = (α/r) * saved_input^T @ (grad_output @ B^T)` [in, rank]
+- `adamw-kernel-v1 / weight_update`: decoupled weight decay
+- `lora-gradient-flow-v1`: B_norm > 0 after step 1 (B starts at zero)
+
+**Per layer, per projection (7 projections × 28 layers = 196 updates per step):**
+
+```
+For projection P with saved_input X[seq, in_dim] and grad_output G[seq, out_dim]:
+  XA = X @ A                        [seq, rank]  — matmul_forward
+  dB = (α/r) * XA^T @ G             [rank, out]  — matmul_backward
+  dA = (α/r) * X^T @ (G @ B^T)      [in, rank]  — matmul_backward
+
+  A = AdamW(A, dA, m_A, v_A, lr, step)
+  B = AdamW(B, dB, m_B, v_B, lr, step)
+```
+
+**Falsification tests (from contracts):**
+- FALSIFY-LORA-UPD-001: B_norm > 0 after step 1 (was zero-initialized)
+- FALSIFY-LORA-UPD-002: dL/dA and dL/dB match CPU reference within ε < 1e-3
+- FALSIFY-LORA-UPD-003: loss at step N < loss at step 0 (training makes progress)
+- FALSIFY-LORA-UPD-004: base weights unchanged after step (frozen)
+
+**Implementation (all via WgpuTrainer, zero unsafe):**
+- LoRA A/B stored as wgpu::Buffer per projection per layer
+- AdamW m/v states as wgpu::Buffer (6 buffers per projection × 7 × 28 = 1176 buffers)
+- Gradient computation: 4 matmul_forward calls per projection per layer
+- AdamW step: WgpuTrainer::adamw_step (existing WGSL kernel)
+
 ### 26.11.4 CPU Autograd Backward Negates GPU Forward (2026-03-31)
 
 **Status: BLOCKING — current design flaw**
