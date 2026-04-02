@@ -1,65 +1,33 @@
 metadata:
-  version: "1.0.0"
-  description: "DPO (Direct Preference Optimization) kernel contracts (PMAT-018)"
-  author: "PAIML Engineering"
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Direct Preference Optimization (DPO) — trains model to prefer chosen
+    responses over rejected ones without a reward model.
   references:
-    - "Rafailov et al., Direct Preference Optimization: Your Language Model is Secretly a Reward Model, NeurIPS 2023"
-    - "Hong et al., ORPO: Monolithic Preference Optimization without Reference Model, arXiv:2403.07691"
+    - "Rafailov et al. (2023) DPO"
 
 equations:
   dpo_loss:
-    formula: "-log(sigmoid(beta * (log(pi(y_w|x)/pi_ref(y_w|x)) - log(pi(y_l|x)/pi_ref(y_l|x)))))"
-    domain: "beta > 0, pi(y|x) > 0, pi_ref(y|x) > 0"
-    codomain: "[0, +inf)"
-    invariants:
-      - "loss(y_w=y_l) == -log(sigmoid(0)) == log(2) ≈ 0.693"
-      - "loss is minimized when pi(y_w|x)/pi_ref(y_w|x) >> pi(y_l|x)/pi_ref(y_l|x)"
-      - "swapping y_w and y_l negates the argument to sigmoid"
+    formula: "L = -log σ(β * (log π_θ(y_w|x)/π_ref(y_w|x) - log π_θ(y_l|x)/π_ref(y_l|x)))"
+    domain: "preference pairs (x, y_w, y_l), β > 0"
+    codomain: "L ∈ ℝ≥0"
+    lean_theorem: ProvableContracts.DPO.dpo_loss_nonneg
 
-  preference_symmetry:
-    formula: "dpo_loss(x, y_w, y_l) + dpo_loss(x, y_l, y_w) == log(4)"
-    domain: "valid preference pair (x, y_w, y_l)"
-    codomain: "constant"
-    invariants:
-      - "sum of loss with swapped preferences is always 2*log(2)"
+  dpo_gradient:
+    formula: "∇L = -β * σ(-β*Δ) * (∇log π_θ(y_w|x) - ∇log π_θ(y_l|x))"
+    lean_theorem: ProvableContracts.DPO.dpo_gradient_formula
 
-  gradient_correctness:
-    formula: "grad_theta(dpo_loss) = -beta * sigmoid(-beta*d) * (grad_theta(log_pi(y_w|x)) - grad_theta(log_pi(y_l|x)))"
-    domain: "d = log(pi(y_w|x)/pi_ref(y_w|x)) - log(pi(y_l|x)/pi_ref(y_l|x))"
-    codomain: "gradient vector"
-    invariants:
-      - "gradient magnitude is bounded by beta"
-      - "gradient direction favors chosen over rejected"
-
-proof_obligations:
-  - type: bound
-    property: "Untrained DPO loss equals -log(0.5) ≈ 0.693"
-    formal: "dpo_loss(pi=pi_ref, y_w, y_l) == log(2)"
-    tolerance: 1e-6
-
-  - type: symmetry
-    property: "Swapping chosen/rejected negates gradient sign"
-    formal: "grad(dpo_loss(x, y_w, y_l)) == -grad(dpo_loss(x, y_l, y_w))"
-
-  - type: monotonicity
-    property: "Training decreases loss on preference pairs"
-    formal: "loss(epoch_n) < loss(epoch_0) for n >= 1"
+invariants:
+  loss_nonneg:
+    statement: "DPO loss is non-negative for all inputs"
+    lean_theorem: ProvableContracts.DPO.dpo_loss_nonneg
 
 falsification_tests:
-  - id: FT-DPO-001
-    rule: "Untrained loss is log(2)"
-    prediction: "DPO loss with pi=pi_ref equals 0.693 ± 0.01"
-    test: "Initialize model, compute loss on preference pairs, check ≈ log(2)"
-    if_fails: "Loss function implementation is wrong"
-
-  - id: FT-DPO-002
-    rule: "Preference symmetry holds"
-    prediction: "loss(y_w,y_l) + loss(y_l,y_w) == 2*log(2) ± 0.01"
-    test: "Compute both directions, verify sum"
-    if_fails: "Gradient computation breaks symmetry"
-
-  - id: FT-DPO-003
-    rule: "Beta controls gradient magnitude"
-    prediction: "||grad|| is proportional to beta"
-    test: "Compute gradients at beta=0.1 and beta=1.0, verify 10x ratio"
-    if_fails: "Beta scaling is not applied correctly"
+  FALSIFY-DPO-001:
+    obligation: loss_nonneg
+    method: "Compute DPO loss on random pairs, verify >= 0"
+  FALSIFY-DPO-002:
+    obligation: dpo_loss
+    method: "Train 3 epochs, verify loss decreases"

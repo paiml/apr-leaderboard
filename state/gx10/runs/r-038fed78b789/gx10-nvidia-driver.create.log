@@ -1,0 +1,22 @@
+=== FORJAR TRANSPORT LOG ===
+resource: gx10-nvidia-driver
+type: unknown
+action: create
+machine: gx10
+transport: transport
+started: 2026-03-25T07:02:53Z
+script_hash: blake3:af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262
+
+=== SCRIPT ===
+
+
+=== STDOUT ===
+
+=== STDERR ===
+E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 1366325 (apt-get)
+E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), is another process using it?
+
+=== RESULT ===
+exit_code: 100
+duration_secs: 3.585
+finished: 2026-03-25T07:02:53Z

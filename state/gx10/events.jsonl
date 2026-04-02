@@ -1,0 +1,4 @@
+{"ts":"2026-03-25T07:02:49Z","event":"apply_started","machine":"gx10","run_id":"r-038fed821d85","forjar_version":"1.2.1","operator":"noah@noah-Lambda-Vector","config_hash":"blake3:376c7099ad3dae65654da1185bfeeca88c9bb10d6cb0474387c347f965be8259","param_count":1}
+{"ts":"2026-03-25T07:02:49Z","event":"resource_started","machine":"gx10","resource":"gx10-nvidia-driver","action":"CREATE"}
+{"ts":"2026-03-25T07:02:53Z","event":"resource_failed","machine":"gx10","resource":"gx10-nvidia-driver","error":"exit code 100: E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 1366325 (apt-get)\nE: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), is another process using it?"}
+{"ts":"2026-03-25T07:02:53Z","event":"apply_completed","machine":"gx10","run_id":"r-038fed821d85","resources_converged":0,"resources_unchanged":0,"resources_failed":1,"total_seconds":3.6672853720000003}

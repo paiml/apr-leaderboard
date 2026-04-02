@@ -1,0 +1,38 @@
+metadata:
+  version: 1.0.0
+  created: 2026-04-01
+  author: PAIML
+  description: >
+    GPU transpose shader — replaces CPU download/transpose/upload in LoRA backward.
+    Keeps transposed matrices on GPU, eliminating 196 CPU roundtrips per training step.
+  references:
+    - "KAIZEN: LoRA backward bwd=2.3-5.2s, dominated by CPU transpose roundtrips"
+
+equations:
+  transpose:
+    formula: "B[j, i] = A[i, j] for all i ∈ [0,M), j ∈ [0,N)"
+    domain: "A ∈ ℝ^{M×N} (row-major)"
+    codomain: "B ∈ ℝ^{N×M} (row-major)"
+    invariants:
+      - "B[j * M + i] = A[i * N + j]"
+      - "||B||_F = ||A||_F (Frobenius norm preserved)"
+
+  scaled_transpose:
+    formula: "B[j, i] = scale * A[i, j]"
+    domain: "A ∈ ℝ^{M×N}, scale ∈ ℝ"
+    codomain: "B ∈ ℝ^{N×M}"
+    invariants:
+      - "||B||_F = |scale| * ||A||_F"
+
+invariants:
+  gpu_resident:
+    statement: "Transpose stays on GPU — no CPU download/upload roundtrip"
+
+  parity:
+    statement: "|B_gpu[j,i] - scale * A[i,j]| < 1e-6 for all i,j"
+
+falsification_tests:
+  FALSIFY-TRANSPOSE-001:
+    obligation: parity
+    method: "Upload A, GPU transpose, download B, compare with CPU transpose"
+    pass_criterion: "max error < 1e-6, norms match"

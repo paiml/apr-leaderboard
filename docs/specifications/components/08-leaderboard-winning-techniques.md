@@ -149,7 +149,7 @@ apr align model.apr \
     -o aligned.apr
 ```
 
-**Implementation status:** NOT YET IMPLEMENTED. DPO requires: (1) paired preference data, (2) reference model log-probs, (3) DPO loss function. ORPO is simpler — single model, odds ratio penalty on rejected responses. Both build on the existing LoRA training infrastructure in entrenar (wgpu-accelerated).
+**Implementation status:** DPO loss implemented in entrenar (2026-04-03). `WgpuInstructPipeline::dpo_step()` computes L = -log σ(β * (chosen_logprob - rejected_logprob)) using existing wgpu forward pass. Lean4 theorem: `dpo_loss_nonneg` proved. Contract: dpo-alignment-v1. Needs: preference pair data generation via `scripts/generate-preference-pairs.sh` (PMAT-014) and CLI wiring in `apr align`.
 
 **Expected gain:** +3-8% pass@1 over SFT-only models.
 

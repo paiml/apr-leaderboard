@@ -1,0 +1,38 @@
+metadata:
+  version: 1.0.0
+  created: 2026-04-01
+  author: PAIML
+  description: >
+    End-to-end LoRA fine-tuning evaluation — train on coding data,
+    merge adapter, evaluate on HumanEval pass@1.
+  references:
+    - "Chen et al. (2021) Evaluating Large Language Models Trained on Code"
+    - "Dettmers et al. (2023) QLoRA"
+
+invariants:
+  training_convergence:
+    statement: "avg_loss(epoch_N) < avg_loss(epoch_1) for N >= 2"
+
+  adapter_merge:
+    statement: "merged_weight = base_weight + (α/r) * A @ B"
+    rationale: "Standard LoRA merge formula"
+
+  eval_parity:
+    statement: "pass@1(merged) >= pass@1(base) - 2pp"
+    rationale: "Fine-tuning should not degrade significantly vs base model"
+
+falsification_tests:
+  FALSIFY-EVAL-001:
+    obligation: training_convergence
+    method: "Train N epochs, verify avg_loss decreases"
+    pass_criterion: "avg_loss(last_epoch) < avg_loss(first_epoch)"
+
+  FALSIFY-EVAL-002:
+    obligation: adapter_merge
+    method: "Export adapter, merge, verify output file is valid .apr"
+    pass_criterion: "apr validate merged.apr passes"
+
+  FALSIFY-EVAL-003:
+    obligation: eval_parity
+    method: "Run HumanEval on merged model, compare to base 85.37%"
+    pass_criterion: "pass@1 >= 83%"

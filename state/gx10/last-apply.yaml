@@ -1,0 +1,13 @@
+machine: gx10
+resources_converged: 0
+resources_unchanged: 0
+resources_failed: 1
+total_duration: 3.667301907
+resource_reports:
+- resource_id: gx10-nvidia-driver
+  resource_type: package
+  status: failed
+  duration_seconds: 3.585045151
+  exit_code: null
+  hash: null
+  error: null

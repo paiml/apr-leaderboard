@@ -1,0 +1,14 @@
+schema: '1.0'
+machine: gx10
+hostname: gx10
+generated_at: 2026-03-25T07:02:53Z
+generator: forjar 1.2.1
+blake3_version: '1.8'
+resources:
+  gx10-nvidia-driver:
+    type: package
+    status: failed
+    applied_at: 2026-03-25T07:02:53Z
+    duration_seconds: 3.585045151
+    hash: ''
+    details: {}

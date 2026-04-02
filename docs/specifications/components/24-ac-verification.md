@@ -181,16 +181,20 @@ Existing checks: merge-without-finetune, finetune-after-prune, distill-after-fin
 
 **Completed (17 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 56 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based), **wgpu batch fix (GH-560: FFN buffer overflow + KV cache length)**, **distillation data generation (99/99 teacher completions)**, **wgpu batch HumanEval (84.15%, first GPU eval)**.
 
-**Blockers:**
-- `apr finetune` training loop is a stub — adapter creation works but `execute_training()` doesn't call entrenar. Spec: §26. Bridge implementation needed in aprender.
+**Completed (2026-04-03):**
+- `apr finetune` → wgpu QLoRA training fully operational (§26, 13 KAIZEN fixes)
+- 99 samples × 3 epochs in 39 min on gx10 (GPU-compute-bound at 592 GFLOPS)
+- Loss: 16.93 → 15.93 (decreasing), adapter export + merge + inference verified
+- 31/31 provable contracts implemented, 5 Lean4 theorems, 0 pending
+- ndarray removed (sovereign-tensor-v1), wgpu upgraded 27→29
+- Cooperative matrix WGSL shader written (naga SPIR-V bug blocks execution)
 
 **Next steps:**
 
 | Priority | Action | Expected Gain | Dependency |
 |----------|--------|---------------|------------|
-| 1 | Wire `apr finetune` → entrenar training loop | Enables QLoRA training | §26 bridge implementation |
-| 2 | MBPP Intel re-eval | Push past 80% AC-022 gate | Running (~4h remaining) |
-| 3 | BigCodeBench eval | First real score | Intel, uv + 52 pip deps |
-| 4 | DPO alignment | +2-4pp on HE+ | `apr align` + preference data |
-| 5 | HumanEval+ eval | AC-022 gate | EvalPlus harness |
-| 6 | CUDA FP32 fix (GH-561) | GPU parity | FP64 PTX builder in trueno |
+| 1 | DPO alignment (`apr align`) | +2-4pp on HE+ | Preference data (PMAT-014) |
+| 2 | BigCodeBench eval | First real score | Intel, uv + 52 pip deps |
+| 3 | HumanEval eval on fine-tuned model | Validate training quality | Re-quantize merged model |
+| 4 | Cooperative matrix GEMM | AC-FT-006 (39→30 min) | naga SPIR-V bug fix |
+| 5 | LiveCodeBench eval | Fresh benchmark, no contamination | Sandbox setup |

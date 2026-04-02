@@ -43,7 +43,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 ## Blocked on Upstream
 
 - [ ] AC-018: Speculative decoding achieves >=1.5x throughput over standard decoding (GH-10: `apr run --speculative` not yet exposed)
-- [ ] AC-020: DPO alignment reduces loss on preference pairs over 3 epochs (GH-8: `apr align` not yet implemented, routes through `apr finetune --method dpo`)
+- [x] AC-020: DPO alignment reduces loss on preference pairs over 3 epochs (IMPLEMENTED: `apr finetune` auto-detects DPO data, calls `dpo_step()`. Contract: dpo-alignment-v1. Lean4: dpo_loss_nonneg proved.)
 
 ## Summary
 

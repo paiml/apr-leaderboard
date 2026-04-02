@@ -1,0 +1,54 @@
+metadata:
+  version: 1.0.0
+  created: 2026-04-01
+  author: PAIML
+  description: >
+    GPU-resident output normalization — eliminates CPU roundtrip for the final
+    RMSNorm before lm_head projection. The hidden state stays on GPU from
+    forward pass through lm_head GEMM, avoiding a 44-second download on GB10.
+  references:
+    - "Zhang & Sennrich (2019) Root Mean Square Layer Normalization"
+    - "KAIZEN root cause: download_hidden blocks 44s waiting for forward GPU work"
+  depends_on:
+    - wgsl-gemm-tiled-v1
+
+equations:
+  rmsnorm_output:
+    formula: "normed[i,j] = hidden[i,j] / sqrt(mean(hidden[i,:]²) + ε) * weight[j]"
+    domain: "hidden ∈ ℝ^{seq×dim}, weight ∈ ℝ^dim, ε = 1e-6"
+    codomain: "normed ∈ ℝ^{seq×dim}"
+    invariants:
+      - "Per-row normalization: each row normalized independently"
+      - "Weight scaling: element-wise multiplication with learned weight"
+      - "Epsilon prevents division by zero for zero-norm rows"
+
+invariants:
+  gpu_resident:
+    statement: "Hidden state never leaves GPU between forward pass and lm_head GEMM"
+    rationale: "Eliminates 44s download + 3ms CPU norm + upload roundtrip"
+    verification: "No download_hidden() call in the forward→lm_head path"
+
+  parity:
+    statement: "|normed_gpu[i,j] - normed_cpu[i,j]| < 1e-4 for all i,j"
+    rationale: "GPU RMSNorm must match CPU reference (f32 precision)"
+    verification: "FALSIFY-GPU-NORM-001: download and compare on first step"
+
+  norm_weight_persistent:
+    statement: "Output norm weights uploaded once at init, not per step"
+    rationale: "Weight buffer is constant during training — no per-step upload"
+
+falsification_tests:
+  FALSIFY-GPU-NORM-001:
+    obligation: parity
+    method: "Download GPU normed output, compare with CPU RMSNorm reference"
+    pass_criterion: "max |gpu - cpu| < 1e-4"
+
+  FALSIFY-GPU-NORM-002:
+    obligation: gpu_resident
+    method: "Grep for download_hidden in train_step forward→lm_head path"
+    pass_criterion: "Zero occurrences"
+
+  FALSIFY-GPU-NORM-003:
+    obligation: rmsnorm_output
+    method: "Verify normed output has unit-scale per row (within weight scaling)"
+    pass_criterion: "||normed[i,:]||² / dim ≈ mean(weight²) for all i"

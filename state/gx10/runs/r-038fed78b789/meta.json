@@ -1,0 +1,25 @@
+{
+  "run_id": "r-038fed78b789",
+  "machine": "gx10",
+  "command": "apply",
+  "generation": null,
+  "operator": null,
+  "started_at": null,
+  "finished_at": null,
+  "duration_secs": null,
+  "resources": {
+    "gx10-nvidia-driver": {
+      "action": "converged",
+      "exit_code": 100,
+      "duration_secs": 3.585045151,
+      "failed": true
+    }
+  },
+  "summary": {
+    "total": 1,
+    "converged": 0,
+    "noop": 0,
+    "failed": 1,
+    "skipped": 0
+  }
+}

@@ -9,7 +9,7 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | Make Target | Script/Command | Status | Notes |
 |---|---|---|---|
 | `make import` | `apr import hf://$(MODEL) -o $(CHECKPOINT)` | ✅ Working | Real HF download, GGUF and SafeTensors paths |
-| `make finetune` | `apr finetune $(CHECKPOINT) --method lora ...` | ✅ Working | LoRA/QLoRA via entrenar, CUDA training verified on gx10 (GH-561 backward GEMM f64 fix) |
+| `make finetune` | `apr finetune $(CHECKPOINT) --method lora ...` | ✅ Working | wgpu QLoRA (592 GFLOPS), SFT + DPO auto-detect, adapter export, 13 KAIZEN fixes |
 | `make merge` | `apr merge $(MODELS) --strategy slerp ...` | ✅ Wired | SLERP/TIES/DARE/Linear |
 | `make prune` | `apr prune $(CHECKPOINT) --method wanda ...` | ✅ Wired | Wanda/magnitude pruning |
 | `make quantize` | `apr quantize $(CHECKPOINT) --scheme int4 ...` | ✅ Wired | INT4/INT8/Q4K/Q5K/Q6K |

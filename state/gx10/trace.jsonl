@@ -1,0 +1,1 @@
+{"trace_id":"0000000000000000e25ff637833a463e","span_id":"a819a27e7a16a29e","parent_span_id":"b1f2c3a9b38fca71","name":"apply:gx10-nvidia-driver","start_time":"2026-03-25T07:02:53Z","duration_us":3585554,"exit_code":1,"resource_type":"package","machine":"gx10","action":"create","content_hash":null,"logical_clock":1}

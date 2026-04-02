@@ -1,0 +1,24 @@
+metadata:
+  version: 1.0.0
+  created: 2026-04-01
+  author: PAIML
+  description: >
+    Forward pass performance characterization — per-operation GPU timing within
+    a single transformer layer. Identifies which operations dominate the 1.7s/layer.
+  references:
+    - "KAIZEN: 28 layers × 1.7s = 47s forward pass, 140 GFLOPS (37% of 375 peak)"
+
+invariants:
+  arithmetic_bound:
+    statement: "Forward pass time >= total_flops / peak_gflops"
+    rationale: "Cannot exceed hardware throughput limit"
+
+  bottleneck_identified:
+    statement: "Top operation accounts for >= 50% of per-layer time"
+    rationale: "Optimization should target the largest contributor"
+
+falsification_tests:
+  FALSIFY-PERF-001:
+    obligation: bottleneck_identified
+    method: "Per-operation timing within encode_forward_layer_training on first layer"
+    pass_criterion: "Report shows which operation takes most time"
