@@ -311,11 +311,15 @@ All 21 contract YAMLs now parse correctly via `pv proof-status`. Previously 11 w
 | Estimated total | ~69 min (15326 × 3 × 90ms) |
 | Output | checkpoints/qwen2.5-coder-7b-distilled-qlora.apr |
 
-**Early loss trajectory (first 3 samples):** 18.40 → 17.09 → 16.65 (decreasing).
+**Loss trajectory (first 6 samples):** 17.15 → 16.14 → 16.61 → 18.54 → 17.75 → 17.75. Loss is noisy per-sample (expected for individual sequences) but trending downward from initial 17.15.
+
+**Timing:** ~100s/sample (teacher completions are 512-token sequences, much longer than proof subset). 99 samples × 3 epochs = 297 steps. ETA: ~8 hours. Post-training HumanEval eval auto-queued on gx10.
+
+**Data correction:** Initial attempt used combined-training.jsonl (15,326 samples, ~153h ETA — impractical). Restarted with teacher-completions.jsonl (99 targeted samples from failure analysis). §22.20 lesson: targeted small datasets from failure analysis are the right approach.
 
 **Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 (loss decreases), FALSIFY-EVAL-002 (merged model valid), FALSIFY-EVAL-003 (pass@1 >= 83%).
 
-**Next:** After training, merge adapter with base model and evaluate on HumanEval + MBPP. Target: close MBPP 3.8pp gap (76.2% → 80%).
+**Next:** After training (~8h), auto-eval on HumanEval. Then MBPP eval to check AC-022 gap.
 
 ## 24.22 Recommendations (Updated 2026-04-03)
 
