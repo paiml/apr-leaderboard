@@ -132,7 +132,7 @@ Current: 76.2% → Target: 80.0%
 
 **Status (2026-04-03 18:39):** GH-580 merge fix VERIFIED. Additionally, LoRA merge had a **critical bug** — element-wise multiply instead of matrix multiply (Hadamard product instead of GEMM). Five-whys traced to a "simplified" comment in merge engine. Fix: proper triple-loop GEMM computing B^T @ A^T with d_in/d_out inferred from flat arrays + rank. Fix deployed to gx10. **All previous merged models (v1, v2) are invalid** — must re-merge with corrected binary.
 
-**Next step:** Re-merge distilled model after PMAT-014 N-sampling completes (to avoid OOM on gx10). Then quantize to Q4K and eval on HumanEval + MBPP.
+**Next step:** Re-merge distilled model after PMAT-014 N-sampling completes. Merge OOM-killed twice on gx10 (49 GB peak + 18 GB N-sampling exceeds 119 GB unified memory). Auto-merge pipeline (PID 1886069) queued — runs automatically when N-sampling finishes. Pipeline: merge → `apr check` → quantize Q4K → inference test.
 
 **N-sampling (PMAT-014, 2026-04-03):** Running on gx10 with base 7B Q4K. 467/1640 prompts completed (~28%) after 6h. Revised ETA: ~15h remaining (CPU batch at 6.1s/prompt + per-problem sandbox overhead). Work dir: `/tmp/tmp.4izwh76p7m` preserved with `APR_KEEP_WORKDIR=1`.
 
