@@ -296,30 +296,54 @@ All 21 contract YAMLs now parse correctly via `pv proof-status`. Previously 11 w
 
 **Path forward:** Binding coverage is an aprender-side task — each obligation needs a `binding: { crate: "...", function: "..." }` entry pointing to the Rust function that implements the contract.
 
-## 24.21 Recommendations (Updated 2026-04-03)
+## 24.21 QLoRA Fine-Tuning on Combined Data (PMAT-007, 2026-04-03)
 
-**Completed (17 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 56 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based), **wgpu batch fix (GH-560: FFN buffer overflow + KV cache length)**, **distillation data generation (99/99 teacher completions)**, **wgpu batch HumanEval (84.15%, first GPU eval)**.
+**Status: IN PROGRESS** — training launched on gx10
 
-**Completed (2026-04-03):**
-- `apr finetune` → wgpu QLoRA training fully operational (§26, 13 KAIZEN fixes)
-- 99 samples × 3 epochs in 39 min on gx10 (GPU-compute-bound at 592 GFLOPS)
-- Loss: 16.93 → 15.93 (decreasing), adapter export + merge + inference verified
-- 31/31 provable contracts implemented, 5 Lean4 theorems, 0 pending
-- ndarray removed (sovereign-tensor-v1), wgpu upgraded 27→29
-- Cooperative matrix WGSL shader written (naga SPIR-V bug blocks execution)
-- AC-020 moved to Verified (DPO alignment implemented)
-- Contract structure remediation: 8 contracts fixed, 31/31 passing
-- PMAT-008 created for DPO alignment pipeline
-- Merge weight-norm contract written (AC-006 prerequisite)
-- 16 provable contract YAMLs total (was 8)
+| Parameter | Value |
+|-----------|-------|
+| Base model | Qwen2.5-Coder-7B-Instruct Q4K (7.5 GiB) |
+| Method | QLoRA (NF4 + LoRA rank=32, α=64) |
+| Training data | combined-training.jsonl (15,326 samples) |
+| Epochs | 3 |
+| Learning rate | 2.0e-4 |
+| Step time | ~90ms (after JIT warmup) |
+| Estimated total | ~69 min (15326 × 3 × 90ms) |
+| Output | checkpoints/qwen2.5-coder-7b-distilled-qlora.apr |
 
-**Next steps:**
+**Early loss trajectory (first 3 samples):** 18.40 → 17.09 → 16.65 (decreasing).
 
-| Priority | Action | Expected Gain | Dependency |
-|----------|--------|---------------|------------|
-| 1 | DPO preference pair training (PMAT-008) | +2-4pp on HE+ | Preference data + gx10 GPU |
-| 2 | BigCodeBench eval | First real score | Intel, uv + 52 pip deps |
-| 3 | HumanEval eval on fine-tuned model | Validate training quality | Re-quantize merged model |
-| 4 | Merge weight-norm verification (AC-006) | Close AC | Two fine-tuned adapters |
-| 5 | Cooperative matrix GEMM | AC-FT-006 (39→30 min) | naga SPIR-V bug fix |
-| 6 | LiveCodeBench eval | Fresh benchmark, no contamination | Sandbox setup |
+**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 (loss decreases), FALSIFY-EVAL-002 (merged model valid), FALSIFY-EVAL-003 (pass@1 >= 83%).
+
+**Next:** After training, merge adapter with base model and evaluate on HumanEval + MBPP. Target: close MBPP 3.8pp gap (76.2% → 80%).
+
+## 24.22 Recommendations (Updated 2026-04-03)
+
+**Completed (2026-04-03 spec session):**
+- 21 provable contract YAMLs (was 7), all pv-compatible
+- 54/55 falsification tests passing (was 23/23)
+- 15/29 ACs verified (was 8/29)
+- §27 PMAT Roadmap with dependency DAG
+- §16 full contract inventory, §17.6 quality gates documented
+- Data catalog bound to 9 contracts
+- Oracle analysis: 96.34% upper bound, 6 never-solved
+- pv proof-status: 21/21 contracts, 70 obligations
+- QLoRA fine-tuning launched on gx10 (PMAT-007)
+
+**In progress:**
+
+| Priority | Action | Status | ETA |
+|----------|--------|--------|-----|
+| 1 | QLoRA fine-tune on combined data (PMAT-007) | **Running on gx10** | ~69 min |
+| 2 | Eval fine-tuned model on HumanEval + MBPP | Blocked on (1) | +3h after (1) |
+| 3 | DPO preference pairs (PMAT-014) | Blocked on N-sampling | Needs eval run |
+| 4 | DPO training (PMAT-008) | Blocked on (3) | After (3) |
+
+**Deferred:**
+
+| Priority | Action | Blocker |
+|----------|--------|---------|
+| 5 | BigCodeBench eval | Intel + 52 pip deps |
+| 6 | Merge weight-norm (AC-006) | Two adapters needed |
+| 7 | Cooperative matrix GEMM | naga SPIR-V bug |
+| 8 | LiveCodeBench eval | Sandbox setup |
