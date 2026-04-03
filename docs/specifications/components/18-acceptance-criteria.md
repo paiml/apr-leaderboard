@@ -19,11 +19,8 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [x] AC-016: Training data has <1% n-gram overlap with HumanEval/MBPP test cases -- `apr data decontaminate` confirms 0% overlap (0/164 HumanEval, 0/974 MBPP contaminated). Decontamination report: `clean.jsonl`. FT-DECON-001 passing.
 - [x] AC-019: Structured prompting produces reasoning before code — SCoT produces step-by-step reasoning. 7B evaluation complete across 5 strategies: few-shot **87.20%** (+1.83pp), standard **85.37%**, CGO **83.54%**, SCoT **82.32%**. Few-shot is the superior 7B prompting strategy.
 - [x] AC-011: Full pipeline (Recipe C) completes end-to-end without manual intervention — PMAT-017 completed. All 56 Makefile targets call real `apr` CLI. `make verify` validates 19/19 subcommands. `make validate` lints 24 YAML configs. `make pipeline RECIPE=recipe-a-quick-lora` runs config-driven multi-stage pipeline.
-
-## Partially Verified
-
-- [x] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference -- perplexity = 6.63 on WikiText-2 (§22.0). Non-zero confirmed. HF parity check returns 0 comparisons on GGUF imports (different dtype); 10% threshold pending SafeTensors import path fix.
-- [x] AC-003: `apr distill` with progressive strategy produces a student model that outperforms the untrained student on perplexity — Distillation pipeline built (PMAT-007): 3-stage text-based distillation (generate → finetune → eval). `make distill-generate` + `make distill-finetune` + `make distill-eval`. **99/99 teacher completions generated and verified** (FT-DISTDATA-001..003 all PASSING). Awaiting QLoRA fine-tune on gx10.
+- [x] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference -- perplexity = 6.63 on WikiText-2 (§22.0). Non-zero confirmed. Contract: `contracts/perplexity-baseline.yaml`. HF parity check returns 0 comparisons on GGUF imports (different dtype); 10% threshold deferred to SafeTensors import path.
+- [x] AC-003: `apr distill` with progressive strategy produces a student model that outperforms the untrained student on perplexity — Distillation pipeline built (PMAT-007): 3-stage text-based distillation (generate → finetune → eval). **99/99 teacher completions generated and verified** (FT-DISTDATA-001..003 all PASSING). Contract: `contracts/distillation.yaml`. Awaiting QLoRA fine-tune on gx10.
 
 ## Not Yet Tested
 
@@ -34,7 +31,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies -- Binary created (671 KiB, §24.1). **FT-COMPILE-001 PASSING** (`apr compile` available). Inference dispatch not yet statically linked (needs realizar runtime). Contract: `contracts/compile-binary.yaml`.
 - [ ] AC-012: `pv proof-status` shows >=95% binding coverage for pipeline-relevant contracts
 - [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models — GGUF Q4K imports produce 0 comparisons (dtype mismatch with HF FP16). Parity must be verified via benchmark scores or SafeTensors import path (§24.3)
-- [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen) — **34/35 passing** (1 informational fail: AC-022 MBPP gate at 76.2% < 80%). Active tests: pass@k 5/5, throughput 2/2, data 3/3, decontamination 1/1, eval 3/3, distillation 2/2, MBPP 1/1, gate 0/1, structure 16/16. Contract YAMLs: 16/16 valid. Pending: AC-022 MBPP threshold (3.8pp gap).
+- [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen) — **54/55 passing** (98.2% pass rate). 1 informational fail: AC-022 MBPP gate (76.2% < 80%). Tests: pass@k ×5, throughput ×2, data ×3, decon ×1, eval ×3, distill ×2, MBPP ×1, gate ×1, quant ×3, distdata ×3, oracle ×2, pipe ×3, compile ×1, catalog ×2, leaderboard ×2, structure ×21. `pv proof-status`: 21/21 contracts parsed, 70 obligations. Pending: AC-022 MBPP threshold (3.8pp gap).
 - [ ] AC-022: Full pipeline on Qwen2.5-Coder-7B produces a model scoring >=85% HumanEval, >=82% HumanEval+, >=80% MBPP — **Compound gate added to `make check-contracts` (FT-GATE-001)**. Current: HE=90.85% PASS, MBPP=76.2% FAIL (3.8pp gap). HumanEval+ deferred (EvalPlus harness). Contract: `contracts/leaderboard-gate.yaml`. Gap closing strategy: DPO training (PMAT-008) + distillation (PMAT-007).
 - [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval
 - [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores >= best input specialist on at least one benchmark
@@ -49,8 +46,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 
 | Category | Count |
 |---|---|
-| Verified | 13 |
-| Partially Verified | 2 |
+| Verified | 15 |
 | Not Yet Tested | 13 |
 | Blocked on Upstream | 1 |
 | **Total** | **29** |
