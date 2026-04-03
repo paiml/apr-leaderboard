@@ -380,7 +380,11 @@ Total time: 3991.4s (66.5 min). 112 LoRA tensors saved (safetensors format). FAL
 
 **Path forward:** GH-581 tokenizer fix VERIFIED locally — tokenizer now embedded in Q4K output. BUT: deeper issue discovered — `load_model_tensors()` corrupts Q4K→FP32 dequantization for APR files. Even a no-op roundtrip (base Q4K → quantize Q4K) produces garbage inference. Root cause: `load_model_tensors` doesn't properly dequantize Q4K super-blocks from APR V2 format.
 
-**Workaround for PMAT-007 eval:** Use the merge code path (RosettaStone reader) which correctly dequantizes Q4K, then export to GGUF (which preserves tensor data correctly), then re-import with `--preserve-q4k`. Or fix `load_model_tensors` to handle Q4K APR properly.
+**Root cause found (2026-04-03):** `MergeEngine::merge()` in entrenar-lora used **element-wise multiplication** (`a[i%len] * b[i%len]`) instead of **matrix multiplication** (`B @ A`). This produced completely wrong weight deltas for every LoRA-modified layer. Comment said "Simplified: just add scaled A and B values" — not simplified, fundamentally incorrect.
+
+**Fix:** Replaced with proper GEMM: infer d_in/d_out from flat arrays + rank, compute `B^T @ A^T` with O(d_out × d_in × rank) triple loop. Handles both standard and transposed LoRA conventions. Deployed to gx10.
+
+**GGUF roundtrip pipeline** (for quantize tokenizer fix): FP32 APR → GGUF export → APR import `--preserve-q4k` preserves model quality (verified on base model). The `apr quantize --scheme q4k` path uses aprender-native Q4K format (incompatible with realizar's GGUF-based fused kernels).
 
 ## 24.23 DPO Contract v2.0 (PMAT-008, 2026-04-03)
 
