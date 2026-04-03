@@ -528,6 +528,25 @@ check-contracts:
 			&& echo "  FT-DIST-002 (>=10 categories): PASS ($$cats categories)" && PASS=$$((PASS+1)) \
 			|| { echo "  FT-DIST-002: FAIL ($$cats < 10 categories)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-DIST-002: SKIP (no prompts)"; fi; \
+	echo "-- MBPP eval (FT-MBPP-001) --"; \
+	if ls results/mbpp_*.json 1>/dev/null 2>&1; then \
+		mbpp_best=$$(jq -s '[.[] | select(.results.pass_at_1 != null)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1' results/mbpp_*.json 2>/dev/null || echo "0"); \
+		[ $$(echo "$$mbpp_best >= 70.0" | bc) -eq 1 ] \
+			&& echo "  FT-MBPP-001 (pass@1>=70%): PASS ($${mbpp_best}%)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-MBPP-001: FAIL ($${mbpp_best}% < 70%)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-MBPP-001: SKIP (no results)"; fi; \
+	echo "-- AC-022 compound gate --"; \
+	if ls results/humaneval_*.json 1>/dev/null 2>&1; then \
+		he_best=$$(jq -s '[.[] | select(.results.pass_at_1 != null)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1' results/humaneval_*.json 2>/dev/null || echo "0"); \
+		mbpp_best2=$$(jq -s '[.[] | select(.results.pass_at_1 != null)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1' results/mbpp_*.json 2>/dev/null || echo "0"); \
+		he_ok=$$(echo "$$he_best >= 85.0" | bc); \
+		mbpp_ok=$$(echo "$$mbpp_best2 >= 80.0" | bc); \
+		if [ "$$he_ok" -eq 1 ] && [ "$$mbpp_ok" -eq 1 ]; then \
+			echo "  FT-GATE-001 (AC-022): PASS (HE=$${he_best}% MBPP=$${mbpp_best2}%)" && PASS=$$((PASS+1)); \
+		else \
+			echo "  FT-GATE-001 (AC-022): FAIL (HE=$${he_best}% MBPP=$${mbpp_best2}%)" && FAIL=$$((FAIL+1)); \
+		fi; \
+	else echo "  FT-GATE-001: SKIP (no results)"; fi; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
 		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]; assert len(d['falsification_tests'])>0; assert 'TODO' not in str(d) and 'PLACEHOLDER' not in str(d)" 2>/dev/null \

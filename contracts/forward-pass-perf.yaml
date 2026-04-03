@@ -8,14 +8,30 @@ metadata:
   references:
     - "KAIZEN: 28 layers × 1.7s = 47s forward pass, 140 GFLOPS (37% of 375 peak)"
 
-invariants:
-  arithmetic_bound:
-    statement: "Forward pass time >= total_flops / peak_gflops"
-    rationale: "Cannot exceed hardware throughput limit"
+equations:
+  per_layer_time:
+    formula: "t_layer = Σ t_op for op ∈ {qkv_proj, attn, ffn, rmsnorm, lora}"
+    domain: "t_op > 0 for all operations"
+    codomain: "t_layer ∈ ℝ⁺ (seconds)"
+    invariants:
+      - "t_layer >= total_flops / peak_gflops (arithmetic bound)"
+      - "Σ t_op = t_layer (no unaccounted time)"
 
-  bottleneck_identified:
-    statement: "Top operation accounts for >= 50% of per-layer time"
-    rationale: "Optimization should target the largest contributor"
+  forward_total:
+    formula: "t_fwd = n_layers × t_layer + t_embed + t_lm_head"
+    domain: "n_layers ∈ ℕ⁺ (28 for 7B)"
+    codomain: "t_fwd ∈ ℝ⁺ (seconds)"
+    invariants:
+      - "t_fwd < n_layers × 2 × t_layer (overhead < 100%)"
+
+proof_obligations:
+  - type: bound
+    property: "Forward pass time bounded by arithmetic intensity"
+    formal: "t_layer >= total_flops / peak_gflops"
+
+  - type: dominance
+    property: "Top operation accounts for >= 50% of per-layer time"
+    formal: "max(t_op) / t_layer >= 0.5"
 
 falsification_tests:
   FALSIFY-PERF-001:

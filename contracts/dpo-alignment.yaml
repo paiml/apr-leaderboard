@@ -19,10 +19,20 @@ equations:
     formula: "∇L = -β * σ(-β*Δ) * (∇log π_θ(y_w|x) - ∇log π_θ(y_l|x))"
     lean_theorem: ProvableContracts.DPO.dpo_gradient_formula
 
-invariants:
-  loss_nonneg:
-    statement: "DPO loss is non-negative for all inputs"
+proof_obligations:
+  - type: bound
+    property: "DPO loss is non-negative for all inputs"
+    formal: "L_dpo(x, y_w, y_l, β) >= 0 for all valid (x, y_w, y_l) and β > 0"
     lean_theorem: ProvableContracts.DPO.dpo_loss_nonneg
+
+  - type: monotonicity
+    property: "Higher preference margin yields lower loss"
+    formal: "Δ_1 > Δ_2 implies L_dpo(Δ_1) < L_dpo(Δ_2)"
+    lean_theorem: ProvableContracts.DPO.dpo_gradient_formula
+
+  - type: convergence
+    property: "DPO training reduces loss over 3 epochs"
+    formal: "avg_loss(epoch_3) < avg_loss(epoch_1)"
 
 falsification_tests:
   FALSIFY-DPO-001:

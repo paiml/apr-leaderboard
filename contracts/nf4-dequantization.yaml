@@ -85,6 +85,25 @@ falsification_tests:
     test: "Verify packed byte with known NF4 codes"
     if_fails: "Endianness or shift direction wrong in unpack"
 
+proof_obligations:
+  - type: ordering
+    property: "NF4 codebook is strictly monotonically increasing"
+    formal: "NF4_LUT[i] < NF4_LUT[i+1] for all i in [0..14]"
+
+  - type: roundtrip
+    property: "Quantize/dequantize roundtrip preserves index"
+    formal: "dQuantizeNF4(dDequantizeNF4(code)) == code for all code in [0..15]"
+
+  - type: bound
+    property: "Blockwise dequant error bounded by half-bin width"
+    formal: "max|dequant(quantize(x)) - x| < 2 × absmax / 16"
+    tolerance: 0.125
+
+  - type: parity
+    property: "GPU dequant matches CPU dequant"
+    formal: "|nf4_dequant_gpu(data) - nf4_dequant_cpu(data)| < 1e-6"
+    tolerance: 1e-6
+
 kani_harnesses:
   - id: KANI-NF4-001
     obligation: quantize_nf4

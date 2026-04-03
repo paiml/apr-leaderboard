@@ -9,17 +9,35 @@ metadata:
     - "Chen et al. (2021) Evaluating Large Language Models Trained on Code"
     - "Dettmers et al. (2023) QLoRA"
 
-invariants:
-  training_convergence:
-    statement: "avg_loss(epoch_N) < avg_loss(epoch_1) for N >= 2"
+equations:
+  lora_merge:
+    formula: "W_merged = W_base + (α/r) · A @ B"
+    domain: "W_base ∈ ℝ^{d_out×d_in}; A ∈ ℝ^{d_out×r}; B ∈ ℝ^{r×d_in}; α, r > 0"
+    codomain: "W_merged ∈ ℝ^{d_out×d_in}"
+    invariants:
+      - "Merged weight shape = base weight shape"
+      - "When A=0 or B=0, merged = base (no-op merge)"
 
-  adapter_merge:
-    statement: "merged_weight = base_weight + (α/r) * A @ B"
-    rationale: "Standard LoRA merge formula"
+  training_loss:
+    formula: "L(θ, t) = CE(f_θ(x_t), y_t) averaged over batch"
+    domain: "θ = LoRA parameters; t = training step"
+    codomain: "L ∈ ℝ≥0"
+    invariants:
+      - "avg_loss(epoch_N) < avg_loss(epoch_1) for N >= 2"
 
-  eval_parity:
-    statement: "pass@1(merged) >= pass@1(base) - 2pp"
-    rationale: "Fine-tuning should not degrade significantly vs base model"
+proof_obligations:
+  - type: convergence
+    property: "Training loss decreases over epochs"
+    formal: "avg_loss(last_epoch) < avg_loss(first_epoch)"
+
+  - type: equivalence
+    property: "Adapter merge follows LoRA formula"
+    formal: "W_merged = W_base + (α/r) · A @ B"
+
+  - type: bound
+    property: "Fine-tuned model maintains baseline quality"
+    formal: "pass@1(merged) >= pass@1(base) - 2pp"
+    tolerance: 0.02
 
 falsification_tests:
   FALSIFY-EVAL-001:

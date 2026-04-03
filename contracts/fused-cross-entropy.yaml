@@ -87,6 +87,24 @@ falsification_tests:
     test: "Set half of labels to -100, verify zero gradient at those positions"
     if_fails: "Masking applied incorrectly or after gradient computation"
 
+proof_obligations:
+  - type: equivalence
+    property: "Fused cross-entropy matches unfused within ε < 1e-5"
+    formal: "|fused_ce(logits, labels) - naive_ce(logits, labels)| < 1e-5"
+    tolerance: 1e-5
+
+  - type: bound
+    property: "Loss is non-negative"
+    formal: "CE(x, y) >= 0 for all x ∈ ℝ^V, y ∈ {0,...,V-1}"
+
+  - type: invariant
+    property: "Gradient sum equals zero (softmax property)"
+    formal: "Σ ∂CE/∂x_i = 0"
+
+  - type: bound
+    property: "Memory scales as O(B×T), not O(B×T×V)"
+    formal: "peak_memory(fused) < peak_memory(unfused) for V >= 1000"
+
 kani_harnesses:
   - id: KANI-FCE-001
     obligation: chunked_logsumexp

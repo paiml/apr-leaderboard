@@ -24,12 +24,19 @@ equations:
     invariants:
       - "||B||_F = |scale| * ||A||_F"
 
-invariants:
-  gpu_resident:
-    statement: "Transpose stays on GPU — no CPU download/upload roundtrip"
+proof_obligations:
+  - type: parity
+    property: "GPU transpose matches CPU reference"
+    formal: "|B_gpu[j,i] - scale * A[i,j]| < 1e-6 for all i,j"
+    tolerance: 1e-6
 
-  parity:
-    statement: "|B_gpu[j,i] - scale * A[i,j]| < 1e-6 for all i,j"
+  - type: invariant
+    property: "Frobenius norm preserved under transpose"
+    formal: "||B||_F = |scale| * ||A||_F"
+
+  - type: invariant
+    property: "Transpose stays on GPU — no CPU download/upload roundtrip"
+    formal: "count(GPU→CPU transfers in transpose path) = 0"
 
 falsification_tests:
   FALSIFY-TRANSPOSE-001:

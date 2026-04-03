@@ -22,20 +22,19 @@ equations:
       - "Weight scaling: element-wise multiplication with learned weight"
       - "Epsilon prevents division by zero for zero-norm rows"
 
-invariants:
-  gpu_resident:
-    statement: "Hidden state never leaves GPU between forward pass and lm_head GEMM"
-    rationale: "Eliminates 44s download + 3ms CPU norm + upload roundtrip"
-    verification: "No download_hidden() call in the forward→lm_head path"
+proof_obligations:
+  - type: parity
+    property: "GPU RMSNorm matches CPU reference within ε < 1e-4"
+    formal: "|normed_gpu[i,j] - normed_cpu[i,j]| < 1e-4 for all i,j"
+    tolerance: 1e-4
 
-  parity:
-    statement: "|normed_gpu[i,j] - normed_cpu[i,j]| < 1e-4 for all i,j"
-    rationale: "GPU RMSNorm must match CPU reference (f32 precision)"
-    verification: "FALSIFY-GPU-NORM-001: download and compare on first step"
+  - type: invariant
+    property: "Hidden state never leaves GPU between forward and lm_head"
+    formal: "count(download_hidden() in forward→lm_head path) = 0"
 
-  norm_weight_persistent:
-    statement: "Output norm weights uploaded once at init, not per step"
-    rationale: "Weight buffer is constant during training — no per-step upload"
+  - type: performance
+    property: "Norm weights uploaded once at init, not per step"
+    formal: "upload_count(norm_weights) = 1 across N training steps"
 
 falsification_tests:
   FALSIFY-GPU-NORM-001:

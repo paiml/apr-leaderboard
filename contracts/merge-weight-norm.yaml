@@ -1,0 +1,79 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Merge weight-norm preservation — SLERP and TIES merging must preserve
+    L2 norms within 5% of input model norms. Validates AC-006.
+  references:
+    - "Yadav et al. (2023) TIES-Merging: Resolving Interference When Merging Models"
+    - "Goddard et al. (2024) Arcee's MergeKit (SLERP implementation)"
+
+equations:
+  slerp_merge:
+    formula: "W_merged = sin((1-t)θ)/sin(θ) · W_A + sin(tθ)/sin(θ) · W_B"
+    domain: "W_A, W_B ∈ ℝ^{d_out×d_in}; t ∈ [0,1]; θ = arccos(cos_sim(W_A, W_B))"
+    codomain: "W_merged ∈ ℝ^{d_out×d_in}"
+    invariants:
+      - "||W_merged||₂ is between min(||W_A||₂, ||W_B||₂) and max(||W_A||₂, ||W_B||₂)"
+      - "SLERP at t=0 yields W_A exactly"
+      - "SLERP at t=1 yields W_B exactly"
+      - "SLERP preserves unit-sphere interpolation (great circle path)"
+
+  ties_merge:
+    formula: "W_merged = W_base + λ · trim_and_elect(τ_A, τ_B)"
+    domain: "τ_i = W_i - W_base (task vectors); λ ∈ ℝ⁺"
+    codomain: "W_merged ∈ ℝ^{d_out×d_in}"
+    invariants:
+      - "Trim removes lowest-magnitude elements (keep top-k%)"
+      - "Sign election resolves conflicts (majority vote)"
+      - "λ scales merged task vector contribution"
+
+  norm_preservation:
+    formula: "| ||W_merged||₂ - mean(||W_A||₂, ||W_B||₂) | / mean(||W_A||₂, ||W_B||₂) < δ"
+    domain: "δ = 0.05 (5% threshold per AC-006)"
+    codomain: "bool"
+    invariants:
+      - "Per-layer norm checked independently"
+      - "δ relaxed to 0.10 for attention projection layers"
+
+proof_obligations:
+  - type: bound
+    property: "SLERP preserves L2 norm within 5% of input norms"
+    formal: "| ||W_merged||₂ / avg(||W_A||₂, ||W_B||₂) - 1 | < 0.05"
+    tolerance: 0.05
+
+  - type: equivalence
+    property: "SLERP at boundary yields exact input"
+    formal: "slerp(W_A, W_B, 0) = W_A; slerp(W_A, W_B, 1) = W_B"
+    tolerance: 1e-7
+
+  - type: bound
+    property: "Merged model tensor count equals input tensor count"
+    formal: "n_tensors(merged) = n_tensors(input_A)"
+
+  - type: bound
+    property: "TIES sign conflicts strictly less than input sum"
+    formal: "conflicts(ties_merged) < conflicts(naive_sum)"
+
+falsification_tests:
+  - id: FALSIFY-MERGE-001
+    rule: Norm preservation
+    prediction: "||W_merged||₂ within 5% of avg(||W_A||₂, ||W_B||₂) for all layers"
+    test: "apr merge model_a.apr model_b.apr --strategy slerp; compare per-layer L2 norms"
+    if_fails: "SLERP implementation does not follow great-circle interpolation"
+  - id: FALSIFY-MERGE-002
+    rule: Tensor count preserved
+    prediction: "n_tensors(merged) == n_tensors(input)"
+    test: "apr inspect merged.apr | grep tensor_count"
+    if_fails: "Merge drops or duplicates tensors"
+  - id: FALSIFY-MERGE-003
+    rule: Architecture preserved
+    prediction: "Architecture metadata identical after merge"
+    test: "apr check merged.apr --json | jq '.architecture'"
+    if_fails: "Merge corrupts architecture metadata"
+  - id: FALSIFY-MERGE-004
+    rule: TIES reduces conflicts vs naive sum
+    prediction: "ties_conflicts < sum_conflicts"
+    test: "Count sign disagreements in TIES vs element-wise sum"
+    if_fails: "TIES sign election not working or not reducing interference"

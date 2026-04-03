@@ -80,6 +80,24 @@ falsification_tests:
     test: "Static analysis of source files"
     if_fails: "Unsafe code introduced for performance optimization"
 
+proof_obligations:
+  - type: equivalence
+    property: "Tiled GEMM matches naive GEMM within ε"
+    formal: "|WGSL_GEMM(A,B) - naive(A,B)|_max < 1e-4"
+    tolerance: 1e-4
+
+  - type: bound
+    property: "Output buffer index never exceeds capacity"
+    formal: "m*N+n < capacity for all valid (m,n)"
+
+  - type: invariant
+    property: "Double buffering prevents shared memory aliasing"
+    formal: "write_stage ≠ read_stage during compute phases"
+
+  - type: invariant
+    property: "Zero unsafe code in implementation"
+    formal: "count(unsafe blocks) = 0"
+
 kani_harnesses:
   - id: KANI-WGSL-GEMM-001
     obligation: gemm_dimensions
