@@ -1,0 +1,83 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    TIES sign conflict resolution contract — TIES merging must resolve sign
+    conflicts via majority vote, producing fewer conflicts than naive element-wise
+    sum. Validates AC-007. Extends merge-weight-norm.yaml with focused sign
+    resolution tests.
+  references:
+    - "Yadav et al. (2023) TIES-Merging: Resolving Interference When Merging Models"
+
+equations:
+  task_vector:
+    formula: "τ_i = W_i - W_base"
+    domain: "W_i = fine-tuned model weights; W_base = base model weights"
+    codomain: "τ_i ∈ ℝ^{d_out×d_in}"
+    invariants:
+      - "Task vector captures the delta learned during fine-tuning"
+      - "sign(τ_i[j]) indicates direction of adaptation for parameter j"
+
+  sign_conflict:
+    formula: "conflict(j) = (sign(τ_A[j]) ≠ sign(τ_B[j])) AND (τ_A[j] ≠ 0) AND (τ_B[j] ≠ 0)"
+    domain: "Task vectors τ_A, τ_B; parameter index j"
+    codomain: "bool"
+    invariants:
+      - "Conflict only exists for non-zero elements in both task vectors"
+      - "Zero elements (trimmed by TIES) do not contribute to conflicts"
+
+  sign_election:
+    formula: "elected_sign[j] = sign(Σ_i τ_i[j]) where sum is over surviving (non-trimmed) elements"
+    domain: "Task vectors after trim step"
+    codomain: "{-1, 0, +1}"
+    invariants:
+      - "Majority vote resolves sign: more positive → positive, more negative → negative"
+      - "After election, all task vectors agree on sign for each parameter"
+      - "n_conflicts(ties_merged) < n_conflicts(naive_sum)"
+
+proof_obligations:
+  - type: bound
+    property: "TIES reduces sign conflicts vs naive sum"
+    formal: "conflicts(ties_merge(τ_A, τ_B)) < conflicts(τ_A + τ_B)"
+
+  - type: invariant
+    property: "Sign election produces unanimous agreement"
+    formal: "forall j: sign(merged_τ[j]) == elected_sign[j] OR merged_τ[j] == 0"
+
+  - type: bound
+    property: "Trim step preserves top-k% by magnitude"
+    formal: "|nonzero(trimmed_τ)| / |nonzero(τ)| == density"
+    tolerance: 0.01
+
+  - type: bound
+    property: "Merged model produces valid inference"
+    formal: "apr check merged.apr passes AND apr run merged.apr produces code"
+
+falsification_tests:
+  - id: FALSIFY-TIES-001
+    rule: "TIES reduces conflicts"
+    prediction: "n_conflicts(ties) < n_conflicts(naive_sum) for merged specialists"
+    test: >
+      Compare sign disagreements: (1) naive sum τ_A + τ_B, count j where
+      sign(τ_A[j]) ≠ sign(τ_B[j]); (2) TIES merged, count remaining conflicts.
+      TIES must have strictly fewer.
+    if_fails: "TIES sign election not implemented or trim density too high"
+
+  - id: FALSIFY-TIES-002
+    rule: "Trim preserves density fraction"
+    prediction: "After trim at density=0.7, ~70% of non-zero elements survive"
+    test: "apr merge --strategy ties --density 0.7; count nonzero elements in merged task vector"
+    if_fails: "Trim step uses wrong density parameter or counts zeros incorrectly"
+
+  - id: FALSIFY-TIES-003
+    rule: "Merged model valid"
+    prediction: "apr check merged.apr passes 10/10 stages"
+    test: "apr check checkpoints/qwen2.5-coder-7b-merged-specialists.apr --json"
+    if_fails: "TIES merge produced structurally invalid model"
+
+  - id: FALSIFY-TIES-004
+    rule: "Merged model generates code"
+    prediction: "apr run merged.apr --prompt 'def hello' produces valid Python"
+    test: "apr run checkpoints/qwen2.5-coder-7b-merged-specialists.apr --prompt 'def hello():' --max-tokens 50"
+    if_fails: "TIES merge corrupted weights — check sign election or lambda scaling"

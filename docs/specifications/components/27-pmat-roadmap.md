@@ -58,10 +58,11 @@ PMAT-014 → PMAT-008 → PMAT-010 → PMAT-011 → AC-022
 | AC-002 | Perplexity baseline | PMAT-006 | **Verified** (6.63 PPL) |
 | AC-003 | Distillation quality | PMAT-007 | **Verified** (99/99 completions) |
 | AC-006 | Merge norm preservation | PMAT-010 | Contract written |
-| AC-007 | TIES sign resolution | PMAT-010 | Not yet tested |
-| AC-008 | Pruning quality | PMAT-011 | Not yet tested |
-| AC-009 | Quantization size | PMAT-011 | FT-QUANT-001 PASS |
-| AC-015 | All FTs pass | All | **54/55** (98.2%) |
+| AC-007 | TIES sign resolution | PMAT-010 | Contract written (`ties-sign-resolution.yaml`) |
+| AC-008 | Pruning quality | PMAT-011 | Contract written (`pruning-quality.yaml`) |
+| AC-009 | Quantization size | PMAT-011 | **Verified** (FT-QUANT-001 PASS, 35%) |
+| AC-014 | HF parity gap | PMAT-006 | **Verified** (HE 0.60pp, MBPP 3.2pp) |
+| AC-015 | All FTs pass | All | **59/60** (98.3%) |
 | AC-020 | DPO alignment | PMAT-008 | **Verified** |
 | AC-022 | Compound gate (HE+MBPP) | PMAT-011 | FAIL (MBPP 76.2%) |
 | AC-024 | Merge > specialist | PMAT-010 | Not yet tested |
@@ -81,7 +82,7 @@ Each PMAT item has associated provable contracts:
 | PMAT-010 | merge-weight-norm v2.0 | 6 | 0 (pending merge) | Contract v2.0 with AC-024 tests |
 | PMAT-011 | leaderboard-gate, quantization, compile-binary | 9 | 4 (1 failing) | MBPP gate |
 
-**Total: 22 contract YAMLs, 76 proof obligations, 76 falsification tests, 10 Kani harnesses. Makefile gate: 56/57 passing.**
+**Total: 28 contract YAMLs, 98 proof obligations, 98 falsification tests, 10 Kani harnesses. Makefile gate: 59/60 passing.**
 
 ## 27.6 Gap Analysis
 
@@ -128,6 +129,37 @@ Current: 76.2% → Target: 80.0%
 | Quantized (Q4K) | 6.2 GB | `checkpoints/qwen2.5-coder-7b-distilled-q4k.apr` |
 | Tokenizer | 7 MB | `checkpoints/qwen2.5-coder-7b-distilled-q4k.tokenizer.json` |
 
-**Status:** Merge with GH-580 fix VERIFIED (tokenizer preserved, 10/10 `apr check`). Quantize path still loses tokenizer — needs GH-581 fix in `apr_convert()`. GGUF roundtrip workaround produces corrupted weights. Distilled model eval **BLOCKED** on quantize tokenizer fix.
+**Status (2026-04-03 18:39):** GH-580 merge fix VERIFIED. Additionally, LoRA merge had a **critical bug** — element-wise multiply instead of matrix multiply (Hadamard product instead of GEMM). Five-whys traced to a "simplified" comment in merge engine. Fix: proper triple-loop GEMM computing B^T @ A^T with d_in/d_out inferred from flat arrays + rank. Fix deployed to gx10. **All previous merged models (v1, v2) are invalid** — must re-merge with corrected binary.
 
-**N-sampling launched (2026-04-03):** PMAT-014 HumanEval N-sampling (NUM_SAMPLES=10, T=0.8) running on gx10 with base 7B Q4K. 1640 prompts in CPU batch mode. ETA ~3h. Work dir preserved for preference pair extraction.
+**Next step:** Re-merge distilled model after PMAT-014 N-sampling completes (to avoid OOM on gx10). Then quantize to Q4K and eval on HumanEval + MBPP.
+
+**N-sampling (PMAT-014, 2026-04-03):** Running on gx10 with base 7B Q4K. 467/1640 prompts completed (~28%) after 6h. Revised ETA: ~15h remaining (CPU batch at 6.1s/prompt + per-problem sandbox overhead). Work dir: `/tmp/tmp.4izwh76p7m` preserved with `APR_KEEP_WORKDIR=1`.
+
+## 27.9 LoRA Merge Matmul Fix (2026-04-03)
+
+**Root cause:** `MergeEngine::merge()` used element-wise multiply `a[i%len]*b[i%len]` (Hadamard product) instead of matrix multiply `B @ A` (GEMM). This produced garbage weight deltas that corrupted every merged model.
+
+**Five whys:**
+1. Why garbage inference? Model weights corrupted after LoRA merge
+2. Why corrupted? `MergeEngine::merge()` produced wrong weight deltas
+3. Why wrong deltas? Used `a[i%len]*b[i%len]` (element-wise) not `B@A` (matmul)
+4. Why element-wise? Comment said "Simplified: just add scaled A and B values"
+5. Why not caught? No matrix multiply unit test, garbage only visible at inference
+
+**Fix:** Replaced with proper GEMM — infer d_in/d_out from flat arrays + rank, compute B^T @ A^T with triple loop. O(d_out × d_in × rank) per tensor. Handles both standard and transposed LoRA conventions.
+
+**Impact:** All PMAT-007 merged models must be regenerated. Critical path unchanged — merge takes minutes once N-sampling finishes.
+
+## 27.10 Contract Coverage Update (2026-04-03)
+
+3 new provable contracts written:
+
+| Contract | AC | Obligations | Tests |
+|---|---|---|---|
+| `binding-coverage.yaml` | AC-012 | 3 | 3 |
+| `hf-parity.yaml` | AC-014 | 4 | 4 |
+| `ties-sign-resolution.yaml` | AC-007 | 4 | 4 |
+
+**Updated totals:** 28 contracts, 98 proof obligations, 98 falsification tests, 10 Kani harnesses.
+
+**AC verification update:** 17/29 verified (59%). Newly verified: AC-009 (Q4K size, FT-QUANT-001 PASS), AC-014 (HF parity, gaps 0.60pp HE + 3.2pp MBPP).

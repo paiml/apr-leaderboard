@@ -1,0 +1,62 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Contract binding coverage — >=95% of proof obligations in pipeline-relevant
+    contracts must have corresponding code bindings. Validates AC-012.
+    Measured by `pv proof-status` which scans contract YAMLs and traces
+    each obligation to a #[contract] annotation in Rust source.
+  references:
+    - "Kroening & Strichman (2016) Decision Procedures (formal verification coverage)"
+
+equations:
+  binding_coverage:
+    formula: "coverage = n_bound / n_total >= 0.95"
+    domain: "n_bound = obligations with code binding; n_total = total obligations"
+    codomain: "bool"
+    invariants:
+      - "Obligations counted from all YAML contracts in contracts/"
+      - "Bindings are #[contract] annotations in Rust source code"
+      - "Only pipeline-relevant contracts counted (Kernel Class E: Qwen)"
+
+  binding_validity:
+    formula: "valid(binding) = exists(function) AND signature_matches(obligation)"
+    domain: "Each binding in pv proof-status output"
+    codomain: "bool"
+    invariants:
+      - "Function referenced by binding must exist in compiled code"
+      - "Binding must reference correct contract YAML and obligation ID"
+
+proof_obligations:
+  - type: bound
+    property: "Binding coverage >= 95% for pipeline contracts"
+    formal: "n_bound / n_total >= 0.95"
+    tolerance: 0.05
+
+  - type: invariant
+    property: "All bindings reference valid functions"
+    formal: "forall b in bindings: exists(b.function) AND compiles(b.function)"
+
+  - type: bound
+    property: "Zero orphan bindings (binding without corresponding obligation)"
+    formal: "n_orphan = 0"
+
+falsification_tests:
+  - id: FALSIFY-BIND-001
+    rule: "Binding coverage >= 95%"
+    prediction: "pv proof-status reports >= 95% binding coverage"
+    test: "pv proof-status --contracts contracts/ | grep coverage"
+    if_fails: "Add #[contract] annotations to uncovered proof obligations in aprender source"
+
+  - id: FALSIFY-BIND-002
+    rule: "Zero orphan bindings"
+    prediction: "No bindings reference non-existent obligations"
+    test: "pv proof-status --check-orphans contracts/"
+    if_fails: "Remove stale #[contract] annotations or add missing obligations to YAML"
+
+  - id: FALSIFY-BIND-003
+    rule: "All contracts parseable"
+    prediction: "Every YAML in contracts/ parses with required sections"
+    test: "make check-contracts 2>&1 | grep Structure"
+    if_fails: "Fix YAML syntax or add missing required sections"

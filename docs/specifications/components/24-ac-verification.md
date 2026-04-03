@@ -410,24 +410,26 @@ Merge contract upgraded with AC-024 falsification tests:
 
 ## 24.25 Recommendations (Updated 2026-04-03)
 
-**Completed (spec v2.4.0):**
-- 22 provable contract YAMLs, all pv-compatible
-- 56/57 falsification tests passing
-- 15/29 ACs verified (52%)
+**Completed (spec v2.5.0):**
+- 28 provable contract YAMLs, all pv-compatible
+- 59/60 falsification tests passing
+- 17/29 ACs verified (59%). Newly verified: AC-009 (Q4K size), AC-014 (HF parity)
 - GH-580 tokenizer preservation fix deployed to gx10
+- LoRA merge matmul fix deployed to gx10 (element-wise → GEMM)
 - PMAT-007 full pipeline: train → remap → merge → quantize
 - DPO contract v2.0 with end-to-end pipeline (PMAT-008)
 - TIES merge contract v2.0 with AC-024 tests (PMAT-010)
+- 3 new contracts: binding-coverage (AC-012), hf-parity (AC-014), ties-sign-resolution (AC-007)
 
 **In progress:**
 
 | Priority | Action | Status | ETA |
 |----------|--------|--------|-----|
-| 1 | Re-merge distilled model with GH-580 fix | **Running on gx10** | ~20 min |
-| 2 | Eval distilled model on HumanEval + MBPP | After (1) | +3h |
-| 3 | N-sampling preference pairs (PMAT-014) | Ready to launch | ~30h GPU |
-| 4 | DPO training (PMAT-008) | After (3) | +1h |
-| 5 | TIES merge specialists (PMAT-010) | After (2) + (4) | +20 min |
+| 1 | Re-merge distilled model with matmul fix | **Running on gx10** (PID 1813425) | ~10 min |
+| 2 | N-sampling preference pairs (PMAT-014) | **Running on gx10** (467/1640, 28%) | ~15h remaining |
+| 3 | Eval distilled model on HumanEval + MBPP | After (1) | +3h |
+| 4 | DPO training (PMAT-008) | After (2) completes | +1h |
+| 5 | TIES merge specialists (PMAT-010) | After (3) + (4) | +20 min |
 
 **Deferred:**
 

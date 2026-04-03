@@ -4,7 +4,7 @@
 
 **apr-leaderboard** is a pipeline harness that proves the [sovereign AI stack](https://github.com/paiml) — aprender, entrenar, trueno — can compete on HuggingFace code generation leaderboards (HumanEval, MBPP, BigCodeBench) without Python, without the HuggingFace Transformers library, and without GPU vendor lock-in.
 
-It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile (45 targets), 10 shell scripts, 19 YAML configs, a batuta playbook, and a forjar infrastructure manifest — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
+It is **not** a model training framework. It is **not** a general ML toolkit. It is a thin orchestration layer — a Makefile (57 targets), 24 shell scripts, 22 YAML configs, 29 provable contracts, a batuta playbook, and a forjar infrastructure manifest — that wires the sovereign stack's existing capabilities into a reproducible, config-driven leaderboard pipeline:
 
 ```
 apr import → apr distill → apr finetune → apr merge → apr prune → apr quantize → apr eval → apr submit
@@ -34,7 +34,7 @@ If the answer is no, it identifies exactly where the sovereign stack falls short
 │                    apr-leaderboard                        │
 │                                                          │
 │  Makefile           YAML configs        Shell scripts    │
-│  (dev convenience)  (models/recipes/   (10 scripts)     │
+│  (dev convenience)  (models/recipes/   (24 scripts)     │
 │                      eval/pipeline)                      │
 │                                                          │
 │  ┌──────────────── calls ─────────────────────────────┐  │
@@ -84,14 +84,14 @@ All orchestration is implemented via Makefile + shell scripts. Every `make` targ
 | **scripts/submit.sh** | **Working** | Exports to SafeTensors, generates model card, publishes to HF Hub with dry-run confirmation |
 | **scripts/import.sh** | **Working** | Wraps `apr import` with HF Hub reachability check and `apr check` validation |
 | **scripts/prove-wgpu.sh** | **Working** | End-to-end wgpu training proof: import → QLoRA train → verify GPU backend |
-| **configs/models/** | **Complete** | 6 YAML model configs (Qwen-7B, Qwen-32B, Qwen-1.5B, Qwen3-8B, DeepSeek-R1-7B, Phi-4) |
-| **configs/recipes/** | **Complete** | 7 YAML recipe configs (quick-lora, merge-alchemist, full-pipeline, sovereign-binary, instruct-finetune, qwen3-qlora, wgpu-proof) |
+| **configs/models/** | **Complete** | 7 YAML model configs (Qwen-7B, Qwen-32B, Qwen-1.5B, Qwen3-4B, Qwen3-8B, DeepSeek-R1-7B, Phi-4) |
+| **configs/recipes/** | **Complete** | 11 YAML recipe configs (A-K: quick-lora, merge-alchemist, full-pipeline, sovereign-binary, instruct-finetune, qwen3-qlora, wgpu-proof, 32b-distill, humaneval-qlora, merge-specialists, final-artifact) |
 | **configs/eval/** | **Complete** | Eval suite YAML with benchmark definitions, targets, and baselines |
 | **configs/pipeline/** | **Complete** | Forjar infra manifest + batuta playbook DAG |
 | **data_catalog.yaml** | **Complete** | Data governance: datasets, lineage, classification, lifecycle |
-| **docs/** | **Complete** | Strategy spec (mdbook), 24 sections covering full pipeline |
+| **docs/** | **Complete** | Strategy spec (mdbook), 27 sections covering full pipeline |
 
-**Quality:** All 19 YAML configs valid (`make validate`), 10 scripts, 19/19 `apr` subcommands verified. Real model import and inference tested with Qwen2.5-Coder-1.5B, 7B, 32B, and Qwen3-4B. Zero Python scripts. Zero TOML configs (migrated to YAML). Chen et al. unbiased pass@k estimator. 5 prompt strategies (standard, scot, few-shot, cgo, default). Best results: HumanEval **87.20%** (7B few-shot), MBPP **76.20%** (7B + test assertions).
+**Quality:** All 22 YAML configs valid (`make validate`), 24 scripts, 19/19 `apr` subcommands verified, 29 provable contracts with 96 proof obligations. Real model import and inference tested with Qwen2.5-Coder-1.5B, 7B, 32B, and Qwen3-4B. Zero Python scripts. Zero TOML configs (migrated to YAML). Chen et al. unbiased pass@k estimator. 5 prompt strategies (standard, scot, few-shot, cgo, default). Best results: HumanEval **90.85%** (32B), **87.20%** (7B few-shot), MBPP **76.20%** (7B + test assertions).
 
 **GPU sharing infrastructure:** 143 tests across 9 entrenar modules (VRAM guard, ledger, wait queue, profiler, MPS, cluster config, placement, coordinator, multi-adapter pipeline). See §22 for details.
 

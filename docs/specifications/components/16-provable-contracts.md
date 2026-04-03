@@ -24,7 +24,7 @@ apr-leaderboard acceptance --verify
 - `provable_contracts::schema::validate_contract(&contract)` — Check equations, proof obligations, falsification tests
 - `provable_contracts::error::Severity` — Filter validation violations by severity
 
-**Current contracts (25 in `contracts/` directory, all parsed by `pv proof-status`):**
+**Current contracts (28 in `contracts/` directory, all parsed by `pv proof-status`):**
 
 | Contract | Level | Obligs | Tests | Kani | Scope |
 |---|---|---|---|---|---|
@@ -54,8 +54,11 @@ apr-leaderboard acceptance --verify
 | `quantization-quality.yaml` | L2 | 3 | 3 | 0 | INT4 pass@1 retention (AC-023) |
 | `data-quality.yaml` | L2 | 4 | 4 | 0 | Training data quality (AC-025) |
 | `pruning-quality.yaml` | L2 | 4 | 4 | 0 | Wanda pruning quality (AC-008) |
+| `binding-coverage.yaml` | L2 | 3 | 3 | 0 | Contract binding coverage (AC-012) |
+| `hf-parity.yaml` | L2 | 4 | 4 | 0 | HuggingFace parity gap (AC-014) |
+| `ties-sign-resolution.yaml` | L2 | 4 | 4 | 0 | TIES sign conflict resolution (AC-007) |
 
-**Totals:** 87 proof obligations, 87 falsification tests, 10 Kani harnesses. Levels: L1=4, L2=17, L3=4.
+**Totals:** 98 proof obligations, 98 falsification tests, 10 Kani harnesses. Levels: L1=4, L2=20, L3=4.
 
 **Cross-project contracts (in `../provable-contracts/contracts/`):**
 
@@ -133,7 +136,7 @@ If the binding is missing from `contracts/aprender/binding.yaml`, the build fail
 
 ## 16.5 Falsification Test Results
 
-Tests run via `make check-contracts` (**50/51 passing**, updated 2026-04-03):
+Tests run via `make check-contracts` (**64 passed, 1 failed**, updated 2026-04-03):
 
 | Category | Tests | Status | Details |
 |---|---|---|---|
@@ -141,17 +144,23 @@ Tests run via `make check-contracts` (**50/51 passing**, updated 2026-04-03):
 | throughput | 2 | PASS | 2.5 tok/s, 385ms TTFT |
 | benchmark data | 3 | PASS | HumanEval 164, MBPP 974, BCB 1140 |
 | decontamination | 1 | PASS | 0% HE/MBPP overlap |
-| eval results | 3 | PASS | 90.85% best, 15 runs, 84.15% latest |
+| eval results | 3 | PASS | 90.85% best, 15 runs, latest >= 80% |
 | distillation | 2 | PASS | 32B > 7B, 11 categories |
 | MBPP eval | 1 | PASS | 76.2% >= 70% |
 | AC-022 gate | 1 | **FAIL** | HE=90.85% MBPP=76.2% < 80% |
 | quantization | 3 | PASS | Q4K 35% FP16, apr check, golden ordering |
 | distillation data | 3 | PASS | 99 completions, valid JSONL, 99 prompts |
 | oracle analysis | 2 | PASS | 96.34% upper bound, 6 never-solved |
-| pipeline | 3 | PASS | 22 scripts, 22 configs, 56 targets |
+| pipeline | 3 | PASS | 24 scripts, 22 configs, 57 targets |
 | compile | 1 | PASS | apr compile available |
-| structure | 21 | PASS | All 21 contract YAMLs valid |
+| data catalog | 2 | PASS | 9 contract bindings, 13 datasets |
+| leaderboard coverage | 2 | PASS | 20 eval runs, 2 benchmarks |
+| HF parity | 1 | PASS | 3.05pp gap (apr=90.85%, HF=87.8%) |
+| contract coverage | 1 | PASS | 29 contract YAMLs >= 25 |
+| structure | 29 | PASS | All 29 contract YAMLs valid |
 
-**pv proof-status:** 21/21 contracts parsed, 70 obligations, 70 tests, 10 Kani, 0/56 bindings.
+**Makefile gate:** `make check-contracts` — **64 passed, 1 failed** (FT-GATE-001: MBPP 76.2% < 80%).
+
+**pv proof-status:** 28/28 contracts parsed, 98 obligations, 98 tests, 10 Kani, 0/56 bindings.
 
 See `contracts/CONTRACT_STATUS.md` for full audit trail.

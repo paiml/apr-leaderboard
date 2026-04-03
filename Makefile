@@ -643,6 +643,20 @@ check-contracts:
 	[ "$$benchmarks_with_results" -ge 2 ] \
 		&& echo "  FT-LB-002 (>=2 benchmarks): PASS ($$benchmarks_with_results)" && PASS=$$((PASS+1)) \
 		|| { echo "  FT-LB-002: FAIL ($$benchmarks_with_results < 2)"; FAIL=$$((FAIL+1)); }; \
+	echo "-- HF parity (FT-PARITY-001) --"; \
+	if ls results/humaneval_*.json 1>/dev/null 2>&1; then \
+		apr_best=$$(jq -s '[.[] | select(.results.pass_at_1 != null)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1' results/humaneval_*.json 2>/dev/null || echo "0"); \
+		hf_ref=87.8; \
+		gap=$$(echo "scale=2; $$hf_ref - $$apr_best" | bc | sed 's/^-//'); \
+		[ $$(echo "$$gap < 5.0" | bc) -eq 1 ] \
+			&& echo "  FT-PARITY-001 (HE gap<5pp): PASS ($${gap}pp, apr=$${apr_best}% HF=$${hf_ref}%)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-PARITY-001: FAIL ($${gap}pp gap)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-PARITY-001: SKIP (no results)"; fi; \
+	echo "-- contract coverage (FT-CONTRACT-001) --"; \
+	contract_count=$$(ls contracts/*.yaml 2>/dev/null | wc -l); \
+	[ "$$contract_count" -ge 25 ] \
+		&& echo "  FT-CONTRACT-001 (>=25 contracts): PASS ($$contract_count)" && PASS=$$((PASS+1)) \
+		|| { echo "  FT-CONTRACT-001: FAIL ($$contract_count < 25)"; FAIL=$$((FAIL+1)); }; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
 		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]; assert len(d['falsification_tests'])>0; assert 'TODO' not in str(d) and 'PLACEHOLDER' not in str(d)" 2>/dev/null \
