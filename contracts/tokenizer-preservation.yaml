@@ -1,0 +1,56 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Tokenizer preservation contract — all APR→APR pipeline operations
+    (merge, quantize, prune, convert) MUST preserve the embedded tokenizer
+    from the source model. Violation produces dead models that cannot
+    run inference. Refs GH-580.
+  references:
+    - "paiml/aprender#580 — Catastrophic: merge/quantize drop embedded tokenizer"
+
+equations:
+  tokenizer_identity:
+    formula: "tokenizer(f(model)) = tokenizer(model) for all APR→APR ops f"
+    domain: "f ∈ {merge, quantize, prune, convert}"
+    codomain: "bool"
+    invariants:
+      - "Output APR has same vocab_size as input"
+      - "Output APR has same EOS/BOS token IDs as input"
+      - "Output APR passes apr check tokenizer stage"
+
+  roundtrip_inference:
+    formula: "inference(f(model), prompt) produces tokens (not tokenizer error)"
+    domain: "any valid APR model, any prompt"
+    codomain: "token sequence"
+    invariants:
+      - "apr run output.apr --prompt X produces output (no PMAT-172 error)"
+      - "Tokenizer encode succeeds for all ASCII prompts"
+
+proof_obligations:
+  - type: invariant
+    property: "Tokenizer preserved across merge"
+    formal: "vocab_size(merged) == vocab_size(base)"
+
+  - type: invariant
+    property: "Tokenizer preserved across quantize"
+    formal: "vocab_size(quantized) == vocab_size(source)"
+
+  - type: postcondition
+    property: "Output model can run inference"
+    formal: "apr run output.apr --prompt 'hello' exits 0"
+
+falsification_tests:
+  - id: FALSIFY-TOK-001
+    rule: "Merged model has embedded tokenizer"
+    prediction: "apr check merged.apr passes tokenizer stage"
+    if_fails: "AprWriter/AprV2Writer not copying tokenizer from base model"
+  - id: FALSIFY-TOK-002
+    rule: "Quantized model has embedded tokenizer"
+    prediction: "apr check quantized.apr passes tokenizer stage"
+    if_fails: "Quantize path not preserving tokenizer section"
+  - id: FALSIFY-TOK-003
+    rule: "Merged model runs inference"
+    prediction: "apr run merged.apr --prompt 'hello' produces tokens"
+    if_fails: "Tokenizer embedding missing or corrupted in output"
