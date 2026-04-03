@@ -1,0 +1,75 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Pruning quality contract — Wanda pruning at conservative ratios must
+    preserve model quality. Perplexity degradation <5%, pass@1 drop <3%.
+    Validates AC-008.
+  references:
+    - "Sun et al. (2023) Wanda — prune LLMs without retraining"
+    - "Frantar & Alistarh (2023) SparseGPT — one-shot pruning"
+
+equations:
+  sparsity_achieved:
+    formula: "sparsity(pruned) = count_zeros(pruned) / count_total(pruned)"
+    domain: "pruned model tensors"
+    codomain: "sparsity ∈ [0, 1]"
+    invariants:
+      - "sparsity within 1% of target ratio"
+      - "Only weight tensors pruned (not biases, norms, embeddings)"
+
+  perplexity_bound:
+    formula: "|PPL(pruned) - PPL(base)| / PPL(base) < 0.05"
+    domain: "WikiText-2 evaluation"
+    codomain: "bool"
+    invariants:
+      - "Same evaluation dataset and tokenizer"
+      - "Greedy decoding"
+
+  pass_at_1_retention:
+    formula: "pass@1(pruned) >= pass@1(base) - 3.0"
+    domain: "HumanEval benchmark"
+    codomain: "bool"
+
+proof_obligations:
+  - type: bound
+    property: "Sparsity matches target within 1%"
+    formal: "|sparsity(pruned) - target| < 0.01"
+
+  - type: bound
+    property: "Perplexity degradation < 5%"
+    formal: "PPL(pruned) < PPL(base) * 1.05"
+
+  - type: bound
+    property: "pass@1 drops less than 3pp"
+    formal: "pass@1(pruned, humaneval) >= pass@1(base, humaneval) - 3.0"
+
+  - type: invariant
+    property: "Pruned model passes validation"
+    formal: "apr check pruned.apr: 10/10 stages PASS"
+
+falsification_tests:
+  - id: FALSIFY-PRUNE-001
+    rule: "Sparsity target achieved"
+    prediction: "apr prune --target-ratio 0.1 achieves 10% sparsity (±1%)"
+    test: "apr prune model.apr --method wanda --target-ratio 0.1 && inspect sparsity"
+    if_fails: "Wanda importance scoring not selecting correct weights for pruning"
+
+  - id: FALSIFY-PRUNE-002
+    rule: "Perplexity bound"
+    prediction: "PPL(pruned) < PPL(base) * 1.05 on WikiText-2"
+    test: "apr eval pruned.apr --dataset wikitext-2 --json"
+    if_fails: "Pruning ratio too aggressive — reduce target-ratio"
+
+  - id: FALSIFY-PRUNE-003
+    rule: "pass@1 retention"
+    prediction: "pass@1(pruned) >= pass@1(base) - 3.0 on HumanEval"
+    test: "make eval-humaneval CHECKPOINT=pruned.apr"
+    if_fails: "Wanda pruning removes important coding knowledge — try magnitude pruning instead"
+
+  - id: FALSIFY-PRUNE-004
+    rule: "Pruned model valid"
+    prediction: "apr check pruned.apr passes 10/10"
+    test: "apr check pruned.apr --json"
+    if_fails: "Pruning corrupted model structure — check tokenizer/config preservation"

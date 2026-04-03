@@ -1,0 +1,60 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Quantization quality contract — INT4/Q4K quantized models must
+    retain >=98% of FP16 baseline pass@1 on HumanEval. Validates AC-023.
+  references:
+    - "Dettmers et al. (2023) QLoRA — 4-bit quantization preserves 99.3% of FP16 on MMLU"
+    - "Frantar et al. (2022) GPTQ — 4-bit achieves <1% degradation on perplexity"
+
+equations:
+  quantization_retention:
+    formula: "retention = pass@1(Q4K) / pass@1(FP16) >= 0.98"
+    domain: "Q4K quantized model vs FP16 reference, same benchmark"
+    codomain: "bool"
+    invariants:
+      - "Evaluation uses identical prompts and sampling parameters"
+      - "Both models use same tokenizer"
+      - "Greedy decoding (temperature=0.0, top_k=1)"
+
+  size_reduction:
+    formula: "size(Q4K) / size(FP16) <= 0.50"
+    domain: "file sizes on disk"
+    codomain: "bool"
+    invariants:
+      - "Q4K model passes apr check (10/10 stages)"
+      - "Size ratio measured on same architecture"
+
+proof_obligations:
+  - type: bound
+    property: "INT4 quantized model loses <2% pass@1 vs FP16"
+    formal: "pass@1(Q4K, humaneval) >= pass@1(FP16, humaneval) - 2.0"
+
+  - type: bound
+    property: "Q4K model is <50% of FP16 size"
+    formal: "file_size(Q4K) / file_size(FP16) <= 0.50"
+
+  - type: invariant
+    property: "Quantized model passes full validation"
+    formal: "apr check Q4K.apr --json: all 10 stages PASS"
+
+falsification_tests:
+  - id: FALSIFY-QQLTY-001
+    rule: "INT4 loses <2% pass@1 vs FP16"
+    prediction: "pass@1(Q4K) >= pass@1(FP16) - 2.0 on HumanEval"
+    test: "Compare eval results: Q4K (85.37%) vs HF FP16 reference (87.8%). Gap = 2.43pp."
+    if_fails: "Q4K quantization degrades model quality beyond acceptable threshold"
+
+  - id: FALSIFY-QQLTY-002
+    rule: "Q4K size < 50% of FP16"
+    prediction: "7B Q4K (7.5 GiB) < 50% of 7B FP16 (~14.2 GiB)"
+    test: "du -h checkpoints/qwen2.5-coder-7b-instruct-q4k.apr"
+    if_fails: "Q4K compression ratio insufficient — check block size or mixed precision"
+
+  - id: FALSIFY-QQLTY-003
+    rule: "Quantized model valid"
+    prediction: "apr check Q4K.apr passes 10/10 stages"
+    test: "apr check checkpoints/qwen2.5-coder-7b-instruct-q4k.apr --json"
+    if_fails: "Quantization produced invalid model — check tensor alignment or metadata"

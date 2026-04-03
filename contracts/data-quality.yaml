@@ -1,0 +1,75 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Training data quality contract — all data used for fine-tuning must
+    meet minimum quality thresholds. Validates AC-025 and complements
+    decontamination contract.
+  references:
+    - "Penedo et al. (2023) FineWeb — quality filtering improves downstream performance"
+
+equations:
+  quality_score:
+    formula: "score(dataset) = mean(quality(sample) for sample in dataset) >= 80"
+    domain: "JSONL training data, scored by alimentar quality"
+    codomain: "score ∈ [0, 100]"
+    invariants:
+      - "Every sample has non-empty instruction and response"
+      - "No duplicate (instruction, response) pairs"
+      - "Response length >= 10 tokens (non-trivial)"
+
+  decontamination:
+    formula: "overlap(training, eval) = 0"
+    domain: "training data vs HumanEval/MBPP benchmark prompts"
+    codomain: "bool"
+    invariants:
+      - "N-gram overlap at threshold 0.8 = 0"
+      - "Checked via apr data decontaminate"
+
+  pair_validity:
+    formula: "valid(pair) = has_keys(pair, {instruction, response}) ∧ len(response) >= 10"
+    domain: "JSONL records"
+    codomain: "bool"
+
+proof_obligations:
+  - type: bound
+    property: "Mean quality score >= 80/100"
+    formal: "alimentar quality --dataset data.jsonl >= 80"
+
+  - type: invariant
+    property: "No duplicate samples"
+    formal: "count(unique(instruction)) == count(total)"
+
+  - type: invariant
+    property: "All samples have non-empty instruction and response"
+    formal: "∀ sample: len(instruction) > 0 ∧ len(response) >= 10"
+
+  - type: bound
+    property: "Zero benchmark contamination"
+    formal: "apr data decontaminate --dataset data.jsonl: 0 contaminated"
+
+falsification_tests:
+  - id: FALSIFY-DQLTY-001
+    rule: "Quality score >= 80"
+    prediction: "alimentar quality on combined-training.jsonl >= 80"
+    test: "apr data quality --verbose data/combined-training.jsonl"
+    if_fails: "Training data contains low-quality samples — filter or regenerate"
+
+  - id: FALSIFY-DQLTY-002
+    rule: "No duplicates"
+    prediction: "sort | uniq -d on instructions finds 0 duplicates"
+    test: "jq -r '.instruction' data/combined-training.jsonl | sort | uniq -d | wc -l == 0"
+    if_fails: "Deduplication step in combine-training-data.sh not working"
+
+  - id: FALSIFY-DQLTY-003
+    rule: "Zero contamination"
+    prediction: "apr data decontaminate reports 0 contaminated"
+    test: "Verified: 0/164 HumanEval, 0/974 MBPP (§24.12.3)"
+    if_fails: "Training data leaked benchmark prompts — remove and regenerate"
+
+  - id: FALSIFY-DQLTY-004
+    rule: "Non-trivial responses"
+    prediction: "All responses >= 10 tokens"
+    test: "jq '.response | length' data/combined-training.jsonl | awk '$1 < 10' | wc -l == 0"
+    if_fails: "Some samples have empty or trivially short responses"

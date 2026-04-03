@@ -24,7 +24,7 @@ apr-leaderboard acceptance --verify
 - `provable_contracts::schema::validate_contract(&contract)` — Check equations, proof obligations, falsification tests
 - `provable_contracts::error::Severity` — Filter validation violations by severity
 
-**Current contracts (21 in `contracts/` directory, all parsed by `pv proof-status`):**
+**Current contracts (25 in `contracts/` directory, all parsed by `pv proof-status`):**
 
 | Contract | Level | Obligs | Tests | Kani | Scope |
 |---|---|---|---|---|---|
@@ -34,7 +34,7 @@ apr-leaderboard acceptance --verify
 | `distillation.yaml` | L2 | 3 | 3 | 0 | Teacher→student quality (PMAT-007) |
 | `lora-algebra.yaml` | L2 | 3 | 3 | 0 | LoRA rank/merge math |
 | `quantization.yaml` | L2 | 3 | 3 | 0 | INT4/Q4K size + ordering |
-| `dpo-alignment.yaml` | L1 | 3 | 2 | 0 | DPO loss + convergence (PMAT-008) |
+| `dpo-alignment.yaml` v2.0 | L1 | 6 | 5 | 0 | DPO e2e pipeline + MBPP target (PMAT-008) |
 | `qlora-training-loop.yaml` | L3 | 7 | 8 | 3 | Full training pipeline (§26) |
 | `fused-cross-entropy.yaml` | L3 | 4 | 5 | 2 | Chunked CE loss |
 | `nf4-dequantization.yaml` | L3 | 4 | 6 | 3 | NF4 codebook + roundtrip |
@@ -43,14 +43,19 @@ apr-leaderboard acceptance --verify
 | `gpu-output-norm.yaml` | L2 | 3 | 3 | 0 | GPU-resident RMSNorm |
 | `forward-pass-perf.yaml` | L1 | 2 | 1 | 0 | Per-op layer timing |
 | `lora-finetune-eval.yaml` | L2 | 3 | 3 | 0 | Train→merge→eval (PMAT-008) |
-| `merge-weight-norm.yaml` | L2 | 4 | 4 | 0 | SLERP/TIES norm (AC-006) |
+| `merge-weight-norm.yaml` v2.0 | L2 | 4 | 6 | 0 | SLERP/TIES norm + AC-024 (PMAT-010) |
 | `leaderboard-gate.yaml` | L2 | 3 | 3 | 0 | AC-022 compound gate |
 | `preference-pairs.yaml` | L1 | 4 | 3 | 0 | N-sampling→DPO pairs (PMAT-014) |
 | `compile-binary.yaml` | L2 | 3 | 3 | 0 | apr compile (AC-010/026) |
 | `pipeline-validation.yaml` | L2 | 3 | 3 | 0 | make verify/validate |
 | `perplexity-baseline.yaml` | L2 | 3 | 3 | 0 | WikiText-2 PPL (AC-002) |
+| `tokenizer-preservation.yaml` | L2 | 3 | 3 | 0 | GH-580/581 tokenizer in merge/quantize |
+| `data-governance.yaml` | L2 | 3 | 3 | 0 | Data catalog + lineage |
+| `quantization-quality.yaml` | L2 | 3 | 3 | 0 | INT4 pass@1 retention (AC-023) |
+| `data-quality.yaml` | L2 | 4 | 4 | 0 | Training data quality (AC-025) |
+| `pruning-quality.yaml` | L2 | 4 | 4 | 0 | Wanda pruning quality (AC-008) |
 
-**Totals:** 70 proof obligations, 70 falsification tests, 10 Kani harnesses. Levels: L1=4, L2=13, L3=4.
+**Totals:** 87 proof obligations, 87 falsification tests, 10 Kani harnesses. Levels: L1=4, L2=17, L3=4.
 
 **Cross-project contracts (in `../provable-contracts/contracts/`):**
 

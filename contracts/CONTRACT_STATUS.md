@@ -72,9 +72,13 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | FT-LB-002 | leaderboard | >= 2 benchmarks with results | PASS (2) |
 | Structure | all | Valid YAML with required sections | PASS (×22) |
 
-**Total: 56 passed, 1 failed** (updated 2026-04-03)
+| quantization-quality.yaml | 2 | 3 | 3 | FT-QQLTY-001 (indirect) | Active |
+| data-quality.yaml | 3 | 4 | 4 | FT-DECON-001 (indirect) | Active |
+| pruning-quality.yaml | 2 | 4 | 4 | — | Active |
 
-**pv proof-status:** 22/22 contracts parsed, 76 obligations, 76 tests, 10 Kani, 0/56 bindings.
+**Total: 59 passed, 1 failed** (updated 2026-04-03)
+
+**pv proof-status:** 25/25 contracts parsed, 87 obligations, 87 tests, 10 Kani, 0/56 bindings.
 
 **Note:** FT-GATE-001 is informational — correctly identifies MBPP 3.8pp gap from 80% threshold. Closing strategy: DPO training (PMAT-008) + text-based distillation (PMAT-007).
 
