@@ -24,7 +24,7 @@ Questions marked ✅ have been partially or fully answered by dogfooding.
 17. **`apr serve` for .apr files:** `apr serve` loads .apr models but HTTP server doesn't bind. Is this a missing feature or a configuration issue? Does it only work with raw GGUF?
 18. **Import prerequisites:** `apr import` requires config.json and tokenizer.json in the HF cache. Should the import command auto-download these, or is manual download expected for non-standard model formats?
 19. **Pruning precision at scale:** Wanda achieves 19.9% at 20% target on 256 params. Does floor rounding error vanish at 7B+ parameter counts, or do per-layer targets need adjustment?
-20. **Tensor naming conventions:** The pipeline is sensitive to tensor name consistency across stages. What naming convention should import/distill/merge/finetune standardize on? *Partial answer: aprender 0.27.2 checkpoint spec (v1.4.0) uses HF convention (`model.layers.N.*`) for base model tensors.*
+20. ✅ **Tensor naming conventions:** *Answered (2026-04-03): CONFIRMED as a real issue.* wgpu training saves adapters as `layer.N.proj.lora_a` while GGUF base uses `model.layers.N.self_attn.proj.weight`. Merge matched 0/339 layers until tensors were remapped. Fix: `scripts/remap-adapter-tensors.py` normalizes names. Upstream fix needed in `entrenar::merge` for automatic remapping. See §24.21.
 
 ## Answered by GPU-SHARE Implementation (2026-03-04)
 
@@ -40,5 +40,5 @@ Questions marked ✅ have been partially or fully answered by dogfooding.
 ## New Questions from Distillation Pipeline (2026-03-28)
 
 29. **Text-based distillation effectiveness on Q4K:** Does the 32B teacher (90.85%) generate sufficiently diverse completions at temperature=0.8 to improve the 7B student beyond its 85.37% baseline? The 99 targeted prompts cover 11 categories derived from HumanEval failure analysis. Falsifiable: if HumanEval stays below 86% after QLoRA training, text-based distillation is insufficient.
-30. **Combined data optimality:** Is the ratio of teacher completions (99) to instruct corpus (15K) correct, or will the 99 targeted samples be diluted by 15K generic pairs? May need to weight teacher data higher or train in two phases (teacher first, then corpus).
+30. ✅ **Combined data optimality:** *Answered (2026-04-03): 15K combined training is impractical (~153h ETA).* Targeted 99 teacher completions alone take 66.5 min. The 15K combined corpus would require batching or multi-epoch scheduling. Recommendation: train on 99 targeted samples first (PMAT-007), then optionally fine-tune further on a small instruct subset (1K-2K samples).
 31. **QLoRA rank selection for distillation:** Recipe I uses rank 32 (same as Recipe E). Should distillation QLoRA use higher rank (64+) to capture more of the teacher's reasoning patterns, or does the Q4K quantization bottleneck make higher rank wasteful?
