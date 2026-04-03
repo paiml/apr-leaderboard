@@ -1,0 +1,63 @@
+# Recipe L: "DPO Alignment" — align 7B on HumanEval preference pairs.
+#
+# Pipeline: finetune (dpo) -> merge -> quantize -> eval
+# Uses preference pairs from PMAT-014 N-sampling (chosen/rejected completions).
+# DPO training aligns the model to prefer correct code over incorrect code.
+#
+# Prerequisites:
+#   - Student: checkpoints/qwen2.5-coder-7b-instruct-q4k.apr (85.37% HumanEval)
+#   - Data: data/preference-pairs.jsonl (from make generate-preference-pairs)
+#   - Contract: contracts/dpo-alignment.yaml v2.0
+#
+# Expected outcome: MBPP 76.2% → 78-80% (DPO improves borderline problems)
+# Falsifiable: if MBPP stays below 78%, DPO on N-sampling pairs is insufficient.
+#
+# Usage:
+#   make pipeline RECIPE=recipe-l-dpo-alignment
+
+model:
+  id: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  output_dir: checkpoints
+  quantization: q4k
+  leaderboard: bigcode
+
+benchmarks:
+  - humaneval
+  - mbpp
+
+stages:
+  - finetune
+  - merge
+  - quantize
+  - eval
+
+finetune:
+  method: dpo
+  rank: 16
+  lr: 5.0e-5
+  epochs: 3
+  model_size: "7B"
+  dataset: "data/preference-pairs.jsonl"
+  beta: 0.1
+
+merge:
+  strategy: slerp
+  output: "checkpoints/qwen2.5-coder-7b-dpo-merged.apr"
+
+quantize:
+  scheme: q4k
+  output: "checkpoints/qwen2.5-coder-7b-dpo-merged-q4k.apr"
+
+eval:
+  max_tokens: 512
+  temperature: 0.0
+  prompt_strategy: standard
+
+monitoring:
+  terminal:
+    enabled: true
+    metrics: ["loss", "learning_rate", "chosen_reward", "rejected_reward"]
+  alerts:
+    - condition: "loss > 5"
+      action: stop
+      message: "DPO loss exploded"

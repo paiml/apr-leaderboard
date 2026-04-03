@@ -481,3 +481,41 @@ make validate-ac022
 **Success gate (AC-022):** ≥85% HumanEval, ≥82% HumanEval+, ≥80% MBPP
 
 **Hypothesis H4:** INT4 quantization loses <2% pass@1 (AC-023). Current Q4K model already at 85.37% — INT4 from FP16 intermediate may differ.
+
+## 9.12 Recipe L: "DPO Alignment" (PMAT-008)
+
+**Target:** Align 7B model on HumanEval preference pairs to improve borderline problem accuracy, targeting MBPP 76.2% → 78-80%.
+
+```bash
+# Step 1: Generate preference pairs from N-sampling eval (PMAT-014)
+make generate-preference-pairs \
+    WORK_DIR=/tmp/nsample-workdir \
+    OUTPUT=data/preference-pairs.jsonl
+
+# Step 2: DPO fine-tune on preference pairs
+apr finetune checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
+    --method dpo --data data/preference-pairs.jsonl \
+    --rank 16 --lr 5e-5 --epochs 3 --beta 0.1 \
+    -o checkpoints/qwen-7b-dpo-adapter/
+
+# Step 3: Merge adapter into base model
+apr finetune checkpoints/qwen2.5-coder-7b-instruct-q4k.apr \
+    --merge --adapter checkpoints/qwen-7b-dpo-adapter/ \
+    -o checkpoints/qwen-7b-dpo-merged.apr
+
+# Step 4: Quantize
+apr quantize checkpoints/qwen-7b-dpo-merged.apr \
+    --scheme q4k -o checkpoints/qwen-7b-dpo-q4k.apr
+
+# Step 5: Evaluate on HumanEval and MBPP
+make eval-humaneval CHECKPOINT=checkpoints/qwen-7b-dpo-q4k.apr
+make eval-mbpp CHECKPOINT=checkpoints/qwen-7b-dpo-q4k.apr
+```
+
+**Config:** `configs/recipes/recipe-l-dpo-alignment.yaml`
+
+**Contract:** `contracts/dpo-alignment.yaml` v2.0 (5 falsification tests, MBPP improvement target)
+
+**Success gates:** MBPP ≥ 78% (DPO target), HumanEval ≥ 84% (no-regression)
+
+**Hypothesis H5:** DPO on N-sampling preference pairs closes 2-3pp of the MBPP gap by aligning the model on borderline coding problems where it sometimes succeeds and sometimes fails.

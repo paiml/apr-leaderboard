@@ -198,6 +198,10 @@ n-sampling with reranking, code-specific tokenization.
 | F: Qwen3 QLoRA | import -> QLoRA (NF4) -> eval | VRAM-efficient |
 | G: wgpu Proof | import -> QLoRA (wgpu) -> eval -> verify | GPU proof |
 | H: Reasoning Distill | 32B teacher -> progressive distill -> 7B student -> eval | Knowledge transfer |
+| I: HumanEval QLoRA | finetune (qlora) -> eval | Targeted fine-tuning |
+| J: Specialist Merge | TIES merge (distill + DPO) -> eval | Specialist composition |
+| K: Final Artifact | prune -> quantize -> compile -> eval | Submission |
+| L: DPO Alignment | DPO finetune -> merge -> quantize -> eval | MBPP gap closing |
 
 -> [Full details](components/09-composite-recipes.md)
 
