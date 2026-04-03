@@ -1,0 +1,56 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Data governance contract — ensures all training and evaluation data
+    has documented lineage, classification, and contract bindings in
+    data_catalog.yaml. Validates data quality pipeline integrity.
+  references:
+    - "APR Leaderboard Spec §12 (Data Strategy)"
+    - "data_catalog.yaml — sovereign data governance manifest"
+
+equations:
+  catalog_coverage:
+    formula: "coverage = |datasets_with_contract| / |datasets_total|"
+    domain: "data_catalog.yaml datasets section"
+    codomain: "[0, 1]"
+    invariants:
+      - "Every dataset used in training has a contract binding"
+      - "Every benchmark has a contract binding"
+      - "No dataset has classification: public without explicit approval"
+
+  lineage_completeness:
+    formula: "complete = ∀ dataset: has(purpose) ∧ has(format) ∧ has(lifecycle)"
+    domain: "data_catalog.yaml"
+    codomain: "bool"
+    invariants:
+      - "Every dataset has purpose, format, and lifecycle fields"
+      - "lifecycle is one of: retained, ephemeral"
+
+proof_obligations:
+  - type: bound
+    property: "At least 5 datasets have contract bindings"
+    formal: "count(datasets with contract field) >= 5"
+
+  - type: completeness
+    property: "All benchmarks have contract bindings"
+    formal: "∀ benchmark ∈ benchmarks: has(contract)"
+
+  - type: bound
+    property: "At least 8 datasets documented"
+    formal: "count(datasets + benchmarks) >= 8"
+
+falsification_tests:
+  - id: FALSIFY-GOV-001
+    rule: "Sufficient contract bindings"
+    prediction: ">= 5 datasets have contract: field in data_catalog.yaml"
+    if_fails: "Training data not linked to quality contracts"
+  - id: FALSIFY-GOV-002
+    rule: "All datasets documented"
+    prediction: ">= 8 datasets with purpose field"
+    if_fails: "Undocumented data used in pipeline"
+  - id: FALSIFY-GOV-003
+    rule: "Benchmarks have contract bindings"
+    prediction: "All entries in benchmarks: section have contract: field"
+    if_fails: "Evaluation data not governed by contracts"

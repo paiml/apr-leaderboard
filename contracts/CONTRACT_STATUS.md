@@ -27,6 +27,7 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | compile-binary.yaml | 3 | 3 | 3 | FT-COMPILE-001 (1) | Active |
 | pipeline-validation.yaml | 3 | 3 | 3 | FT-PIPE-001..003 (3) | Active |
 | perplexity-baseline.yaml | 2 | 3 | 3 | — | Active |
+| data-governance.yaml | 2 | 3 | 3 | FT-CATALOG-001..002 (2) | Active |
 
 **Active:** Contract YAML valid with all required sections (metadata, equations, proof_obligations, falsification_tests).
 **Pending:** Contract YAML exists but falsification tests require upstream `apr` features (LoRA merge, quantization round-trip).
@@ -69,9 +70,9 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | FT-CATALOG-002 | data catalog | >= 8 datasets documented | PASS (13) |
 | FT-LB-001 | leaderboard | >= 10 eval runs total | PASS (20) |
 | FT-LB-002 | leaderboard | >= 2 benchmarks with results | PASS (2) |
-| Structure | all | Valid YAML with required sections | PASS (×21) |
+| Structure | all | Valid YAML with required sections | PASS (×22) |
 
-**Total: 54 passed, 1 failed** (updated 2026-04-03)
+**Total: 55 passed, 1 failed** (updated 2026-04-03)
 
 **pv proof-status:** 21/21 contracts parsed, 70 obligations, 70 tests, 10 Kani, 0/56 bindings.
 
