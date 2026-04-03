@@ -587,6 +587,19 @@ check-contracts:
 			&& echo "  FT-DISTDATA-003 (>=50 prompts): PASS ($$dp_lines)" && PASS=$$((PASS+1)) \
 			|| { echo "  FT-DISTDATA-003: FAIL ($$dp_lines < 50)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-DISTDATA-003: SKIP (no prompts)"; fi; \
+	echo "-- oracle analysis (FT-ORACLE-001..002) --"; \
+	if [ -x scripts/oracle-analysis.sh ] && ls results/humaneval_*.json 1>/dev/null 2>&1; then \
+		oracle_pct=$$(scripts/oracle-analysis.sh 2>/dev/null | grep -oP 'Oracle.*?(\d+\.\d+)%' | grep -oP '\d+\.\d+' | head -1); \
+		if [ -n "$$oracle_pct" ]; then \
+			[ $$(echo "$$oracle_pct >= 90.0" | bc) -eq 1 ] \
+				&& echo "  FT-ORACLE-001 (oracle>=90%): PASS ($${oracle_pct}%)" && PASS=$$((PASS+1)) \
+				|| { echo "  FT-ORACLE-001: FAIL ($${oracle_pct}%)"; FAIL=$$((FAIL+1)); }; \
+		else echo "  FT-ORACLE-001: SKIP (parse error)"; fi; \
+		never_count=$$(scripts/failure-analysis.sh 2>/dev/null | grep -c '| 0/' || echo "0"); \
+		[ "$$never_count" -le 10 ] \
+			&& echo "  FT-ORACLE-002 (<=10 never-solved): PASS ($$never_count)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-ORACLE-002: FAIL ($$never_count > 10)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-ORACLE-001: SKIP (no oracle script or results)"; fi; \
 	echo "-- pipeline verification (FT-PIPE-001..003) --"; \
 	script_count=$$(ls scripts/*.sh 2>/dev/null | wc -l); \
 	[ "$$script_count" -ge 15 ] \

@@ -23,7 +23,7 @@ equations:
       - "Epsilon prevents division by zero for zero-norm rows"
 
 proof_obligations:
-  - type: parity
+  - type: equivalence
     property: "GPU RMSNorm matches CPU reference within ε < 1e-4"
     formal: "|normed_gpu[i,j] - normed_cpu[i,j]| < 1e-4 for all i,j"
     tolerance: 1e-4
@@ -32,22 +32,20 @@ proof_obligations:
     property: "Hidden state never leaves GPU between forward and lm_head"
     formal: "count(download_hidden() in forward→lm_head path) = 0"
 
-  - type: performance
+  - type: bound
     property: "Norm weights uploaded once at init, not per step"
     formal: "upload_count(norm_weights) = 1 across N training steps"
 
 falsification_tests:
-  FALSIFY-GPU-NORM-001:
-    obligation: parity
-    method: "Download GPU normed output, compare with CPU RMSNorm reference"
-    pass_criterion: "max |gpu - cpu| < 1e-4"
-
-  FALSIFY-GPU-NORM-002:
-    obligation: gpu_resident
-    method: "Grep for download_hidden in train_step forward→lm_head path"
-    pass_criterion: "Zero occurrences"
-
-  FALSIFY-GPU-NORM-003:
-    obligation: rmsnorm_output
-    method: "Verify normed output has unit-scale per row (within weight scaling)"
-    pass_criterion: "||normed[i,:]||² / dim ≈ mean(weight²) for all i"
+  - id: FALSIFY-GPU-NORM-001
+    rule: "GPU RMSNorm matches CPU reference"
+    prediction: "max |gpu - cpu| < 1e-4"
+    if_fails: "GPU RMSNorm kernel diverges from CPU implementation"
+  - id: FALSIFY-GPU-NORM-002
+    rule: "No CPU download in forward-to-lm_head path"
+    prediction: "Zero download_hidden() calls in forward→lm_head path"
+    if_fails: "GPU-resident pipeline broken, hidden state downloaded to CPU"
+  - id: FALSIFY-GPU-NORM-003
+    rule: "Normed output has correct scale"
+    prediction: "||normed[i,:]||² / dim within weight scaling"
+    if_fails: "RMSNorm weight scaling applied incorrectly"

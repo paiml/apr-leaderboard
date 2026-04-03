@@ -29,12 +29,12 @@ proof_obligations:
     property: "Forward pass time bounded by arithmetic intensity"
     formal: "t_layer >= total_flops / peak_gflops"
 
-  - type: dominance
+  - type: bound
     property: "Top operation accounts for >= 50% of per-layer time"
     formal: "max(t_op) / t_layer >= 0.5"
 
 falsification_tests:
-  FALSIFY-PERF-001:
-    obligation: bottleneck_identified
-    method: "Per-operation timing within encode_forward_layer_training on first layer"
-    pass_criterion: "Report shows which operation takes most time"
+  - id: FALSIFY-PERF-001
+    rule: "Bottleneck operation identified via per-op timing"
+    prediction: "Top operation accounts for >= 50% of per-layer time"
+    if_fails: "Layer time is evenly distributed — no clear optimization target"

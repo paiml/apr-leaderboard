@@ -102,14 +102,14 @@ kani_harnesses:
   - id: KANI-WGSL-GEMM-001
     obligation: gemm_dimensions
     property: "Output buffer index m*N+n never exceeds capacity for all valid (m,n)"
-    bound: "m,n in [1..256]"
+    bound: 256
     strategy: exhaustive
     solver: cadical
     harness: "wgsl_gemm_output_bounds"
   - id: KANI-WGSL-GEMM-002
     obligation: double_buffer_correctness
     property: "Shared memory index never exceeds 2*TILE_M*TILE_K"
-    bound: "tile_m in [1..128], tile_k in [1..8]"
+    bound: 128
     strategy: exhaustive
     solver: cadical
     harness: "wgsl_gemm_smem_bounds"

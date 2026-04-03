@@ -30,14 +30,16 @@ proof_obligations:
     formal: "Δ_1 > Δ_2 implies L_dpo(Δ_1) < L_dpo(Δ_2)"
     lean_theorem: ProvableContracts.DPO.dpo_gradient_formula
 
-  - type: convergence
+  - type: bound
     property: "DPO training reduces loss over 3 epochs"
     formal: "avg_loss(epoch_3) < avg_loss(epoch_1)"
 
 falsification_tests:
-  FALSIFY-DPO-001:
-    obligation: loss_nonneg
-    method: "Compute DPO loss on random pairs, verify >= 0"
-  FALSIFY-DPO-002:
-    obligation: dpo_loss
-    method: "Train 3 epochs, verify loss decreases"
+  - id: FALSIFY-DPO-001
+    rule: "DPO loss is non-negative for all inputs"
+    prediction: "L_dpo >= 0 for random preference pairs"
+    if_fails: "DPO loss computation has sign error"
+  - id: FALSIFY-DPO-002
+    rule: "DPO training reduces loss over 3 epochs"
+    prediction: "avg_loss(epoch_3) < avg_loss(epoch_1)"
+    if_fails: "DPO training diverges or fails to converge"

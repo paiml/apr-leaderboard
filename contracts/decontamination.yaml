@@ -30,7 +30,7 @@ proof_obligations:
     formal: "0.0 <= overlap(doc, ref, n) <= 1.0"
     tolerance: 1e-10
 
-  - type: gate
+  - type: bound
     property: "Contamination rate below 1% passes AC-016"
     formal: "rate(corpus, benchmarks, 10, 0.5) < 0.01"
     tolerance: 0.0

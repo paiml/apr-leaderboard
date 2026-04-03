@@ -34,7 +34,7 @@ proof_obligations:
     property: "Training decreases loss"
     formal: "loss(epoch_n) < loss(epoch_0) for n >= 1"
 
-  - type: preservation
+  - type: conservation
     property: "Distillation preserves existing capabilities"
     formal: "pass_at_1(after) >= pass_at_1(before) - 2.0"
 

@@ -92,8 +92,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | YAML configs | 24 | — | models (7) + recipes (11) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
 | Shell scripts | 22 + 4 canaries | — | 22 pipeline scripts + 4 GPU canary/falsification scripts |
 | Makefile targets | 56 | — | `make verify` + `make validate` + `make dogfood` |
-| Contract tests | 48/49 | 49/49 | `make check-contracts` (pass@k ×5, throughput ×2, data ×3, decon ×1, eval ×3, distill ×2, MBPP ×1, gate ×1, quant ×3, distdata ×3, compile ×1, pipe ×3, structure ×21). 1 fail: MBPP gate. |
-| Contract YAMLs | 21 | — | 21 provable contract YAMLs covering eval, training, quantization, merge, compile, pipeline, and data quality |
+| Contract tests | 50/51 | 51/51 | `make check-contracts` (pass@k ×5, throughput ×2, data ×3, decon ×1, eval ×3, distill ×2, MBPP ×1, gate ×1, quant ×3, distdata ×3, oracle ×2, pipe ×3, compile ×1, structure ×21). 1 fail: MBPP gate. |
+| Contract YAMLs | 21 | — | 21 provable contract YAMLs, 70 proof obligations, 70 FTs, 10 Kani harnesses. `pv proof-status`: 21/21 parsed. |
 | PMAT work items | 8 | — | PMAT-006 (done), PMAT-007 (in progress), PMAT-008 (new), PMAT-010 (pending), PMAT-011 (pending), PMAT-014 (in progress), PMAT-017 (done), PMAT-037 (in progress). See §27. |
 | Spec sections | 27 | — | §1-27: added §27 PMAT Roadmap |
 | Spec sections | 26 | — | §1-25 + §26 QLoRA Training Loop |

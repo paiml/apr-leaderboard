@@ -45,7 +45,7 @@ proof_obligations:
     formal: "best_pass_at_1(mbpp_results) >= 0.80"
     tolerance: 0.0
 
-  - type: compound
+  - type: invariant
     property: "All benchmark gates pass simultaneously"
     formal: "HE >= 85% AND MBPP >= 80%"
 

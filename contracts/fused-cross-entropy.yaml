@@ -109,14 +109,14 @@ kani_harnesses:
   - id: KANI-FCE-001
     obligation: chunked_logsumexp
     property: "logsumexp decomposition is algebraically exact"
-    bound: "n_chunks in [1..4], n_values in [1..16]"
+    bound: 16
     strategy: stub_float
     solver: cadical
     harness: "logsumexp_decomposition"
   - id: KANI-FCE-002
     obligation: fused_backward
     property: "Gradient sum equals zero (softmax property)"
-    bound: "vocab_size in [2..16]"
+    bound: 16
     strategy: stub_float
     solver: cadical
     harness: "ce_gradient_sum_zero"

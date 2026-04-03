@@ -63,9 +63,13 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | FT-PIPE-001 | pipeline-validation | >= 15 scripts | PASS (22) |
 | FT-PIPE-002 | pipeline-validation | >= 15 configs | PASS (22) |
 | FT-PIPE-003 | pipeline-validation | >= 40 Make targets | PASS (56) |
+| FT-ORACLE-001 | oracle | Oracle pass@1 >= 90% | PASS (96.34%) |
+| FT-ORACLE-002 | oracle | <= 10 never-solved problems | PASS (6) |
 | Structure | all | Valid YAML with required sections | PASS (×21) |
 
-**Total: 48 passed, 1 failed** (updated 2026-04-03)
+**Total: 50 passed, 1 failed** (updated 2026-04-03)
+
+**pv proof-status:** 21/21 contracts parsed, 70 obligations, 70 tests, 10 Kani, 0/56 bindings.
 
 **Note:** FT-GATE-001 is informational — correctly identifies MBPP 3.8pp gap from 80% threshold. Closing strategy: DPO training (PMAT-008) + text-based distillation (PMAT-007).
 

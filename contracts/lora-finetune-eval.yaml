@@ -26,7 +26,7 @@ equations:
       - "avg_loss(epoch_N) < avg_loss(epoch_1) for N >= 2"
 
 proof_obligations:
-  - type: convergence
+  - type: bound
     property: "Training loss decreases over epochs"
     formal: "avg_loss(last_epoch) < avg_loss(first_epoch)"
 
@@ -40,17 +40,15 @@ proof_obligations:
     tolerance: 0.02
 
 falsification_tests:
-  FALSIFY-EVAL-001:
-    obligation: training_convergence
-    method: "Train N epochs, verify avg_loss decreases"
-    pass_criterion: "avg_loss(last_epoch) < avg_loss(first_epoch)"
-
-  FALSIFY-EVAL-002:
-    obligation: adapter_merge
-    method: "Export adapter, merge, verify output file is valid .apr"
-    pass_criterion: "apr validate merged.apr passes"
-
-  FALSIFY-EVAL-003:
-    obligation: eval_parity
-    method: "Run HumanEval on merged model, compare to base 85.37%"
-    pass_criterion: "pass@1 >= 83%"
+  - id: FALSIFY-EVAL-001
+    rule: "Training loss decreases over epochs"
+    prediction: "avg_loss(last_epoch) < avg_loss(first_epoch)"
+    if_fails: "Training diverges or learning rate too high"
+  - id: FALSIFY-EVAL-002
+    rule: "Adapter merge produces valid .apr file"
+    prediction: "apr check merged.apr passes"
+    if_fails: "LoRA merge corrupts model format"
+  - id: FALSIFY-EVAL-003
+    rule: "Merged model maintains baseline quality"
+    prediction: "pass@1(merged) >= 83% (baseline - 2pp)"
+    if_fails: "Fine-tuning catastrophically degraded model"

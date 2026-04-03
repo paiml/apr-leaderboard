@@ -253,7 +253,50 @@ PMAT-014 → PMAT-008 → PMAT-010 → PMAT-011 → AC-022
 
 See §27 for full dependency graph, AC coverage map, and gap analysis.
 
-## 24.19 Recommendations (Updated 2026-04-03)
+## 24.19 Oracle & Failure Analysis (2026-04-03)
+
+**Oracle analysis** (`scripts/oracle-analysis.sh`) computes the best-per-problem upper bound across all strategies and runs:
+
+| Metric | Value |
+|--------|-------|
+| Oracle pass@1 | **96.34%** (158/164) |
+| Always-pass (reliable) | 118 problems |
+| Inconsistent (borderline) | 40 problems |
+| Always-fail (model limit) | 6 problems |
+| Gap to oracle | 1.22pp |
+
+**Never-solved problems** (6): HumanEval/115 (`max_fill`), HumanEval/120 (`maximum`), HumanEval/127 (`intersection`), HumanEval/130 (`tri`), HumanEval/145 (`order_by_points`), HumanEval/163 (`generate_integers`).
+
+**Strategy unique wins:**
+- `standard`: 3 unique wins (most diverse)
+- `cgo`: 1 unique win
+- `few-shot`: 0 unique wins (but highest single-run score)
+
+**DPO training target:** The 40 borderline problems are ideal preference pair candidates. N-sampling (NUM_SAMPLES=10) on these should generate 200+ (chosen, rejected) pairs.
+
+Falsification tests wired: FT-ORACLE-001 (oracle >= 90%), FT-ORACLE-002 (never-solved <= 10).
+
+## 24.20 pv Proof-Status (AC-012)
+
+**Status: 21/21 CONTRACTS PARSED** (2026-04-03)
+
+All 21 contract YAMLs now parse correctly via `pv proof-status`. Previously 11 were skipped due to invalid `type` values and dict-style `falsification_tests`.
+
+| Metric | Value |
+|--------|-------|
+| Contracts parsed | 21/21 |
+| Total obligations | 70 |
+| Total tests | 70 |
+| Kani harnesses | 10 |
+| Lean theorems | 0 |
+| Bindings | 0/56 (0%) |
+| Levels | L1: 4, L2: 13, L3: 4 |
+
+**AC-012 status:** `pv proof-status` shows 0% binding coverage (0/56). AC-012 requires >= 95%. Bindings connect contract obligations to implementation code. This requires adding `bindings` sections to each contract YAML pointing to the implementing functions in aprender.
+
+**Path forward:** Binding coverage is an aprender-side task — each obligation needs a `binding: { crate: "...", function: "..." }` entry pointing to the Rust function that implements the contract.
+
+## 24.21 Recommendations (Updated 2026-04-03)
 
 **Completed (17 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 56 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based), **wgpu batch fix (GH-560: FFN buffer overflow + KV cache length)**, **distillation data generation (99/99 teacher completions)**, **wgpu batch HumanEval (84.15%, first GPU eval)**.
 

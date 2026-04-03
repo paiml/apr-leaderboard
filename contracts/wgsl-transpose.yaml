@@ -25,7 +25,7 @@ equations:
       - "||B||_F = |scale| * ||A||_F"
 
 proof_obligations:
-  - type: parity
+  - type: equivalence
     property: "GPU transpose matches CPU reference"
     formal: "|B_gpu[j,i] - scale * A[i,j]| < 1e-6 for all i,j"
     tolerance: 1e-6
@@ -39,7 +39,7 @@ proof_obligations:
     formal: "count(GPU→CPU transfers in transpose path) = 0"
 
 falsification_tests:
-  FALSIFY-TRANSPOSE-001:
-    obligation: parity
-    method: "Upload A, GPU transpose, download B, compare with CPU transpose"
-    pass_criterion: "max error < 1e-6, norms match"
+  - id: FALSIFY-TRANSPOSE-001
+    rule: "GPU transpose matches CPU reference"
+    prediction: "max |B_gpu - B_cpu| < 1e-6 and norms match"
+    if_fails: "WGSL transpose shader has indexing or precision error"

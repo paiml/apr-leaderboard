@@ -99,7 +99,7 @@ proof_obligations:
     formal: "max|dequant(quantize(x)) - x| < 2 × absmax / 16"
     tolerance: 0.125
 
-  - type: parity
+  - type: equivalence
     property: "GPU dequant matches CPU dequant"
     formal: "|nf4_dequant_gpu(data) - nf4_dequant_cpu(data)| < 1e-6"
     tolerance: 1e-6
@@ -108,21 +108,21 @@ kani_harnesses:
   - id: KANI-NF4-001
     obligation: quantize_nf4
     property: "dQuantizeNF4 returns value in [0..15] for any input"
-    bound: "exhaustive over 16 input codes"
+    bound: 16
     strategy: exhaustive
     solver: cadical
     harness: "nf4_quantize_range"
   - id: KANI-NF4-002
     obligation: blockwise_dequant
     property: "absmax index never exceeds absmax array bounds"
-    bound: "n in [1..4096], blocksize in {32, 64, 128, 256}"
+    bound: 4096
     strategy: bounded_int
     solver: cadical
     harness: "nf4_absmax_bounds"
   - id: KANI-NF4-003
     obligation: roundtrip_fidelity
     property: "quantize(dequant(i)) == i for all i in [0..15]"
-    bound: "exhaustive over 16 codes"
+    bound: 16
     strategy: exhaustive
     solver: cadical
     harness: "nf4_roundtrip_exact"
