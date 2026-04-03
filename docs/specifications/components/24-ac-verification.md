@@ -317,9 +317,19 @@ All 21 contract YAMLs now parse correctly via `pv proof-status`. Previously 11 w
 
 **Data correction:** Initial attempt used combined-training.jsonl (15,326 samples, ~153h ETA — impractical). Restarted with teacher-completions.jsonl (99 targeted samples from failure analysis). §22.20 lesson: targeted small datasets from failure analysis are the right approach.
 
-**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 (loss decreases), FALSIFY-EVAL-002 (merged model valid), FALSIFY-EVAL-003 (pass@1 >= 83%).
+**Training complete (2026-04-03):**
 
-**Next:** After training (~8h), auto-eval on HumanEval. Then MBPP eval to check AC-022 gap.
+| Epoch | Avg Loss | Δ from Epoch 1 |
+|-------|----------|----------------|
+| 1 | 14.30 | — |
+| 2 | 14.05 | -1.7% |
+| 3 | 14.05 | -1.7% |
+
+Total time: 3991.4s (66.5 min). 112 LoRA tensors saved (safetensors format). FALSIFY-EVAL-001 (loss decreases): **PASS**.
+
+**Adapter merge:** Training saves LoRA adapter as safetensors, not APR format. `apr finetune --merge --adapter adapter.safetensors` handles the merge (dequant base Q4K → FP32, apply W + (α/r)·A@B, re-quantize). Merge in progress on gx10.
+
+**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 **PASS**, FALSIFY-EVAL-002 (pending merge), FALSIFY-EVAL-003 (pending eval).
 
 ## 24.22 Recommendations (Updated 2026-04-03)
 
