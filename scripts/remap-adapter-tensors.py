@@ -19,14 +19,17 @@ MLP_PROJS = {"gate_proj", "up_proj", "down_proj"}
 
 
 def remap_name(name):
+    # layer.N.proj.lora_{a|b} -> model.layers.N.{self_attn|mlp}.proj.weight.lora_{a|b}
+    # The merge code constructs "{base_tensor_name}.lora_a" where
+    # base_tensor_name = "model.layers.N.self_attn.q_proj.weight"
     parts = name.split(".")
     if len(parts) != 4 or parts[0] != "layer":
         return name
     layer_idx, proj, lora_part = parts[1], parts[2], parts[3]
     if proj in ATTN_PROJS:
-        return f"model.layers.{layer_idx}.self_attn.{proj}.{lora_part}"
+        return f"model.layers.{layer_idx}.self_attn.{proj}.weight.{lora_part}"
     elif proj in MLP_PROJS:
-        return f"model.layers.{layer_idx}.mlp.{proj}.{lora_part}"
+        return f"model.layers.{layer_idx}.mlp.{proj}.weight.{lora_part}"
     return name
 
 
