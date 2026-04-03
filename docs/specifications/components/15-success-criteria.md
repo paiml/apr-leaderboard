@@ -13,7 +13,7 @@
 
 | Metric | Target | Stretch | Notes |
 |--------|--------|---------|-------|
-| Makefile targets | 51 | — | Config-driven: `make pipeline RECIPE=...` wraps multi-stage pipeline |
+| Makefile targets | 58 | — | Config-driven: `make pipeline RECIPE=...` wraps multi-stage pipeline. Includes `proof-status`, `status`, `check-contracts`. |
 | Total binary size (compiled, 7B INT4) | < 5GB | < 4GB | 3.5GB weights + runtime |
 | Wall-clock (import → submit) | < 24h (GPU) | < 8h (GPU) | CPU-only: much longer |
 | Python dependencies | 0 | 0 | External sandbox for eval only |
@@ -45,7 +45,11 @@ Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` (greedy decoding,
 
 **HF parity (EvalPlus leaderboard reference):** HumanEval 7B gap = 0.60pp (87.20% few-shot vs 87.8%). MBPP 7B gap = 7.3pp (76.20% vs 83.5%). 32B HE gap = 1.65pp (90.85% vs 92.5%). Note: Qwen model card reports 88.4%/92.7% (different test harness).
 
+**Oracle upper bounds:** HumanEval 96.34% (158/164, best-per-problem across all strategies). Only 6 problems never solved. See §24.19.
+
 **Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
+
+**Contract gate:** `make check-contracts` — 55/56 passing. 1 failure: AC-022 MBPP gate (76.2% < 80%). See §17.6.
 
 ## 15.5 Falsifiability
 
