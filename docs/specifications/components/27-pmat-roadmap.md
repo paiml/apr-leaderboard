@@ -55,12 +55,14 @@ PMAT-014 → PMAT-008 → PMAT-010 → PMAT-011 → AC-022
 
 | AC | Required By | PMAT Item | Current Status |
 |---|---|---|---|
-| AC-003 | Distillation quality | PMAT-007 | Partially Verified |
+| AC-002 | Perplexity baseline | PMAT-006 | **Verified** (6.63 PPL) |
+| AC-003 | Distillation quality | PMAT-007 | **Verified** (99/99 completions) |
 | AC-006 | Merge norm preservation | PMAT-010 | Contract written |
 | AC-007 | TIES sign resolution | PMAT-010 | Not yet tested |
 | AC-008 | Pruning quality | PMAT-011 | Not yet tested |
 | AC-009 | Quantization size | PMAT-011 | FT-QUANT-001 PASS |
-| AC-020 | DPO alignment | PMAT-008 | Verified (impl) |
+| AC-015 | All FTs pass | All | **54/55** (98.2%) |
+| AC-020 | DPO alignment | PMAT-008 | **Verified** |
 | AC-022 | Compound gate (HE+MBPP) | PMAT-011 | FAIL (MBPP 76.2%) |
 | AC-024 | Merge > specialist | PMAT-010 | Not yet tested |
 
@@ -68,18 +70,18 @@ PMAT-014 → PMAT-008 → PMAT-010 → PMAT-011 → AC-022
 
 Each PMAT item has associated provable contracts:
 
-| PMAT | Contracts | FTs | Status |
-|---|---|---|---|
-| PMAT-006 | pass-at-k, inference-throughput | 7 | All passing |
-| PMAT-017 | (structure validation) | 16 | All passing |
-| PMAT-037 | wgsl-gemm-tiled, nf4-dequantization, fused-cross-entropy, lora-gradient-flow, gpu-output-norm, wgsl-transpose, forward-pass-perf | 23 | 22/23 (1 naga) |
-| PMAT-007 | distillation, lora-finetune-eval | 5 | Passing |
-| PMAT-014 | preference-pairs | 3 | New |
-| PMAT-008 | dpo-alignment, lora-finetune-eval | 5 | New |
-| PMAT-010 | merge-weight-norm | 4 | New |
-| PMAT-011 | leaderboard-gate, quantization | 6 | 1 failing (MBPP) |
+| PMAT | Contracts | FTs | Makefile Tests | Status |
+|---|---|---|---|---|
+| PMAT-006 | pass-at-k, inference-throughput, perplexity-baseline | 8 | 7 | All passing |
+| PMAT-017 | pipeline-validation | 3 | 3 | All passing |
+| PMAT-037 | wgsl-gemm-tiled, nf4-dequantization, fused-cross-entropy, gpu-output-norm, wgsl-transpose, forward-pass-perf, qlora-training-loop | 29 | 0 (GPU) | pv L3 |
+| PMAT-007 | distillation, lora-finetune-eval | 6 | 5 | All passing |
+| PMAT-014 | preference-pairs | 3 | 0 (pending N-sampling) | Contract written |
+| PMAT-008 | dpo-alignment, lora-finetune-eval | 5 | 0 (pending DPO) | Contract written |
+| PMAT-010 | merge-weight-norm | 4 | 0 (pending merge) | Contract written |
+| PMAT-011 | leaderboard-gate, quantization, compile-binary | 9 | 4 (1 failing) | MBPP gate |
 
-**Total: 17 contract YAMLs, 69 falsification tests across all PMAT items.**
+**Total: 21 contract YAMLs, 70 proof obligations, 70 falsification tests, 10 Kani harnesses. Makefile gate: 54/55 passing.**
 
 ## 27.6 Gap Analysis
 
