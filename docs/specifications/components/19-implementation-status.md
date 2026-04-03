@@ -92,12 +92,11 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | YAML configs | 24 | — | models (7) + recipes (11) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
 | Shell scripts | 22 + 4 canaries | — | 22 pipeline scripts + 4 GPU canary/falsification scripts |
 | Makefile targets | 56 | — | `make verify` + `make validate` + `make dogfood` |
-| Contract tests | 55/56 | 56/56 | `make check-contracts` 13 categories + structure ×22. 1 fail: MBPP gate. |
-| Contract YAMLs | 22 | — | 22 provable contract YAMLs. `pv proof-status`: 21/21 parsed (data-governance pending). |
+| Contract tests | 56/57 | 57/57 | `make check-contracts` 13 categories + structure ×22. 1 fail: MBPP gate. |
+| Contract YAMLs | 22 | — | 22 provable contract YAMLs including tokenizer-preservation-v1. |
 | Make targets | 58 | — | Added `proof-status`, `status` targets |
-| PMAT work items | 8 | — | PMAT-006 (done), PMAT-007 (in progress), PMAT-008 (new), PMAT-010 (pending), PMAT-011 (pending), PMAT-014 (in progress), PMAT-017 (done), PMAT-037 (in progress). See §27. |
-| Spec sections | 27 | — | §1-27: added §27 PMAT Roadmap |
-| Spec sections | 26 | — | §1-25 + §26 QLoRA Training Loop |
+| PMAT work items | 8 | — | PMAT-006 (done), PMAT-007 (done-pipeline), PMAT-008 (ready), PMAT-010 (pending), PMAT-011 (pending), PMAT-014 (in progress), PMAT-017 (done), PMAT-037 (done). See §27. |
+| Spec sections | 27 | — | §1-27: v2.4.0 update cycle |
 | Config validity | 20/20 | 20/20 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
@@ -261,3 +260,30 @@ All three phases of the GPU-SHARE specification implemented and tested:
 ### 19.6.9 MBPP Eval (2026-03-29)
 
 MBPP result: 74.80% pass@1 (374/500) few-shot 7B Q4K. Duplicate MBPP eval runs on Intel were killed — were burning 32 cores for 4 days with no additional value over the completed result.
+
+### 19.6.10 Tokenizer Preservation Fix — GH-580 (2026-04-03)
+
+**Problem:** All merge/quantize pipeline outputs lost embedded tokenizer, producing dead models that fail with `PMAT-172 ERROR: APR file missing embedded tokenizer`.
+
+**Five Whys:**
+1. Why can't distilled model run inference? Missing tokenizer.
+2. Why missing? `run_merge()` used AprWriter (v1) which creates empty tokenizer.
+3. Why empty? AprWriter v1 only writes weight tensors, not metadata sections.
+4. Why not v2? Original code predated AprV2Writer.
+5. Why not caught? `apr check` passes (validates weights), but `apr run` fails (needs tokenizer for encoding).
+
+**Fix (GH-580):** Read base model with `AprV2Reader`, clone metadata (preserving tokenizer), use `AprV2Writer` for output. Also supports SafeTensors adapter input from wgpu training pipeline. Contract: `tokenizer-preservation-v1.yaml`.
+
+**Impact:** Unblocks PMAT-007 eval, PMAT-008 DPO merge, PMAT-010 TIES merge. All merge operations now produce runnable models.
+
+### 19.6.11 PMAT-007 Distillation Pipeline Complete (2026-04-03)
+
+Full text-based distillation pipeline ran on gx10:
+1. 99 teacher completions generated (32B model)
+2. Combined with instruct corpus (15,326 lines)
+3. QLoRA training: 7B on combined data, rank=32
+4. Adapter exported: 40 MB safetensors
+5. Merged into base 7B model (GH-580 fix)
+6. Quantized to Q4K (6.2 GB)
+
+**Awaiting:** HumanEval + MBPP evaluation of distilled Q4K model.

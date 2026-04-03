@@ -12,7 +12,7 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | lora-algebra.yaml | 3 | 3 | 3 | — | Pending |
 | quantization.yaml | 3 | 3 | 3 | — | Pending |
 | distillation.yaml | 2 | 3 | 3 | FT-DIST-001..002 (2) | Active |
-| dpo-alignment.yaml | 2 | 3 | 2 | — | Active (impl) |
+| dpo-alignment.yaml (v2.0) | 3 | 6 | 5 | — | Active (e2e pipeline) |
 | forward-pass-perf.yaml | 2 | 2 | 1 | — | Active |
 | fused-cross-entropy.yaml | 5 | 4 | 5 | — | Active |
 | gpu-output-norm.yaml | 1 | 3 | 3 | — | Active |
@@ -21,7 +21,7 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | qlora-training-loop.yaml | — | — | — | — | Active |
 | wgsl-gemm-tiled.yaml | 4 | 4 | 5 | — | Active |
 | wgsl-transpose.yaml | 2 | 3 | 1 | — | Active |
-| merge-weight-norm.yaml | 3 | 4 | 4 | — | Active |
+| merge-weight-norm.yaml (v2.0) | 3 | 4 | 6 | — | Active (AC-024 tests) |
 | leaderboard-gate.yaml | 3 | 3 | 3 | FT-GATE-001 (1) | Active |
 | preference-pairs.yaml | 3 | 4 | 3 | — | Active |
 | compile-binary.yaml | 3 | 3 | 3 | FT-COMPILE-001 (1) | Active |
@@ -72,9 +72,9 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | FT-LB-002 | leaderboard | >= 2 benchmarks with results | PASS (2) |
 | Structure | all | Valid YAML with required sections | PASS (×22) |
 
-**Total: 55 passed, 1 failed** (updated 2026-04-03)
+**Total: 56 passed, 1 failed** (updated 2026-04-03)
 
-**pv proof-status:** 21/21 contracts parsed, 70 obligations, 70 tests, 10 Kani, 0/56 bindings.
+**pv proof-status:** 22/22 contracts parsed, 76 obligations, 76 tests, 10 Kani, 0/56 bindings.
 
 **Note:** FT-GATE-001 is informational — correctly identifies MBPP 3.8pp gap from 80% threshold. Closing strategy: DPO training (PMAT-008) + text-based distillation (PMAT-007).
 

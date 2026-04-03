@@ -85,6 +85,16 @@ Generated: 2026-04-02
 | LoRA backward dA (B≠0) | 12-13s/step for 7-target LoRA | GPU-bound, 196 projections |
 | JIT shader compilation | First 2 steps slow (~15s) | One-time cost |
 
+## tokenizer-preservation-v1 (GH-580, 2026-04-03)
+
+| Falsification Test | Contract Obligation | Status |
+|---|---|---|
+| FALSIFY-TOK-001 | Merged model has embedded tokenizer | **PASSED** (10/10 `apr check`, Tokenizer: PASS) |
+| FALSIFY-TOK-002 | Quantized model has embedded tokenizer | **FAILED** (`apr check` PASS but `apr run` fails — tokenizer lost in `apr_convert`) |
+| FALSIFY-TOK-003 | Merged model runs inference | **BLOCKED** (FP32 model 28.4 GiB → OOM guard → Q4K path → garbage. Need quantize fix.) |
+
+**Fix applied:** `AprV2Reader` + `AprV2Writer` preserves tokenizer from base model during merge.
+
 ## Summary
 
 | Contract | Total Tests | Passed | Pending | Failed |

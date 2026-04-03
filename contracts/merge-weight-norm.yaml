@@ -1,10 +1,13 @@
 metadata:
-  version: 1.0.0
+  version: 2.0.0
   created: '2026-04-03'
+  updated: '2026-04-03'
   author: PAIML Engineering
   description: >
-    Merge weight-norm preservation — SLERP and TIES merging must preserve
-    L2 norms within 5% of input model norms. Validates AC-006.
+    Merge weight-norm preservation and specialist merge — SLERP and TIES merging
+    must preserve L2 norms within 5% of input model norms. PMAT-010 merges
+    distillation adapter (PMAT-007) with DPO adapter (PMAT-008) via TIES.
+    Validates AC-006, AC-007, AC-024.
   references:
     - "Yadav et al. (2023) TIES-Merging: Resolving Interference When Merging Models"
     - "Goddard et al. (2024) Arcee's MergeKit (SLERP implementation)"
@@ -77,3 +80,37 @@ falsification_tests:
     prediction: "ties_conflicts < sum_conflicts"
     test: "Count sign disagreements in TIES vs element-wise sum"
     if_fails: "TIES sign election not working or not reducing interference"
+
+  - id: FALSIFY-MERGE-005
+    rule: "Merged model >= best specialist (AC-024)"
+    prediction: "pass@1(merged) >= max(pass@1(distill_adapter), pass@1(dpo_adapter))"
+    test: "make eval-humaneval CHECKPOINT=checkpoints/qwen2.5-coder-7b-merged-specialists-q4k.apr"
+    if_fails: "TIES merge degraded both specializations — reduce λ or try DARE-TIES"
+
+  - id: FALSIFY-MERGE-006
+    rule: "Merged model meets MBPP gate"
+    prediction: "pass@1(merged, mbpp) >= 80.0%"
+    test: "make eval-mbpp CHECKPOINT=checkpoints/qwen2.5-coder-7b-merged-specialists-q4k.apr"
+    if_fails: "DPO + distillation insufficient to close 3.8pp MBPP gap — need more pairs or stronger teacher"
+
+pipeline:
+  description: >
+    PMAT-010: TIES merge of distillation specialist (PMAT-007) and DPO
+    specialist (PMAT-008). Uses recipe-j-merge-specialists.yaml.
+  steps:
+    - name: merge_specialists
+      command: "apr merge checkpoints/qwen2.5-coder-7b-distilled-merged.apr checkpoints/qwen2.5-coder-7b-dpo-merged.apr --strategy ties --density 0.7 --lambda 1.0"
+      output: "checkpoints/qwen2.5-coder-7b-merged-specialists.apr"
+      gate: "apr check --json shows 10/10 PASS"
+
+    - name: quantize_merged
+      command: "apr quantize checkpoints/qwen2.5-coder-7b-merged-specialists.apr --scheme q4k"
+      output: "checkpoints/qwen2.5-coder-7b-merged-specialists-q4k.apr"
+
+    - name: eval_merged_humaneval
+      command: "make eval-humaneval CHECKPOINT=checkpoints/qwen2.5-coder-7b-merged-specialists-q4k.apr"
+      gate: "pass@1 >= 85.0%"
+
+    - name: eval_merged_mbpp
+      command: "make eval-mbpp CHECKPOINT=checkpoints/qwen2.5-coder-7b-merged-specialists-q4k.apr"
+      gate: "pass@1 >= 80.0%"

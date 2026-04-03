@@ -34,7 +34,11 @@ NUM_WORKERS="${8:-1}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 RESULT_FILE="${RESULTS_DIR}/${BENCHMARK}_${TIMESTAMP}.json"
 WORK_DIR="$(mktemp -d)"
-trap 'rm -rf "${WORK_DIR:?}"' EXIT
+if [[ "${APR_KEEP_WORKDIR:-0}" == "1" ]]; then
+    echo "WORK_DIR preserved: $WORK_DIR"
+else
+    trap 'rm -rf "${WORK_DIR:?}"' EXIT
+fi
 
 # Qwen3 thinking models: thinking phase consumes 1000-6000+ tokens.
 # Model produces garbage without thinking (5% vs 86% pass@1).

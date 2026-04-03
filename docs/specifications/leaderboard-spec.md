@@ -1,6 +1,6 @@
 ---
 title: "APR Leaderboard Specification"
-version: "2.3.0"
+version: "2.4.0"
 status: "Active"
 created: "2026-02-28"
 updated: "2026-04-03"
@@ -92,7 +92,7 @@ Makefile (dev convenience)
 > Can a single Rust binary (`apr`) match Python-ecosystem HumanEval/MBPP scores
 > for Qwen2.5-Coder-7B, with zero Python dependencies?
 
-**Compute reality:** Primary eval on gx10 (NVIDIA Blackwell GB10, 119 GB unified, CUDA sm_121). Also verified on AMD Radeon Pro W5700X (Navi10) via wgpu/Vulkan. CPU/GPU parity confirmed on HumanEval (85.37% on both backends).
+**Compute reality:** Primary eval on gx10 (NVIDIA Blackwell GB10, 119 GB unified, CUDA sm_121). Also verified on AMD Radeon Pro W5700X (Navi10) via wgpu/Vulkan. CPU/GPU parity confirmed on HumanEval (85.37% on both backends). Best HumanEval: **90.85%** (32B Q4K_M). Best 7B: **87.20%** (few-shot). MBPP: **76.20%** (3.8pp gap to 80% gate).
 
 -> [Full details](components/02-thesis.md)
 

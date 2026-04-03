@@ -1,12 +1,15 @@
 metadata:
-  version: 1.0.0
+  version: 2.0.0
   created: '2026-04-03'
+  updated: '2026-04-03'
   author: PAIML Engineering
   description: >
-    Direct Preference Optimization (DPO) — trains model to prefer chosen
-    responses over rejected ones without a reward model.
+    Direct Preference Optimization (DPO) end-to-end pipeline — from preference
+    pairs through training to eval improvement. Validates PMAT-008 and contributes
+    to AC-022 (MBPP >= 80%).
   references:
     - "Rafailov et al. (2023) DPO"
+    - "Tunstall et al. (2023) Zephyr — DPO on code improves +2-4pp"
 
 equations:
   dpo_loss:
@@ -18,6 +21,15 @@ equations:
   dpo_gradient:
     formula: "∇L = -β * σ(-β*Δ) * (∇log π_θ(y_w|x) - ∇log π_θ(y_l|x))"
     lean_theorem: ProvableContracts.DPO.dpo_gradient_formula
+
+  dpo_improvement:
+    formula: "Δ_score = pass@1(θ_dpo) - pass@1(θ_base)"
+    domain: "θ_base = 7B Q4K baseline, θ_dpo = DPO-trained"
+    codomain: "Δ_score ∈ ℝ"
+    invariants:
+      - "Δ_score > 0 (DPO must not degrade)"
+      - "pass@1(θ_dpo) on MBPP >= 78% (2pp improvement toward 80% gate)"
+      - "pass@1(θ_dpo) on HumanEval >= 85% (no regression)"
 
 proof_obligations:
   - type: bound
@@ -34,12 +46,71 @@ proof_obligations:
     property: "DPO training reduces loss over 3 epochs"
     formal: "avg_loss(epoch_3) < avg_loss(epoch_1)"
 
+  - type: bound
+    property: "DPO adapter does not regress HumanEval pass@1"
+    formal: "pass@1(θ_dpo, humaneval) >= pass@1(θ_base, humaneval) - 1.0"
+
+  - type: bound
+    property: "DPO adapter improves MBPP pass@1 by >= 2pp"
+    formal: "pass@1(θ_dpo, mbpp) >= pass@1(θ_base, mbpp) + 2.0"
+
+  - type: invariant
+    property: "Training data has >= 50 valid preference pairs"
+    formal: "count(valid_pairs) >= 50 where valid = chosen_passes ∧ rejected_fails"
+
 falsification_tests:
   - id: FALSIFY-DPO-001
     rule: "DPO loss is non-negative for all inputs"
     prediction: "L_dpo >= 0 for random preference pairs"
     if_fails: "DPO loss computation has sign error"
+
   - id: FALSIFY-DPO-002
     rule: "DPO training reduces loss over 3 epochs"
     prediction: "avg_loss(epoch_3) < avg_loss(epoch_1)"
-    if_fails: "DPO training diverges or fails to converge"
+    if_fails: "DPO training diverges — check β, learning rate, or data quality"
+
+  - id: FALSIFY-DPO-003
+    rule: "DPO does not regress HumanEval"
+    prediction: "pass@1(θ_dpo, humaneval) >= 84.0%"
+    test: "make eval-humaneval CHECKPOINT=checkpoints/qwen2.5-coder-7b-dpo-q4k.apr"
+    if_fails: "DPO overfits to preference signal, degrading general coding ability"
+
+  - id: FALSIFY-DPO-004
+    rule: "DPO improves MBPP pass@1"
+    prediction: "pass@1(θ_dpo, mbpp) >= 78.0%"
+    test: "make eval-mbpp CHECKPOINT=checkpoints/qwen2.5-coder-7b-dpo-q4k.apr"
+    if_fails: "Preference pairs not diverse enough or β too high — generate more pairs from MBPP failures"
+
+  - id: FALSIFY-DPO-005
+    rule: "Preference data meets minimum threshold"
+    prediction: "preference_pairs.jsonl has >= 50 lines with valid chosen/rejected"
+    test: "jq -e '.chosen and .rejected' data/preference-pairs.jsonl | wc -l >= 50"
+    if_fails: "N-sampling produced too few borderline problems — increase NUM_SAMPLES or add MBPP problems"
+
+pipeline:
+  steps:
+    - name: generate_pairs
+      command: "make generate-preference-pairs CHECKPOINT=checkpoints/qwen2.5-coder-7b-instruct-q4k.apr NUM_SAMPLES=10 TEMPERATURE=0.8"
+      output: "data/preference-pairs.jsonl"
+      gate: "wc -l < data/preference-pairs.jsonl >= 50"
+
+    - name: train_dpo
+      command: "apr finetune checkpoints/qwen2.5-coder-7b-instruct-q4k.apr --method qlora --data data/preference-pairs.jsonl --epochs 3 --lr 5e-6 --beta 0.1 --rank 32 --gpu"
+      output: "checkpoints/qwen2.5-coder-7b-dpo-qlora.apr"
+      gate: "final_loss < initial_loss"
+
+    - name: merge_adapter
+      command: "apr finetune checkpoints/qwen2.5-coder-7b-instruct-q4k.apr --merge checkpoints/qwen2.5-coder-7b-dpo-qlora.apr"
+      output: "checkpoints/qwen2.5-coder-7b-dpo-merged.apr"
+
+    - name: quantize
+      command: "apr quantize checkpoints/qwen2.5-coder-7b-dpo-merged.apr --scheme q4k"
+      output: "checkpoints/qwen2.5-coder-7b-dpo-q4k.apr"
+
+    - name: eval_humaneval
+      command: "make eval-humaneval CHECKPOINT=checkpoints/qwen2.5-coder-7b-dpo-q4k.apr"
+      gate: "pass@1 >= 84.0%"
+
+    - name: eval_mbpp
+      command: "make eval-mbpp CHECKPOINT=checkpoints/qwen2.5-coder-7b-dpo-q4k.apr"
+      gate: "pass@1 >= 78.0%"
