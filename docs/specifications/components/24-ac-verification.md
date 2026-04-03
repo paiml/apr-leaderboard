@@ -378,7 +378,9 @@ Total time: 3991.4s (66.5 min). 112 LoRA tensors saved (safetensors format). FAL
 
 **GGUF roundtrip workaround failed:** Merged FP32 → GGUF export → APR import produces correct-looking model (339 tensors, Q4K) but inference generates garbage. Root cause: likely tensor name/ordering mismatch in GGUF export path.
 
-**Path forward:** Fix `apr_convert()` to preserve tokenizer (same pattern as GH-580 merge fix). File as GH-581.
+**Path forward:** GH-581 tokenizer fix VERIFIED locally — tokenizer now embedded in Q4K output. BUT: deeper issue discovered — `load_model_tensors()` corrupts Q4K→FP32 dequantization for APR files. Even a no-op roundtrip (base Q4K → quantize Q4K) produces garbage inference. Root cause: `load_model_tensors` doesn't properly dequantize Q4K super-blocks from APR V2 format.
+
+**Workaround for PMAT-007 eval:** Use the merge code path (RosettaStone reader) which correctly dequantizes Q4K, then export to GGUF (which preserves tensor data correctly), then re-import with `--preserve-q4k`. Or fix `load_model_tensors` to handle Q4K APR properly.
 
 ## 24.23 DPO Contract v2.0 (PMAT-008, 2026-04-03)
 
