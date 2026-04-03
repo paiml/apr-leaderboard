@@ -619,6 +619,30 @@ check-contracts:
 			&& echo "  FT-COMPILE-001 (apr compile available): PASS" && PASS=$$((PASS+1)) \
 			|| echo "  FT-COMPILE-001: SKIP (apr compile not available)"; \
 	else echo "  FT-COMPILE-001: SKIP (apr not found)"; fi; \
+	echo "-- data catalog (FT-CATALOG-001..002) --"; \
+	if [ -f data_catalog.yaml ]; then \
+		bound=$$(grep -c 'contract:' data_catalog.yaml 2>/dev/null || echo "0"); \
+		[ "$$bound" -ge 5 ] \
+			&& echo "  FT-CATALOG-001 (>=5 contract bindings): PASS ($$bound)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-CATALOG-001: FAIL ($$bound < 5)"; FAIL=$$((FAIL+1)); }; \
+		datasets=$$(grep -c 'purpose:' data_catalog.yaml 2>/dev/null || echo "0"); \
+		[ "$$datasets" -ge 8 ] \
+			&& echo "  FT-CATALOG-002 (>=8 datasets): PASS ($$datasets)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-CATALOG-002: FAIL ($$datasets < 8)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-CATALOG-001: SKIP (no data_catalog.yaml)"; fi; \
+	echo "-- leaderboard coverage (FT-LB-001..002) --"; \
+	he_runs=$$(ls results/humaneval_*.json 2>/dev/null | wc -l); \
+	mbpp_runs=$$(ls results/mbpp_*.json 2>/dev/null | wc -l); \
+	total_runs=$$((he_runs + mbpp_runs)); \
+	[ "$$total_runs" -ge 10 ] \
+		&& echo "  FT-LB-001 (>=10 eval runs): PASS ($$total_runs)" && PASS=$$((PASS+1)) \
+		|| { echo "  FT-LB-001: FAIL ($$total_runs < 10)"; FAIL=$$((FAIL+1)); }; \
+	benchmarks_with_results=0; \
+	[ "$$he_runs" -gt 0 ] && benchmarks_with_results=$$((benchmarks_with_results + 1)); \
+	[ "$$mbpp_runs" -gt 0 ] && benchmarks_with_results=$$((benchmarks_with_results + 1)); \
+	[ "$$benchmarks_with_results" -ge 2 ] \
+		&& echo "  FT-LB-002 (>=2 benchmarks): PASS ($$benchmarks_with_results)" && PASS=$$((PASS+1)) \
+		|| { echo "  FT-LB-002: FAIL ($$benchmarks_with_results < 2)"; FAIL=$$((FAIL+1)); }; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
 		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]; assert len(d['falsification_tests'])>0; assert 'TODO' not in str(d) and 'PLACEHOLDER' not in str(d)" 2>/dev/null \
@@ -626,6 +650,12 @@ check-contracts:
 		|| { echo "  $$(basename $$f): INVALID"; FAIL=$$((FAIL+1)); }; \
 	done; \
 	echo ""; echo "$$PASS passed, $$FAIL failed"
+
+proof-status:
+	@pv proof-status
+
+status:
+	@scripts/project-status.sh
 
 clean:
 	rm -rf checkpoints/*.apr
