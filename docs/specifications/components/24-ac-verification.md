@@ -345,9 +345,9 @@ Total time: 3991.4s (66.5 min). 112 LoRA tensors saved (safetensors format). FAL
 
 **Root cause:** `entrenar::merge` expects adapter tensor names to match base model names exactly. The wgpu training pipeline saves adapters with stripped names. Fix needed in aprender: add name remapping in merge path (`layer.N.proj.lora_a` → `model.layers.N.self_attn.proj.lora_a`).
 
-**Workaround (not recommended):** Rename tensors in the safetensors file to match GGUF convention. Better: fix the merge code.
+**Fix applied:** Python script remaps 112 adapter tensor names to match GGUF convention (`layer.N.proj.lora_a` → `model.layers.N.self_attn.proj.lora_a` / `model.layers.N.mlp.proj.lora_a`). Merge re-running with remapped adapter. Upstream fix filed for aprender `entrenar::merge`.
 
-**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 **PASS** (loss decreases), FALSIFY-EVAL-002 **BLOCKED** (merge naming mismatch), FALSIFY-EVAL-003 **BLOCKED** (eval requires working merge).
+**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 **PASS** (loss decreases), FALSIFY-EVAL-002 (merge in progress), FALSIFY-EVAL-003 (pending eval).
 
 ## 24.22 Recommendations (Updated 2026-04-03)
 
