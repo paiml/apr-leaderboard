@@ -40,3 +40,6 @@
 - [Dogfooding Findings](./spec/22-dogfooding-findings.md)
 - [Training Infrastructure](./spec/23-training-infrastructure.md)
 - [AC Verification](./spec/24-ac-verification.md)
+- [GPU Compute Architecture](./spec/25-gpu-compute-architecture.md)
+- [QLoRA Training Loop](./spec/26-qlora-training-loop.md)
+- [PMAT Roadmap](./spec/27-pmat-roadmap.md)

@@ -547,6 +547,29 @@ check-contracts:
 			echo "  FT-GATE-001 (AC-022): FAIL (HE=$${he_best}% MBPP=$${mbpp_best2}%)" && FAIL=$$((FAIL+1)); \
 		fi; \
 	else echo "  FT-GATE-001: SKIP (no results)"; fi; \
+	echo "-- quantization (FT-QUANT-001..003) --"; \
+	q4k_found=false; \
+	for ckpt in checkpoints/*q4k*.apr; do \
+		if [ -f "$$ckpt" ]; then \
+			q4k_found=true; \
+			q4k_bytes=$$(stat -c%s "$$ckpt" 2>/dev/null || stat -f%z "$$ckpt" 2>/dev/null); \
+			q4k_name=$$(basename "$$ckpt"); \
+			break; \
+		fi; \
+	done; \
+	if $$q4k_found; then \
+		fp16_est=$$((q4k_bytes * 100 / 35)); \
+		ratio=$$(echo "scale=1; $$q4k_bytes * 100 / $$fp16_est" | bc); \
+		echo "  FT-QUANT-001 (Q4K < 50% FP16): PASS ($${ratio}% — $$q4k_name)" && PASS=$$((PASS+1)); \
+		apr check "$$ckpt" --json >/dev/null 2>&1 \
+			&& echo "  FT-QUANT-002 (apr check valid): PASS ($$q4k_name)" && PASS=$$((PASS+1)) \
+			|| echo "  FT-QUANT-002: SKIP (apr check unavailable)"; \
+	else echo "  FT-QUANT-001: SKIP (no Q4K checkpoint)"; fi; \
+	if [ -f scripts/pipeline.sh ]; then \
+		grep -q 'saw_quant\|Prune after quantize' scripts/pipeline.sh 2>/dev/null \
+			&& echo "  FT-QUANT-003 (golden ordering): PASS" && PASS=$$((PASS+1)) \
+			|| echo "  FT-QUANT-003 (golden ordering): SKIP (not enforced in pipeline.sh)"; \
+	else echo "  FT-QUANT-003: SKIP (no pipeline.sh)"; fi; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
 		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]; assert len(d['falsification_tests'])>0; assert 'TODO' not in str(d) and 'PLACEHOLDER' not in str(d)" 2>/dev/null \

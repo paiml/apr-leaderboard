@@ -1,0 +1,75 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Preference pair generation from N-sampling eval — produces DPO training
+    data by pairing passing (chosen) and failing (rejected) completions for
+    the same problem. Supports PMAT-014 and AC-020.
+  references:
+    - "Rafailov et al. (2023) DPO — requires (prompt, chosen, rejected) tuples"
+    - "Chen et al. (2021) pass@k — N-sampling generates multiple completions"
+
+equations:
+  pair_generation:
+    formula: "pairs(p) = {(c, r) | c ∈ passing(p), r ∈ failing(p)}"
+    domain: "p ∈ problems with 0 < |passing(p)| < N"
+    codomain: "set of (chosen, rejected) tuples"
+    invariants:
+      - "chosen completion passes all test assertions"
+      - "rejected completion fails at least one test assertion"
+      - "prompt is identical for chosen and rejected"
+      - "Only borderline problems produce pairs (not always-pass or always-fail)"
+
+  pair_count:
+    formula: "total_pairs = Σ_p |passing(p)| × |failing(p)|"
+    domain: "problems from N-sampling eval"
+    codomain: "ℕ"
+    invariants:
+      - "total_pairs >= 50 (minimum for useful DPO training)"
+      - "Always-pass problems (|failing|=0) contribute 0 pairs"
+      - "Always-fail problems (|passing|=0) contribute 0 pairs"
+
+  data_format:
+    formula: "record = {prompt: str, chosen: str, rejected: str, task_id: str}"
+    domain: "JSONL output file"
+    codomain: "DPO-compatible training data"
+    invariants:
+      - "Each record has all 4 fields"
+      - "chosen != rejected (non-trivial pair)"
+      - "No duplicate (prompt, chosen, rejected) triples"
+
+proof_obligations:
+  - type: bound
+    property: "At least 50 preference pairs generated"
+    formal: "count(pairs) >= 50"
+    tolerance: 0
+
+  - type: invariant
+    property: "Chosen completions pass, rejected fail"
+    formal: "∀ pair: passes_test(pair.chosen) ∧ ¬passes_test(pair.rejected)"
+
+  - type: invariant
+    property: "Data format is valid DPO JSONL"
+    formal: "∀ record: has_keys(record, {prompt, chosen, rejected})"
+
+  - type: bound
+    property: "Pairs from borderline problems only"
+    formal: "∀ problem contributing pairs: 0 < |passing| < N"
+
+falsification_tests:
+  - id: FALSIFY-PREF-001
+    rule: Pair count threshold
+    prediction: "N-sampling with NUM_SAMPLES=10 on 164 HumanEval produces >= 50 pairs"
+    test: "wc -l < preference_pairs.jsonl >= 50"
+    if_fails: "Too few borderline problems or N too small"
+  - id: FALSIFY-PREF-002
+    rule: Chosen passes test
+    prediction: "Every chosen completion in pairs passes sandbox execution"
+    test: "Sample 10 chosen completions, execute in sandbox, all pass"
+    if_fails: "Pair generation inverted chosen/rejected labels"
+  - id: FALSIFY-PREF-003
+    rule: Valid JSONL format
+    prediction: "Every line has prompt, chosen, rejected keys"
+    test: "jq -e '.prompt and .chosen and .rejected' each line"
+    if_fails: "Output format missing required DPO fields"

@@ -1,0 +1,1 @@
+../../specifications/components/25-gpu-compute-architecture.md

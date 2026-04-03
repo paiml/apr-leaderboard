@@ -41,6 +41,9 @@ updated: "2026-04-03"
 | 22 | [Dogfooding Findings](#22-dogfooding-findings) | [22](components/22-dogfooding-findings.md) | Real results, baseline scores, upstream fixes |
 | 23 | [Training Infrastructure](#23-training-infrastructure) | [23](components/23-training-infrastructure.md) | Training bricks, QLoRA, GPU sharing, wgpu proof |
 | 24 | [AC Verification](#24-ac-verification) | [24](components/24-ac-verification.md) | Detailed acceptance criteria verification findings |
+| 25 | [GPU Compute Architecture](#25-gpu-compute-architecture) | [25](components/25-gpu-compute-architecture.md) | wgpu training, GPU sharing, compute parity |
+| 26 | [QLoRA Training Loop](#26-qlora-training-loop) | [26](components/26-qlora-training-loop.md) | 592 GFLOPS tiled GEMM, 13 KAIZEN fixes |
+| 27 | [PMAT Roadmap](#27-pmat-roadmap) | [27](components/27-pmat-roadmap.md) | Work item DAG, critical path, gap analysis |
 
 ---
 

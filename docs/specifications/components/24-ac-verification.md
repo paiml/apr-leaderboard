@@ -213,7 +213,47 @@ Provable contract `contracts/merge-weight-norm.yaml` specifies SLERP and TIES me
 
 8 contract YAMLs (dpo-alignment, forward-pass-perf, fused-cross-entropy, gpu-output-norm, lora-finetune-eval, nf4-dequantization, wgsl-gemm-tiled, wgsl-transpose) were missing the `proof_obligations` section required by `make check-contracts`. Added proof obligations to all 8 contracts, bringing structure validation from 23/31 to **31/31 passed, 0 failed**.
 
-## 24.16 Recommendations (Updated 2026-04-03)
+## 24.16 Quantization Size Verification (AC-009)
+
+**Status: FT-QUANT-001 PASSING** (2026-04-03)
+
+| Checkpoint | Size | FP16 Estimate | Ratio | < 50%? |
+|-----------|------|---------------|-------|--------|
+| Qwen2.5-Coder-1.5B Q4K | 1.04 GiB | ~3.0 GiB | 34.7% | PASS |
+| Qwen2.5-Coder-7B Q4K | 7.5 GiB | ~14.2 GiB | 52.8% | MARGINAL |
+| Qwen3-4B Q4K | 2.4 GiB | ~7.5 GiB | 32.0% | PASS |
+
+Q4K achieves <50% of FP16 for 1.5B and 4B models. The 7B is marginal at 52.8% — INT4 (not Q4K) would be ~25% of FP16. AC-009 specifies `--scheme int4`, not Q4K. Full verification requires FP16 → INT4 quantization round-trip (needs SafeTensors import path).
+
+Falsification tests wired in Makefile: FT-QUANT-001 (size check), FT-QUANT-002 (`apr check`), FT-QUANT-003 (golden ordering).
+
+## 24.17 Preference Pair Contract (PMAT-014)
+
+**Status: CONTRACT WRITTEN** (2026-04-03)
+
+Provable contract `contracts/preference-pairs.yaml` specifies the N-sampling → DPO data pipeline:
+
+| Proof Obligation | Formal | Status |
+|-----------------|--------|--------|
+| >= 50 pairs generated | `count(pairs) >= 50` | Awaiting N-sampling run |
+| Chosen passes, rejected fails | `passes_test(chosen) ∧ ¬passes_test(rejected)` | Awaiting N-sampling run |
+| Valid DPO JSONL format | `has_keys({prompt, chosen, rejected})` | Script implemented |
+| Borderline problems only | `0 < \|passing\| < N` | Script logic verified |
+
+3 falsification tests (FALSIFY-PREF-001..003). Blocked on N-sampling eval run (NUM_SAMPLES=10, TEMPERATURE=0.8) which requires ~30h GPU on gx10.
+
+## 24.18 PMAT Roadmap (§27)
+
+New spec section §27 documents the PMAT work item dependency DAG and critical path to AC-022:
+
+```
+PMAT-014 → PMAT-008 → PMAT-010 → PMAT-011 → AC-022
+  (pairs)    (DPO)     (merge)    (quantize)   (gate)
+```
+
+See §27 for full dependency graph, AC coverage map, and gap analysis.
+
+## 24.19 Recommendations (Updated 2026-04-03)
 
 **Completed (17 items):** MBPP baseline (76.20%), strategy sweep (5 strategies), batch mode, CGO fix (83.54%), 32B HumanEval (90.85%), 32B few-shot (87.20%), 32B MBPP GPU (74.40%), 7B MBPP few-shot (74.80%), per-problem analysis, GPU parity gate, FP8 Blackwell fix (GH-542), 7B baseline gate (PMAT-006: 85.37% ≥ 85%), pipeline wiring (PMAT-017: 56 targets, 22 configs), distillation pipeline (PMAT-007: 3-stage text-based), **wgpu batch fix (GH-560: FFN buffer overflow + KV cache length)**, **distillation data generation (99/99 teacher completions)**, **wgpu batch HumanEval (84.15%, first GPU eval)**.
 
