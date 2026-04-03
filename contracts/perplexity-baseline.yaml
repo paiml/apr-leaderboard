@@ -1,0 +1,62 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Perplexity baseline contract — apr eval produces non-zero perplexity
+    on WikiText-2 within expected bounds for quantized models.
+    Validates AC-002 partial (non-zero perplexity confirmed).
+  references:
+    - "APR Leaderboard Spec §22.0 (Perplexity Baseline)"
+    - "Merity et al. (2017) WikiText-2 — standard perplexity benchmark"
+
+equations:
+  perplexity:
+    formula: "PPL = exp(-(1/N) Σ log P(w_i | w_1,...,w_{i-1}))"
+    domain: "token sequence from WikiText-2 test set"
+    codomain: "PPL ∈ ℝ⁺ (> 1 for any non-trivial model)"
+    invariants:
+      - "PPL > 1.0 (perfect prediction = 1.0, unreachable)"
+      - "PPL < 100 for 1B+ parameter models on WikiText-2"
+      - "Q4K PPL within 2x of FP16 PPL for same model"
+
+  cross_entropy:
+    formula: "CE = -(1/N) Σ log P(w_i | context)"
+    domain: "token sequence"
+    codomain: "CE ∈ ℝ⁺"
+    invariants:
+      - "CE = log(PPL)"
+      - "CE > 0 for non-trivial models"
+
+proof_obligations:
+  - type: bound
+    property: "Perplexity is non-zero and positive"
+    formal: "PPL > 0"
+    tolerance: 0
+
+  - type: bound
+    property: "Perplexity within expected range for Q4K models"
+    formal: "1.0 < PPL < 100.0"
+    tolerance: 0
+
+  - type: bound
+    property: "Cross-entropy is positive"
+    formal: "CE > 0"
+    tolerance: 0
+
+falsification_tests:
+  - id: FALSIFY-PPL-001
+    rule: Non-zero perplexity
+    prediction: "apr eval --dataset wikitext-2 produces PPL > 0"
+    test: "PPL = 6.63 on Qwen2.5-Coder-1.5B Q4K (verified §22.0)"
+    if_fails: "Eval computation broken or model produces uniform distribution"
+  - id: FALSIFY-PPL-002
+    rule: Within model-class bounds
+    prediction: "1B+ Q4K model PPL < 100 on WikiText-2"
+    test: "PPL = 6.63 < 100"
+    if_fails: "Quantization caused catastrophic quality loss"
+  - id: FALSIFY-PPL-003
+    rule: Throughput during eval
+    prediction: "Eval throughput >= 1 tok/s"
+    test: "apr bench shows 2.5 tok/s on CPU"
+    if_fails: "Model too slow for practical evaluation"

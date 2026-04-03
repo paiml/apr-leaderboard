@@ -25,7 +25,8 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | leaderboard-gate.yaml | 3 | 3 | 3 | FT-GATE-001 (1) | Active |
 | preference-pairs.yaml | 3 | 4 | 3 | — | Active |
 | compile-binary.yaml | 3 | 3 | 3 | FT-COMPILE-001 (1) | Active |
-| pipeline-validation.yaml | 3 | 3 | 3 | — | Active |
+| pipeline-validation.yaml | 3 | 3 | 3 | FT-PIPE-001..003 (3) | Active |
+| perplexity-baseline.yaml | 2 | 3 | 3 | — | Active |
 
 **Active:** Contract YAML valid with all required sections (metadata, equations, proof_obligations, falsification_tests).
 **Pending:** Contract YAML exists but falsification tests require upstream `apr` features (LoRA merge, quantization round-trip).
@@ -59,9 +60,12 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | FT-DISTDATA-002 | distillation | Valid JSONL format | PASS (99/99) |
 | FT-DISTDATA-003 | distillation | >= 50 distill prompts | PASS (99) |
 | FT-COMPILE-001 | compile-binary | apr compile available | PASS |
-| Structure | all | Valid YAML with required sections | PASS (×20) |
+| FT-PIPE-001 | pipeline-validation | >= 15 scripts | PASS (22) |
+| FT-PIPE-002 | pipeline-validation | >= 15 configs | PASS (22) |
+| FT-PIPE-003 | pipeline-validation | >= 40 Make targets | PASS (56) |
+| Structure | all | Valid YAML with required sections | PASS (×21) |
 
-**Total: 43 passed, 1 failed** (updated 2026-04-03)
+**Total: 48 passed, 1 failed** (updated 2026-04-03)
 
 **Note:** FT-GATE-001 is informational — correctly identifies MBPP 3.8pp gap from 80% threshold. Closing strategy: DPO training (PMAT-008) + text-based distillation (PMAT-007).
 

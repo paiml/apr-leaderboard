@@ -587,6 +587,19 @@ check-contracts:
 			&& echo "  FT-DISTDATA-003 (>=50 prompts): PASS ($$dp_lines)" && PASS=$$((PASS+1)) \
 			|| { echo "  FT-DISTDATA-003: FAIL ($$dp_lines < 50)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-DISTDATA-003: SKIP (no prompts)"; fi; \
+	echo "-- pipeline verification (FT-PIPE-001..003) --"; \
+	script_count=$$(ls scripts/*.sh 2>/dev/null | wc -l); \
+	[ "$$script_count" -ge 15 ] \
+		&& echo "  FT-PIPE-001 (>=15 scripts): PASS ($$script_count)" && PASS=$$((PASS+1)) \
+		|| { echo "  FT-PIPE-001: FAIL ($$script_count < 15)"; FAIL=$$((FAIL+1)); }; \
+	config_count=$$(ls configs/models/*.yaml configs/recipes/*.yaml configs/eval/*.yaml configs/pipeline/*.yaml configs/distill/*.yaml 2>/dev/null | wc -l); \
+	[ "$$config_count" -ge 15 ] \
+		&& echo "  FT-PIPE-002 (>=15 configs): PASS ($$config_count)" && PASS=$$((PASS+1)) \
+		|| { echo "  FT-PIPE-002: FAIL ($$config_count < 15)"; FAIL=$$((FAIL+1)); }; \
+	target_count=$$(grep -c '^[a-z][a-z0-9_-]*:' Makefile 2>/dev/null || echo "0"); \
+	[ "$$target_count" -ge 40 ] \
+		&& echo "  FT-PIPE-003 (>=40 Make targets): PASS ($$target_count)" && PASS=$$((PASS+1)) \
+		|| { echo "  FT-PIPE-003: FAIL ($$target_count < 40)"; FAIL=$$((FAIL+1)); }; \
 	echo "-- compile (FT-COMPILE-001) --"; \
 	if command -v apr >/dev/null 2>&1; then \
 		apr compile --help >/dev/null 2>&1 \
