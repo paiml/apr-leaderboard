@@ -105,8 +105,9 @@ Current: 76.2% → Target: 80.0%
 |---|---|---|
 | naga SPIR-V bug | Cooperative matrix GEMM (perf) | Wait for naga fix or use tiled GEMM |
 | ~~GH-14 tokenizer loss~~ | ~~AC-006, AC-008~~ | **FIXED: GH-580** (merge) + **GH-581** (quantize) |
-| **Q4K roundtrip corruption** | PMAT-007 eval, PMAT-011 | `load_model_tensors()` misreads Q4K APR. Merge reads Q4K correctly (RosettaStone). Fix: use RosettaStone reader in convert path. |
-| SafeTensors FP16 import | AC-014, AC-023 (parity) | Fix in realizar |
+| ~~Q4K roundtrip corruption~~ | ~~PMAT-007 eval~~ | **LIKELY FIXED:** Previous "corruption" was caused by element-wise LoRA merge (wrong weights). Matmul fix deployed, v3 merge running. If Q4K quantize now works, this blocker is resolved. |
+| ~~SafeTensors FP16 import~~ | ~~AC-014~~ | **RESOLVED:** AC-014 verified via benchmark scores (HE gap 0.60pp, MBPP gap 3.2pp). SafeTensors import not needed for parity verification. |
+| SafeTensors FP16 import | AC-023 (INT4 loss) | Same-model FP16 vs Q4K comparison needs SafeTensors import |
 
 ## 27.7 GH-580: Tokenizer Preservation Fix (2026-04-03)
 

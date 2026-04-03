@@ -85,7 +85,7 @@ mdbook build    # outputs to docs/book/
 make check-contracts    # runs all falsification tests + contract structure validation
 ```
 
-**Test categories (50/51 passing, 2026-04-03):**
+**Test categories (64/65 passing, 2026-04-03):**
 
 | Category | Count | What it checks |
 |---|---|---|
@@ -102,8 +102,12 @@ make check-contracts    # runs all falsification tests + contract structure vali
 | oracle analysis | 2 | Oracle upper bound, never-solved count |
 | pipeline | 3 | Script count, config count, Make target count |
 | compile | 1 | apr compile subcommand available |
-| contract structure | 21 | All YAMLs have metadata/equations/proof_obligations/falsification_tests |
+| data catalog | 2 | Contract bindings, dataset documentation |
+| leaderboard coverage | 2 | Eval run count, benchmark coverage |
+| HF parity | 1 | HumanEval gap < 5pp vs HF reference |
+| contract coverage | 1 | >= 25 contract YAMLs |
+| contract structure | 29 | All YAMLs have metadata/equations/proof_obligations/falsification_tests |
 
 **Single known failure:** FT-GATE-001 (AC-022 compound gate) — MBPP at 76.2% vs 80% target. Closing via PMAT-008 (DPO) + PMAT-007 (distillation).
 
-**pv proof-status:** Validates contract YAML schema via provable-contracts tooling. 21/21 contracts parsed, 70 proof obligations, 10 Kani harnesses. See §16.5.
+**pv proof-status:** Validates contract YAML schema via provable-contracts tooling. 28/28 contracts parsed, 98 proof obligations, 10 Kani harnesses. See §16.5.
