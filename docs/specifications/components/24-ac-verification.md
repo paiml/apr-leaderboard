@@ -327,9 +327,27 @@ All 21 contract YAMLs now parse correctly via `pv proof-status`. Previously 11 w
 
 Total time: 3991.4s (66.5 min). 112 LoRA tensors saved (safetensors format). FALSIFY-EVAL-001 (loss decreases): **PASS**.
 
-**Adapter merge:** Training saves LoRA adapter as safetensors, not APR format. `apr finetune --merge --adapter adapter.safetensors` handles the merge (dequant base Q4K → FP32, apply W + (α/r)·A@B, re-quantize). Merge in progress on gx10.
+**Adapter merge: NAMING MISMATCH (2026-04-03)**
 
-**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 **PASS**, FALSIFY-EVAL-002 (pending merge), FALSIFY-EVAL-003 (pending eval).
+`apr finetune --merge` completed but merged **0/339 layers** — the adapter tensor names (`layer.0.q_proj.lora_a`) don't match the base model tensor names (`model.layers.0.self_attn.q_proj.weight`). Output is a 29 GiB dequantized base model without LoRA applied.
+
+| Component | Name Format | Example |
+|-----------|-------------|---------|
+| Base model (GGUF) | `model.layers.{N}.self_attn.{proj}.weight` | `model.layers.0.self_attn.q_proj.weight` |
+| Adapter (safetensors) | `layer.{N}.{proj}.lora_{a\|b}` | `layer.0.q_proj.lora_a` |
+
+**Five whys:**
+1. Why 0 layers merged? Adapter names don't match base model names
+2. Why don't they match? Training uses short names, GGUF uses HuggingFace naming
+3. Why short names? wgpu training pipeline strips the `model.layers.*.self_attn.` prefix
+4. Why not remap? Merge code does exact string matching, no name normalization
+5. Why no normalization? Adapter merge was tested with APR-format adapters, not safetensors
+
+**Root cause:** `entrenar::merge` expects adapter tensor names to match base model names exactly. The wgpu training pipeline saves adapters with stripped names. Fix needed in aprender: add name remapping in merge path (`layer.N.proj.lora_a` → `model.layers.N.self_attn.proj.lora_a`).
+
+**Workaround (not recommended):** Rename tensors in the safetensors file to match GGUF convention. Better: fix the merge code.
+
+**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 **PASS** (loss decreases), FALSIFY-EVAL-002 **BLOCKED** (merge naming mismatch), FALSIFY-EVAL-003 **BLOCKED** (eval requires working merge).
 
 ## 24.22 Recommendations (Updated 2026-04-03)
 
