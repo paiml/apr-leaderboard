@@ -76,3 +76,34 @@ mdbook serve    # http://localhost:3000
 # Build only
 mdbook build    # outputs to docs/book/
 ```
+
+## 17.6 Contract Falsification Gate
+
+`make check-contracts` runs all provable contract falsification tests as a single gate. This is the primary automated quality check for the project.
+
+```bash
+make check-contracts    # runs all falsification tests + contract structure validation
+```
+
+**Test categories (50/51 passing, 2026-04-03):**
+
+| Category | Count | What it checks |
+|---|---|---|
+| pass@k estimator | 5 | Chen et al. boundary conditions, monotonicity |
+| throughput bounds | 2 | tok/s >= 1.0, TTFT < 500ms |
+| benchmark data | 3 | HumanEval/MBPP/BigCodeBench problem counts |
+| decontamination | 1 | Zero HE/MBPP prompt overlap |
+| eval results | 3 | Best pass@1, run count, latest score |
+| distillation | 2 | Teacher > student, category coverage |
+| MBPP eval | 1 | Best MBPP pass@1 >= 70% |
+| AC-022 gate | 1 | HE >= 85% AND MBPP >= 80% (compound) |
+| quantization | 3 | Q4K size, apr check, golden ordering |
+| distillation data | 3 | Teacher completions count + JSONL validity |
+| oracle analysis | 2 | Oracle upper bound, never-solved count |
+| pipeline | 3 | Script count, config count, Make target count |
+| compile | 1 | apr compile subcommand available |
+| contract structure | 21 | All YAMLs have metadata/equations/proof_obligations/falsification_tests |
+
+**Single known failure:** FT-GATE-001 (AC-022 compound gate) — MBPP at 76.2% vs 80% target. Closing via PMAT-008 (DPO) + PMAT-007 (distillation).
+
+**pv proof-status:** Validates contract YAML schema via provable-contracts tooling. 21/21 contracts parsed, 70 proof obligations, 10 Kani harnesses. See §16.5.

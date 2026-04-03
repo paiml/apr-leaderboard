@@ -24,17 +24,33 @@ apr-leaderboard acceptance --verify
 - `provable_contracts::schema::validate_contract(&contract)` — Check equations, proof obligations, falsification tests
 - `provable_contracts::error::Severity` — Filter validation violations by severity
 
-**Current contracts (in `contracts/` directory):**
+**Current contracts (21 in `contracts/` directory, all parsed by `pv proof-status`):**
 
-| Contract | Equations | Proof Obligations | Falsification Tests | Makefile Tests |
-|---|---|---|---|---|
-| `pass-at-k.yaml` | 1 (`pass_at_k = 1 - C(n-c,k)/C(n,k)`) | 3 (bound, monotonicity, equivalence) | 3 (FT-001..003) | 5 (FT-001..005) |
-| `inference-throughput.yaml` | 2 (tokens_per_second, time_to_first_token) | 2 (CPU tps >= 1.0, TTFT < 5s) | 2 (FT-TPUT-001..002) | 2 |
-| `decontamination.yaml` | 2 (ngram_overlap, contamination_rate) | 3 (bound, gate, monotonicity) | 3 (FT-DECON-001..003) | 1 (FT-DECON-001) |
-| `distillation.yaml` | 2 (distillation_gain, teacher_quality) | 3 (bound, monotonicity, preservation) | 3 (FT-DIST-001..003) | 2 (FT-DIST-001..002) |
-| `lora-algebra.yaml` | 3 (lora_forward, lora_merge, adapter_params) | 3 (rank bound, merge equivalence, param compression) | 3 (FT-LORA-001..003) | 0 (pending) |
-| `quantization.yaml` | 3 (quantize_dequantize, size_reduction, ordering) | 3 (identity approx, size <50%, golden ordering) | 3 (FT-QUANT-001..003) | 0 (pending) |
-| `dpo-alignment.yaml` | 3 (dpo_loss, preference_symmetry, gradient_correctness) | 3 (untrained=log2, symmetry, monotonicity) | 3 (FT-DPO-001..003) | 0 (pending) |
+| Contract | Level | Obligs | Tests | Kani | Scope |
+|---|---|---|---|---|---|
+| `pass-at-k.yaml` | L2 | 3 | 3 | 0 | Eval estimator (Chen et al.) |
+| `inference-throughput.yaml` | L2 | 2 | 2 | 0 | CPU/GPU throughput bounds |
+| `decontamination.yaml` | L2 | 3 | 3 | 0 | N-gram overlap gate |
+| `distillation.yaml` | L2 | 3 | 3 | 0 | Teacher→student quality (PMAT-007) |
+| `lora-algebra.yaml` | L2 | 3 | 3 | 0 | LoRA rank/merge math |
+| `quantization.yaml` | L2 | 3 | 3 | 0 | INT4/Q4K size + ordering |
+| `dpo-alignment.yaml` | L1 | 3 | 2 | 0 | DPO loss + convergence (PMAT-008) |
+| `qlora-training-loop.yaml` | L3 | 7 | 8 | 3 | Full training pipeline (§26) |
+| `fused-cross-entropy.yaml` | L3 | 4 | 5 | 2 | Chunked CE loss |
+| `nf4-dequantization.yaml` | L3 | 4 | 6 | 3 | NF4 codebook + roundtrip |
+| `wgsl-gemm-tiled.yaml` | L3 | 4 | 5 | 2 | CUTLASS-derived WGSL GEMM |
+| `wgsl-transpose.yaml` | L1 | 3 | 1 | 0 | GPU transpose shader |
+| `gpu-output-norm.yaml` | L2 | 3 | 3 | 0 | GPU-resident RMSNorm |
+| `forward-pass-perf.yaml` | L1 | 2 | 1 | 0 | Per-op layer timing |
+| `lora-finetune-eval.yaml` | L2 | 3 | 3 | 0 | Train→merge→eval (PMAT-008) |
+| `merge-weight-norm.yaml` | L2 | 4 | 4 | 0 | SLERP/TIES norm (AC-006) |
+| `leaderboard-gate.yaml` | L2 | 3 | 3 | 0 | AC-022 compound gate |
+| `preference-pairs.yaml` | L1 | 4 | 3 | 0 | N-sampling→DPO pairs (PMAT-014) |
+| `compile-binary.yaml` | L2 | 3 | 3 | 0 | apr compile (AC-010/026) |
+| `pipeline-validation.yaml` | L2 | 3 | 3 | 0 | make verify/validate |
+| `perplexity-baseline.yaml` | L2 | 3 | 3 | 0 | WikiText-2 PPL (AC-002) |
+
+**Totals:** 70 proof obligations, 70 falsification tests, 10 Kani harnesses. Levels: L1=4, L2=13, L3=4.
 
 **Cross-project contracts (in `../provable-contracts/contracts/`):**
 
@@ -112,17 +128,25 @@ If the binding is missing from `contracts/aprender/binding.yaml`, the build fail
 
 ## 16.5 Falsification Test Results
 
-Tests run via `make check-contracts` (22/22 passing):
+Tests run via `make check-contracts` (**50/51 passing**, updated 2026-04-03):
 
-| Contract | FTs Wired | Status | Notes |
+| Category | Tests | Status | Details |
 |---|---|---|---|
-| `pass-at-k.yaml` | 5/3 | ✅ All pass | FT-001..005 (boundary + high-c tests) |
-| `inference-throughput.yaml` | 2/2 | ✅ All pass | 2.5 tok/s, 385ms TTFT |
-| `decontamination.yaml` | 1/3 | ✅ Partial | FT-DECON-001 wired; FT-002/003 need `apr data decontaminate` (GH-11) |
-| `distillation.yaml` | 2/3 | ✅ Partial | FT-DIST-001 (teacher>student), FT-DIST-002 (categories); FT-003 needs training run |
-| `quantization.yaml` | 0/3 | ⏳ Pending | Requires quantization round-trip model ops |
-| `lora-algebra.yaml` | 0/3 | ⏳ Pending | Requires LoRA tensor operations |
+| pass@k | 5 | PASS | FT-001..005 (boundary, ratio, high-c) |
+| throughput | 2 | PASS | 2.5 tok/s, 385ms TTFT |
+| benchmark data | 3 | PASS | HumanEval 164, MBPP 974, BCB 1140 |
+| decontamination | 1 | PASS | 0% HE/MBPP overlap |
+| eval results | 3 | PASS | 90.85% best, 15 runs, 84.15% latest |
+| distillation | 2 | PASS | 32B > 7B, 11 categories |
+| MBPP eval | 1 | PASS | 76.2% >= 70% |
+| AC-022 gate | 1 | **FAIL** | HE=90.85% MBPP=76.2% < 80% |
+| quantization | 3 | PASS | Q4K 35% FP16, apr check, golden ordering |
+| distillation data | 3 | PASS | 99 completions, valid JSONL, 99 prompts |
+| oracle analysis | 2 | PASS | 96.34% upper bound, 6 never-solved |
+| pipeline | 3 | PASS | 22 scripts, 22 configs, 56 targets |
+| compile | 1 | PASS | apr compile available |
+| structure | 21 | PASS | All 21 contract YAMLs valid |
 
-**Additional tests:** 3 benchmark data validations (HumanEval, MBPP, BigCodeBench), 3 eval result checks, 6 contract structure validations.
+**pv proof-status:** 21/21 contracts parsed, 70 obligations, 70 tests, 10 Kani, 0/56 bindings.
 
 See `contracts/CONTRACT_STATUS.md` for full audit trail.

@@ -15,6 +15,7 @@ datasets:
       - jax-gtc ground truth corpus
       - vllm-gtc ground truth corpus
     lifecycle: retained
+    contract: contracts/lora-finetune-eval.yaml
 
   wgpu-proof-subset:
     purpose: "200-sample subset for wgpu training proof"
@@ -37,6 +38,7 @@ datasets:
     format: jsonl
     location: data/reasoning-preferences.jsonl
     lifecycle: retained
+    contract: contracts/dpo-alignment.yaml
 
   distill-prompts:
     purpose: "99 targeted coding prompts for 32B teacher distillation (PMAT-007)"
@@ -49,6 +51,7 @@ datasets:
       - "HumanEval failure analysis (25 failed problems → 11 categories)"
     lifecycle: retained
     generate: "scripts/generate-distill-prompts.sh"
+    contract: contracts/distillation.yaml
 
   teacher-completions:
     purpose: "32B teacher model completions for text-based distillation (PMAT-007)"
@@ -59,6 +62,7 @@ datasets:
       - "apr run --batch-jsonl on 32B teacher (temperature=0.8)"
     lifecycle: retained
     generate: "make distill-generate"
+    contract: contracts/distillation.yaml
 
   combined-training:
     purpose: "Merged teacher completions + instruct corpus for QLoRA (PMAT-008)"
@@ -81,6 +85,7 @@ datasets:
       - "Random sample from instruct-corpus.jsonl (seed=42)"
     lifecycle: retained
     generate: "make prepare-calibration-data"
+    contract: contracts/quantization.yaml
 
   preference-pairs:
     purpose: "DPO preference pairs from N-sampling eval results (PMAT-014)"
@@ -91,6 +96,7 @@ datasets:
       - "N-sampling eval (NUM_SAMPLES=10, TEMPERATURE=0.8)"
     lifecycle: retained
     generate: "make generate-preference-pairs"
+    contract: contracts/preference-pairs.yaml
 
 external_datasets:
   bigcode-starcoderdata:
@@ -106,18 +112,21 @@ benchmarks:
     problems: 164
     local: data/benchmarks/humaneval.jsonl
     download: "make benchmark-download"
+    contract: contracts/pass-at-k.yaml
   mbpp:
     purpose: "Mostly Basic Python Problems benchmark"
     provider: "google-research/mbpp"
     problems: 974
     local: data/benchmarks/mbpp.jsonl
     download: "make benchmark-download"
+    contract: contracts/pass-at-k.yaml
   bigcodebench:
     purpose: "BigCodeBench practical coding evaluation"
     provider: "bigcode/bigcodebench"
     problems: 1140
     local: data/benchmarks/bigcodebench.jsonl
     download: "make benchmark-download"
+    contract: contracts/leaderboard-gate.yaml
 
 data_lineage:
   raw_source: "Ground truth corpora (depyler, hf-gtc, jax-gtc, vllm-gtc)"
