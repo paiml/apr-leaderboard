@@ -23,7 +23,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 ## Partially Verified
 
 - [x] AC-002: `apr eval` on imported model produces non-zero perplexity within 10% of HF reference -- perplexity = 6.63 on WikiText-2 (§22.0). Non-zero confirmed. HF parity check returns 0 comparisons on GGUF imports (different dtype); 10% threshold pending SafeTensors import path fix.
-- [x] AC-003: `apr distill` with progressive strategy produces a student model that outperforms the untrained student on perplexity — Distillation pipeline built (PMAT-007): 3-stage text-based distillation (generate → finetune → eval). `make distill-generate` + `make distill-finetune` + `make distill-eval`. 99 targeted prompts from HumanEval failure analysis. Awaiting full training run on gx10.
+- [x] AC-003: `apr distill` with progressive strategy produces a student model that outperforms the untrained student on perplexity — Distillation pipeline built (PMAT-007): 3-stage text-based distillation (generate → finetune → eval). `make distill-generate` + `make distill-finetune` + `make distill-eval`. **99/99 teacher completions generated and verified** (FT-DISTDATA-001..003 all PASSING). Awaiting QLoRA fine-tune on gx10.
 
 ## Not Yet Tested
 
@@ -31,7 +31,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-007: `apr merge --strategy ties` resolves sign conflicts (merged model has fewer conflicting task vectors than input sum)
 - [ ] AC-008: `apr prune --method wanda` at conservative ratio degrades perplexity by <5% — pruning achieves target sparsity (10.0%) but dequantizes Q4K→FP32, losing tokenizer/config. Blocked on GH-14 (§24.6)
 - [ ] AC-009: `apr quantize --scheme int4` produces model <50% size of FP16 original — GGUF Q4K import at 1.04 GiB (34.7% of ~3.0 GiB FP16) and 7B Q4K at 7.5 GiB (~52.8% of ~14.2 GiB FP16). **FT-QUANT-001 PASSING**: Q4K < 50% of FP16 for 1.5B. Running `apr quantize --scheme int4` on Q4K input dequantizes first (2.43 GiB). Full verification needs FP16 input for `apr quantize` round-trip.
-- [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies -- Binary created (671 KiB, §24.1) but inference dispatch not yet statically linked (needs realizar runtime)
+- [ ] AC-010: `apr compile` produces a standalone binary that runs inference without external dependencies -- Binary created (671 KiB, §24.1). **FT-COMPILE-001 PASSING** (`apr compile` available). Inference dispatch not yet statically linked (needs realizar runtime). Contract: `contracts/compile-binary.yaml`.
 - [ ] AC-012: `pv proof-status` shows >=95% binding coverage for pipeline-relevant contracts
 - [ ] AC-014: `apr compare-hf` shows <5% parity gap on perplexity for imported Qwen models — GGUF Q4K imports produce 0 comparisons (dtype mismatch with HF FP16). Parity must be verified via benchmark scores or SafeTensors import path (§24.3)
 - [ ] AC-015: All falsification tests in provable-contracts pass for Kernel Class E (Qwen) — **34/35 passing** (1 informational fail: AC-022 MBPP gate at 76.2% < 80%). Active tests: pass@k 5/5, throughput 2/2, data 3/3, decontamination 1/1, eval 3/3, distillation 2/2, MBPP 1/1, gate 0/1, structure 16/16. Contract YAMLs: 16/16 valid. Pending: AC-022 MBPP threshold (3.8pp gap).
@@ -39,7 +39,7 @@ demonstrated, this spec has failed. Status: [x] = verified,
 - [ ] AC-023: INT4 quantized model loses <2% pass@1 vs FP16 on HumanEval
 - [ ] AC-024: Merged model (TIES of code-specialist + reasoning-specialist) scores >= best input specialist on at least one benchmark
 - [ ] AC-025: `alimentar quality` scores all training data >=80/100 before use in fine-tuning
-- [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code -- Binary 671 KiB + model 1.04 GiB = 1.04 GiB total (§24.1). Runtime under 1MB, model data slightly over 1GB. Inference not yet working in compiled binary.
+- [ ] AC-026: `apr compile` of Qwen2.5-Coder-1.5B INT4 produces a binary <1GB that generates valid Python code -- Binary 671 KiB + model 1.04 GiB = 1.04 GiB total (§24.1). **Runtime under 1 MB (671 KiB)** meets binary size target. Model data slightly over 1 GB. Inference not yet working in compiled binary. Contract: `contracts/compile-binary.yaml`.
 
 ## Blocked on Upstream
 

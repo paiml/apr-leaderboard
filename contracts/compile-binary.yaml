@@ -1,0 +1,66 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Compiled binary contract — apr compile produces a standalone launcher
+    that packages model reference, metadata, and inference dispatch.
+    Validates AC-010 and AC-026.
+  references:
+    - "APR Leaderboard Spec §24.1 (Compile to Binary)"
+
+equations:
+  binary_size:
+    formula: "size(binary) = size(runtime) + size(model_ref)"
+    domain: "runtime = launcher binary, model_ref = embedded model path"
+    codomain: "bytes"
+    invariants:
+      - "size(runtime) < 1 MB (launcher only)"
+      - "size(model_ref) depends on quantization scheme"
+
+  total_artifact:
+    formula: "total = size(binary) + size(model_data)"
+    domain: "binary + model as separate files"
+    codomain: "bytes"
+    invariants:
+      - "For 1.5B Q4K: total ~1.04 GiB"
+      - "For 7B Q4K: total ~7.5 GiB"
+
+  architecture_preservation:
+    formula: "arch(compiled) = arch(source_checkpoint)"
+    domain: "model architecture metadata"
+    codomain: "bool"
+    invariants:
+      - "Model name, layer count, hidden dim preserved"
+      - "--release --strip flags produce optimized binary"
+
+proof_obligations:
+  - type: bound
+    property: "Runtime binary under 1 MB"
+    formal: "size(binary) < 1048576 bytes"
+    tolerance: 0
+
+  - type: bound
+    property: "apr compile subcommand available"
+    formal: "apr compile --help exits 0"
+
+  - type: invariant
+    property: "Architecture metadata preserved in compiled output"
+    formal: "arch_fields(compiled) = arch_fields(source)"
+
+falsification_tests:
+  - id: FALSIFY-COMPILE-001
+    rule: Subcommand availability
+    prediction: "apr compile --help exits 0"
+    test: "apr compile --help"
+    if_fails: "apr compile not implemented or not wired"
+  - id: FALSIFY-COMPILE-002
+    rule: Runtime size under 1 MB
+    prediction: "Compiled binary (runtime only) < 1 MB"
+    test: "stat -c%s compiled_binary < 1048576"
+    if_fails: "Runtime bundles too much or statically links model data"
+  - id: FALSIFY-COMPILE-003
+    rule: Model info preserved
+    prediction: "Compiled binary --info shows model architecture"
+    test: "compiled_binary --info | grep -q 'qwen2'"
+    if_fails: "Architecture metadata lost during compilation"

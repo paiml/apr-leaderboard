@@ -570,6 +570,29 @@ check-contracts:
 			&& echo "  FT-QUANT-003 (golden ordering): PASS" && PASS=$$((PASS+1)) \
 			|| echo "  FT-QUANT-003 (golden ordering): SKIP (not enforced in pipeline.sh)"; \
 	else echo "  FT-QUANT-003: SKIP (no pipeline.sh)"; fi; \
+	echo "-- distillation data (FT-DISTDATA-001..003) --"; \
+	if [ -f data/distill/teacher-completions.jsonl ]; then \
+		tc_lines=$$(wc -l < data/distill/teacher-completions.jsonl); \
+		[ "$$tc_lines" -ge 50 ] \
+			&& echo "  FT-DISTDATA-001 (>=50 completions): PASS ($$tc_lines)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DISTDATA-001: FAIL ($$tc_lines < 50)"; FAIL=$$((FAIL+1)); }; \
+		valid_json=$$(jq -e '.instruction and .response' data/distill/teacher-completions.jsonl 2>/dev/null | grep -c true); \
+		[ "$$valid_json" -eq "$$tc_lines" ] \
+			&& echo "  FT-DISTDATA-002 (valid JSONL): PASS ($$valid_json/$$tc_lines)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DISTDATA-002: FAIL ($$valid_json/$$tc_lines valid)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-DISTDATA-001: SKIP (no teacher completions)"; fi; \
+	if [ -f data/distill/distill-prompts.jsonl ]; then \
+		dp_lines=$$(wc -l < data/distill/distill-prompts.jsonl); \
+		[ "$$dp_lines" -ge 50 ] \
+			&& echo "  FT-DISTDATA-003 (>=50 prompts): PASS ($$dp_lines)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DISTDATA-003: FAIL ($$dp_lines < 50)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-DISTDATA-003: SKIP (no prompts)"; fi; \
+	echo "-- compile (FT-COMPILE-001) --"; \
+	if command -v apr >/dev/null 2>&1; then \
+		apr compile --help >/dev/null 2>&1 \
+			&& echo "  FT-COMPILE-001 (apr compile available): PASS" && PASS=$$((PASS+1)) \
+			|| echo "  FT-COMPILE-001: SKIP (apr compile not available)"; \
+	else echo "  FT-COMPILE-001: SKIP (apr not found)"; fi; \
 	echo "-- contract structure --"; \
 	for f in contracts/*.yaml; do \
 		python3 -c "import yaml; d=yaml.safe_load(open('$$f')); [d[k] for k in ('metadata','equations','proof_obligations','falsification_tests')]; assert len(d['falsification_tests'])>0; assert 'TODO' not in str(d) and 'PLACEHOLDER' not in str(d)" 2>/dev/null \

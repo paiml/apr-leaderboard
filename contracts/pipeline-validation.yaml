@@ -1,0 +1,65 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-03'
+  author: PAIML Engineering
+  description: >
+    Pipeline validation contract — make verify and make validate gates ensure
+    all apr CLI subcommands are available and all config files are well-formed.
+  references:
+    - "APR Leaderboard Spec §17 (Quality Gates)"
+    - "APR Leaderboard Spec §19 (Implementation Status)"
+
+equations:
+  subcommand_coverage:
+    formula: "coverage = |available_subcommands| / |required_subcommands|"
+    domain: "required_subcommands = {import, run, finetune, merge, prune, quantize, ...}"
+    codomain: "[0, 1]"
+    invariants:
+      - "coverage = 1.0 (all 19 subcommands available)"
+      - "Each subcommand responds to --help with exit 0"
+
+  config_validity:
+    formula: "valid = ∀ config ∈ configs: parse(config) succeeds"
+    domain: "configs = models/*.yaml + recipes/*.yaml + eval/*.yaml + pipeline/*.yaml"
+    codomain: "bool"
+    invariants:
+      - "All YAML configs parse without error"
+      - "No stub or incomplete values in config files"
+
+  script_count:
+    formula: "scripts = |{f ∈ scripts/ : f ends with .sh}|"
+    domain: "scripts/ directory"
+    codomain: "ℕ"
+    invariants:
+      - "scripts >= 15 (minimum operational set)"
+      - "All scripts have executable bit set"
+
+proof_obligations:
+  - type: bound
+    property: "All 19 apr subcommands available"
+    formal: "make verify reports 19/19 OK"
+
+  - type: invariant
+    property: "All config files parse as valid YAML"
+    formal: "python3 yaml.safe_load succeeds for all configs"
+
+  - type: bound
+    property: "Sufficient scripts for pipeline operations"
+    formal: "|scripts/*.sh| >= 15"
+
+falsification_tests:
+  - id: FALSIFY-PIPE-001
+    rule: Subcommand availability
+    prediction: "make verify reports 19/19 subcommands OK"
+    test: "make verify 2>&1 | grep '19/19'"
+    if_fails: "apr CLI missing subcommands"
+  - id: FALSIFY-PIPE-002
+    rule: Config parsability
+    prediction: "All YAML configs parse without error"
+    test: "python3 -c 'import yaml; yaml.safe_load(open(f))' for each config"
+    if_fails: "YAML syntax error in config file"
+  - id: FALSIFY-PIPE-003
+    rule: Script coverage
+    prediction: ">= 15 shell scripts in scripts/"
+    test: "ls scripts/*.sh | wc -l >= 15"
+    if_fails: "Missing pipeline scripts"

@@ -92,8 +92,8 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | YAML configs | 24 | — | models (7) + recipes (11) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
 | Shell scripts | 22 + 4 canaries | — | 22 pipeline scripts + 4 GPU canary/falsification scripts |
 | Makefile targets | 56 | — | `make verify` + `make validate` + `make dogfood` |
-| Contract tests | 38/39 | 39/39 | `make check-contracts` (pass@k ×5, throughput ×2, data ×3, decon ×1, eval ×3, distill ×2, MBPP ×1, AC-022 gate ×1, quant ×3, structure ×18). 1 informational fail: MBPP 76.2% < 80%. |
-| Contract YAMLs | 18 | — | pass@k, throughput, distillation, dpo-alignment, qlora-training-loop, fused-cross-entropy, nf4-dequantization, wgsl-gemm-tiled, wgsl-transpose, gpu-output-norm, forward-pass-perf, lora-algebra, lora-finetune-eval, quantization, merge-weight-norm, leaderboard-gate, preference-pairs + 1 structural |
+| Contract tests | 43/44 | 44/44 | `make check-contracts` (pass@k ×5, throughput ×2, data ×3, decon ×1, eval ×3, distill ×2, MBPP ×1, gate ×1, quant ×3, distdata ×3, compile ×1, structure ×20). 1 fail: MBPP gate. |
+| Contract YAMLs | 20 | — | pass@k, throughput, distillation, dpo-alignment, qlora-training-loop, fused-cross-entropy, nf4-dequantization, wgsl-gemm-tiled, wgsl-transpose, gpu-output-norm, forward-pass-perf, lora-algebra, lora-finetune-eval, quantization, merge-weight-norm, leaderboard-gate, preference-pairs, compile-binary, pipeline-validation + 1 structural |
 | PMAT work items | 8 | — | PMAT-006 (done), PMAT-007 (in progress), PMAT-008 (new), PMAT-010 (pending), PMAT-011 (pending), PMAT-014 (in progress), PMAT-017 (done), PMAT-037 (in progress). See §27. |
 | Spec sections | 27 | — | §1-27: added §27 PMAT Roadmap |
 | Spec sections | 26 | — | §1-25 + §26 QLoRA Training Loop |
