@@ -345,9 +345,22 @@ Total time: 3991.4s (66.5 min). 112 LoRA tensors saved (safetensors format). FAL
 
 **Root cause:** `entrenar::merge` expects adapter tensor names to match base model names exactly. The wgpu training pipeline saves adapters with stripped names. Fix needed in aprender: add name remapping in merge path (`layer.N.proj.lora_a` → `model.layers.N.self_attn.proj.lora_a`).
 
-**Fix applied:** Python script remaps 112 adapter tensor names to match GGUF convention (`layer.N.proj.lora_a` → `model.layers.N.self_attn.proj.lora_a` / `model.layers.N.mlp.proj.lora_a`). Merge re-running with remapped adapter. Upstream fix filed for aprender `entrenar::merge`.
+**Fix 1 — tensor naming:** Python script remaps 112 adapter tensor names (`layer.N.proj.lora_a` → `model.layers.N.self_attn.proj.weight.lora_a`). With corrected names: **56/339 layers merged** (28 layers × 2 projections: q_proj + v_proj). Script: `scripts/remap-adapter-tensors.py`.
 
-**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 **PASS** (loss decreases), FALSIFY-EVAL-002 (merge in progress), FALSIFY-EVAL-003 (pending eval).
+**Fix 2 — merged model valid:** `apr check` passes 10/10 stages. FALSIFY-EVAL-002: **PASS**.
+
+**Blocker — embedded tokenizer missing:** The merged 29 GiB FP32 APR file lacks the embedded tokenizer from the base model. `apr run` requires embedded tokenizer (PMAT-172). The merge code (`finetune_display_next_validate.rs:run_merge`) copies metadata but not the tokenizer section. Inference fails with "APR file missing embedded tokenizer."
+
+**Five whys:**
+1. Why 0% pass@1? "Tokenizer encode failed" — no tokenizer
+2. Why no tokenizer? Merged APR doesn't have embedded tokenizer
+3. Why not embedded? `AprWriter` in merge doesn't copy tokenizer from base model
+4. Why doesn't it copy? `run_merge` only copies metadata keys and tensor data
+5. Why only metadata? The tokenizer is stored as a separate section in APR v2, not as metadata
+
+**Root cause:** `run_merge` uses `AprWriter::set_metadata()` + `add_tensor_f32()` but never calls the tokenizer embedding API. One-line fix: copy tokenizer section from base `AprReader` to output `AprWriter`.
+
+**Contract:** `contracts/lora-finetune-eval.yaml` — FALSIFY-EVAL-001 **PASS**, FALSIFY-EVAL-002 **PASS**, FALSIFY-EVAL-003 **BLOCKED** (tokenizer embedding in merge).
 
 ## 24.22 Recommendations (Updated 2026-04-03)
 
