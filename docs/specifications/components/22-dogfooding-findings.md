@@ -544,3 +544,19 @@ Environment variables: `APR_BATCH_MODE=auto|on|off`.
 - **ChatML template:** Hardcoded `<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n` for Qwen models
 
 MBPP eval, per-problem analysis, recommendations: [AC Verification (S24)](24-ac-verification.md) §24.12-§24.13.
+
+## 22.20 Lessons Learned (2026-04-03)
+
+Key insights from 6 weeks of end-to-end dogfooding:
+
+1. **GGUF Q4K is the working import path.** SafeTensors FP16/BF16 models cannot run inference in realizar (fused matmul requires Q4K/Q6K/Q8K types). GGUF pre-quantized imports produce runnable models with embedded tokenizers. This is not a bug — it's a deliberate architecture choice for inference efficiency.
+
+2. **Oracle analysis reveals the ceiling.** Best-per-problem across all strategies and runs: 96.34% (158/164). Only 6 problems are never solved by any strategy. The gap between best single-run (90.85% 32B) and oracle (96.34%) is 5.49pp — strategy routing or ensemble decoding could close 3-4pp of this.
+
+3. **Few-shot beats reasoning prompts for small models.** For 7B: few-shot (+1.83pp) > standard > CGO (-1.83pp) > SCoT (-3.05pp). Structured reasoning overhead costs more than it gains at 7B scale. This reverses at 32B where reasoning helps.
+
+4. **Batch mode is essential for evaluation.** Per-invocation overhead (model load + CUDA JIT) dominates. Batch mode eliminates ~80s overhead per invocation. Without it, 164 HumanEval problems × 80s = 3.6 hours of pure overhead.
+
+5. **wgpu training works but needs the right data size.** 99 samples × 3 epochs ≈ 39 min on gx10. 15K samples × 3 epochs ≈ 150+ hours — impractical for single-session training. Targeted small datasets from failure analysis are the right approach.
+
+6. **Provable contracts catch real bugs.** FT-GATE-001 (AC-022 MBPP gate) correctly identified the 3.8pp gap before any manual analysis. The contract-first approach surfaces issues automatically through falsification tests.
