@@ -69,6 +69,18 @@ apr-leaderboard acceptance --verify
 | `ptx-target-parity-v1.yaml` | 3 (target_parity, no_hardcoded, jit_success) | 4 (target match, no emit_ptx, kernels with_target, JIT success) | 5 (FALSIFY-PTP-001..005) | **Violated on sm_121** |
 | `gqa-kernel-v1.yaml` | 1 (GQA formula) | 8 (normalization, MHA equiv, convex bound, KV broadcast, SIMD, GPU, head mapping) | 9 (FALSIFY-GQ-001..009) | Active |
 
+## 16.0.1 Binding Coverage (AC-012)
+
+Contract binding coverage tracks how many proof obligations have corresponding code implementations identified. See `contracts/BINDING_REGISTRY.md` for the full mapping.
+
+| Metric | Current | Target |
+|--------|---------|--------|
+| Obligations bound | 80/98 | 93/98 |
+| Coverage | **81.6%** | ≥95% |
+| Gap | 18 unbound | 5 allowed |
+
+**Top unbound areas:** TIES sign election (3), pruning eval pipeline (2), DPO pipeline (2), binding meta (2). See BINDING_REGISTRY.md for the priority list.
+
 ## 16.1 Contract Coverage Requirements
 
 The leaderboard pipeline touches these kernel equivalence classes from the provable-contracts registry:
