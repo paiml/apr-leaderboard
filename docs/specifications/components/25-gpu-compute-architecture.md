@@ -387,7 +387,37 @@ See also:
 | 1 | Wire wgpu end-to-end forward in realizar | Critical | **DONE** — `try_apr_wgpu_inference` in gguf_gpu_generate.rs |
 | 2 | Run parity gate on wgpu (F-PARITY-001) | Critical | **DONE** — cosine=0.999863 on sm_121 |
 | 3 | Smart backend dispatch in realizar | Medium | **DONE** — CUDA → wgpu → CPU auto-fallback |
-| 4 | Wire wgpu into batch path (GH-560) | Critical | Single-prompt DONE. Batch disabled (fused QKV + OOM). |
+| 4 | Wire wgpu into batch path (GH-560) | Critical | **DONE** — GH-560 FIXED (2026-03-28). 84.15% HumanEval on wgpu batch. |
 | 5 | Push trueno to unblock Q4K wgpu shader | Critical | **DONE** — 51 lint errors fixed, pushed to origin, gx10 updated |
-| 6 | Fix CUDA FP32 precision (GH-561) | High | Needs FP64 PTX builder in trueno-gpu |
+| 6 | Fix CUDA FP32 precision (GH-561) | High | f64 accumulators in 6 backward GEMM variants. Training verified: loss 13.61→12.02. |
 | 7 | Benchmark wgpu vs CUDA vs cuBLAS | Low | Planned |
+
+## 8. Memory Analysis (2026-04-04)
+
+### 8.1 LoRA Merge Memory Profile
+
+The `apr finetune --merge` operation holds the full FP32 model in memory:
+
+| Component | Memory |
+|-----------|--------|
+| Q4K base model (7B) | 7.5 GB (compressed) |
+| FP32 dequantized base | ~28 GB |
+| FP32 output model | ~28 GB |
+| LoRA adapter | 40 MB |
+| Working memory | ~5 GB |
+| **Peak RSS** | **~49 GB** |
+
+**Finding (2026-04-04):** Merge OOM-killed twice on gx10 when running concurrently with N-sampling (18 GB). 49 + 18 + 15 (system) = 82 GB — should fit in 119 GB, but zram swap compression on FP32 data is poor, reducing effective swap from 32 GB to ~16 GB. OOM killer triggered at anon-rss=48.9 GB.
+
+**Resolution:** Merge must run solo on gx10 (not concurrent with batch inference). Auto-merge pipeline (PID 1886069) queued to run after N-sampling completes.
+
+### 8.2 Batch Inference Memory Profile
+
+| Component | Memory |
+|-----------|--------|
+| Q4K model (7B) | 7.5 GB (mmap) |
+| KV cache (512 tokens) | ~1 GB |
+| Working buffers | ~10 GB |
+| **Steady-state RSS** | **~18.6 GB** |
+
+Batch inference is memory-stable at 18.6 GB across 1640+ prompts. No memory leak detected over 16h continuous operation.

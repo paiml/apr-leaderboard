@@ -1,0 +1,61 @@
+metadata:
+  version: 1.0.0
+  created: '2026-04-04'
+  author: PAIML Engineering
+  description: >
+    Falsification test completeness contract — all falsification tests in
+    make check-contracts must pass (100% pass rate). Validates AC-015.
+    This is a meta-contract: it tracks the aggregate health of all other
+    contracts' falsification tests.
+  references:
+    - "Popper (1934) The Logic of Scientific Discovery — falsifiability as demarcation"
+
+equations:
+  completeness:
+    formula: "pass_rate = n_pass / n_total = 1.0"
+    domain: "All FTs in make check-contracts output"
+    codomain: "bool"
+    invariants:
+      - "n_total includes all categories: pass@k, throughput, data, eval, distillation, MBPP, AC-022, quantization, oracle, pipeline, compile, catalog, leaderboard, parity, data quality, quantization quality, contract coverage, structure"
+      - "n_pass excludes informational-only failures"
+      - "Structure tests count each contract YAML independently"
+
+  dependency:
+    formula: "complete ⟹ AC-022_pass"
+    domain: "FT-GATE-001 depends on AC-022 (MBPP ≥ 80%)"
+    codomain: "bool"
+    invariants:
+      - "FT-GATE-001 is the only non-informational failure"
+      - "When AC-022 closes (MBPP ≥ 80%), AC-015 auto-passes"
+
+proof_obligations:
+  - type: invariant
+    property: "All FTs pass (100% pass rate)"
+    formal: "make check-contracts: n_fail == 0"
+
+  - type: bound
+    property: "Total FT count monotonically increases"
+    formal: "n_total(v_new) >= n_total(v_old)"
+
+  - type: invariant
+    property: "No test regression — passing tests stay passing"
+    formal: "forall ft in PASS(v_old): ft in PASS(v_new)"
+
+falsification_tests:
+  - id: FALSIFY-FTC-001
+    rule: "All FTs pass"
+    prediction: "make check-contracts reports 0 failures"
+    test: "make check-contracts 2>&1 | tail -1 | grep '0 failed'"
+    if_fails: "At least one falsification test failing — identify and fix root cause"
+
+  - id: FALSIFY-FTC-002
+    rule: "FT count non-decreasing"
+    prediction: "Current FT count >= previous version's count"
+    test: "make check-contracts 2>&1 | tail -1 | awk '{print $1}' >= 67"
+    if_fails: "Tests were removed — restore or document why"
+
+  - id: FALSIFY-FTC-003
+    rule: "Single known failure is AC-022"
+    prediction: "Only FT-GATE-001 fails, all others pass"
+    test: "make check-contracts 2>&1 | grep FAIL | grep -c GATE == 1"
+    if_fails: "New failure introduced — stop the line, fix before proceeding"

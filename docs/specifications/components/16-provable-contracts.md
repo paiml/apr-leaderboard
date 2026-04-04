@@ -24,7 +24,7 @@ apr-leaderboard acceptance --verify
 - `provable_contracts::schema::validate_contract(&contract)` — Check equations, proof obligations, falsification tests
 - `provable_contracts::error::Severity` — Filter validation violations by severity
 
-**Current contracts (28 in `contracts/` directory, all parsed by `pv proof-status`):**
+**Current contracts (30 in `contracts/` directory, all parsed by `pv proof-status`):**
 
 | Contract | Level | Obligs | Tests | Kani | Scope |
 |---|---|---|---|---|---|
@@ -57,8 +57,9 @@ apr-leaderboard acceptance --verify
 | `binding-coverage.yaml` | L2 | 3 | 3 | 0 | Contract binding coverage (AC-012) |
 | `hf-parity.yaml` | L2 | 4 | 4 | 0 | HuggingFace parity gap (AC-014) |
 | `ties-sign-resolution.yaml` | L2 | 4 | 4 | 0 | TIES sign conflict resolution (AC-007) |
+| `ft-completeness.yaml` | L1 | 3 | 3 | 0 | All FTs pass — meta contract (AC-015) |
 
-**Totals:** 98 proof obligations, 98 falsification tests, 10 Kani harnesses. Levels: L1=4, L2=20, L3=4.
+**Totals:** 101 proof obligations, 101 falsification tests, 10 Kani harnesses. Levels: L1=5, L2=20, L3=4.
 
 **Cross-project contracts (in `../provable-contracts/contracts/`):**
 
@@ -171,8 +172,8 @@ Tests run via `make check-contracts` (**64 passed, 1 failed**, updated 2026-04-0
 | contract coverage | 1 | PASS | 29 contract YAMLs >= 25 |
 | structure | 29 | PASS | All 29 contract YAMLs valid |
 
-**Makefile gate:** `make check-contracts` — **64 passed, 1 failed** (FT-GATE-001: MBPP 76.2% < 80%).
+**Makefile gate:** `make check-contracts` — **68 passed, 1 failed** (FT-GATE-001: MBPP 76.2% < 80%).
 
-**pv proof-status:** 28/28 contracts parsed, 98 obligations, 98 tests, 10 Kani, 0/56 bindings.
+**pv proof-status:** 30/30 contracts parsed, 101 obligations, 101 tests, 10 Kani.
 
 See `contracts/CONTRACT_STATUS.md` for full audit trail.
