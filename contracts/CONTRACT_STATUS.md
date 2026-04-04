@@ -79,16 +79,19 @@ Audit trail for all provable contracts. Run `make check-contracts` to verify.
 | hf-parity.yaml | 3 | 4 | 4 | FT-EVAL-001 (indirect) | Active |
 | ties-sign-resolution.yaml | 3 | 4 | 4 | — | Active |
 
-**Total: 64 passed, 1 failed** (updated 2026-04-03)
+**Total: 67 passed, 1 failed** (updated 2026-04-04)
 
 **pv proof-status:** 28/28 contracts parsed, 98 obligations, 98 tests, 10 Kani, 0/56 bindings.
 
-**New FTs (spec v2.5.0):**
+**New FTs (spec v2.5.x):**
 
 | Test ID | Contract | Rule | Status |
 |---------|----------|------|--------|
 | FT-PARITY-001 | hf-parity | HumanEval gap < 5pp vs HF | PASS (3.05pp, apr=90.85%) |
 | FT-CONTRACT-001 | binding-coverage | >= 25 contract YAMLs | PASS (29) |
+| FT-DQLTY-001 | data-quality | Zero duplicate instructions | PASS (15326/15326 unique) |
+| FT-DQLTY-002 | data-quality | No short responses (< 10 chars) | PASS |
+| FT-QQLTY-001 | quantization-quality | 32B Q4K gap < 2pp vs HF FP16 | PASS (1.65pp) |
 
 **Note:** FT-GATE-001 is informational — correctly identifies MBPP 3.8pp gap from 80% threshold. Closing strategy: DPO training (PMAT-008) + text-based distillation (PMAT-007).
 

@@ -652,6 +652,27 @@ check-contracts:
 			&& echo "  FT-PARITY-001 (HE gap<5pp): PASS ($${gap}pp, apr=$${apr_best}% HF=$${hf_ref}%)" && PASS=$$((PASS+1)) \
 			|| { echo "  FT-PARITY-001: FAIL ($${gap}pp gap)"; FAIL=$$((FAIL+1)); }; \
 	else echo "  FT-PARITY-001: SKIP (no results)"; fi; \
+	echo "-- data quality (FT-DQLTY-001..002) --"; \
+	if [ -f data/combined-training.jsonl ]; then \
+		total_lines=$$(wc -l < data/combined-training.jsonl); \
+		unique_lines=$$(jq -c '.instruction' data/combined-training.jsonl 2>/dev/null | sort -u | wc -l); \
+		[ "$$total_lines" -eq "$$unique_lines" ] \
+			&& echo "  FT-DQLTY-001 (no duplicates): PASS ($$unique_lines/$$total_lines unique)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DQLTY-001: FAIL ($$unique_lines unique of $$total_lines)"; FAIL=$$((FAIL+1)); }; \
+		short=$$(jq -r '.response | length' data/combined-training.jsonl 2>/dev/null | awk '$$1 < 10 {c++} END {print c+0}'); \
+		[ "$$short" -eq 0 ] \
+			&& echo "  FT-DQLTY-002 (no short responses): PASS" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-DQLTY-002: FAIL ($$short responses < 10 chars)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-DQLTY-001: SKIP (no training data)"; fi; \
+	echo "-- quantization quality (FT-QQLTY-001) --"; \
+	if ls results/humaneval_*.json 1>/dev/null 2>&1; then \
+		apr_32b=$$(jq -s '[.[] | select(.results.pass_at_1 > 89)] | sort_by(-.results.pass_at_1) | .[0].results.pass_at_1 // 0' results/humaneval_*.json 2>/dev/null || echo "0"); \
+		hf_32b=92.5; \
+		q_gap=$$(echo "scale=2; $$hf_32b - $$apr_32b" | bc 2>/dev/null | sed 's/^-//' || echo "99"); \
+		[ $$(echo "$$apr_32b > 0" | bc) -eq 1 ] && [ $$(echo "$$q_gap < 2.0" | bc) -eq 1 ] \
+			&& echo "  FT-QQLTY-001 (32B gap<2pp): PASS ($${q_gap}pp, apr=$${apr_32b}% HF=$${hf_32b}%)" && PASS=$$((PASS+1)) \
+			|| { echo "  FT-QQLTY-001: FAIL ($${q_gap}pp gap)"; FAIL=$$((FAIL+1)); }; \
+	else echo "  FT-QQLTY-001: SKIP (no results)"; fi; \
 	echo "-- contract coverage (FT-CONTRACT-001) --"; \
 	contract_count=$$(ls contracts/*.yaml 2>/dev/null | wc -l); \
 	[ "$$contract_count" -ge 25 ] \

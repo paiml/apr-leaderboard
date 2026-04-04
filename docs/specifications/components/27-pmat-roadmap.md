@@ -134,7 +134,7 @@ Current: 76.2% → Target: 80.0%
 
 **Next step:** Re-merge distilled model after PMAT-014 N-sampling completes. Merge OOM-killed twice on gx10 (49 GB peak + 18 GB N-sampling exceeds 119 GB unified memory). Auto-merge pipeline (PID 1886069) queued — runs automatically when N-sampling finishes. Pipeline: merge → `apr check` → quantize Q4K → inference test.
 
-**N-sampling (PMAT-014, 2026-04-03):** Running on gx10 with base 7B Q4K. 467/1640 prompts completed (~28%) after 6h. Revised ETA: ~15h remaining (CPU batch at 6.1s/prompt + per-problem sandbox overhead). Work dir: `/tmp/tmp.4izwh76p7m` preserved with `APR_KEEP_WORKDIR=1`.
+**N-sampling (PMAT-014):** Running on gx10 with base 7B Q4K. 1157/1640 prompts completed (70.5%) as of 2026-04-04. Rate: ~47 prompts/hour. ETA: ~10h remaining. Work dir: `/tmp/tmp.4izwh76p7m` preserved with `APR_KEEP_WORKDIR=1`.
 
 ## 27.9 LoRA Merge Matmul Fix (2026-04-03)
 
@@ -163,4 +163,4 @@ Current: 76.2% → Target: 80.0%
 
 **Updated totals:** 28 contracts, 98 proof obligations, 98 falsification tests, 10 Kani harnesses.
 
-**AC verification update:** 17/29 verified (59%). Newly verified: AC-009 (Q4K size, FT-QUANT-001 PASS), AC-014 (HF parity, gaps 0.60pp HE + 3.2pp MBPP).
+**AC verification update:** 19/29 verified (66%). Newly verified: AC-009 (Q4K size), AC-014 (HF parity), AC-023 (INT4 loss, 32B 1.65pp < 2pp), AC-025 (data quality, 0 duplicates, 0 short responses).

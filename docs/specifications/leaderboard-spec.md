@@ -1,9 +1,9 @@
 ---
 title: "APR Leaderboard Specification"
-version: "2.5.0"
+version: "2.5.1"
 status: "Active"
 created: "2026-02-28"
-updated: "2026-04-03"
+updated: "2026-04-04"
 ---
 
 # APR Leaderboard Specification
@@ -295,7 +295,7 @@ make dogfood   # end-to-end smoke test (zero Python)
 ## 18. Acceptance Criteria
 
 29 falsifiable acceptance criteria (AC-001 through AC-029). Every criterion has
-a concrete command and a pass/fail threshold. 15 verified, 13 not yet tested,
+a concrete command and a pass/fail threshold. 19 verified, 9 not yet tested,
 1 blocked on upstream. Key milestones:
 - AC-001: `apr import` produces valid `.apr` file ✅
 - AC-004: LoRA training with decreasing loss ✅

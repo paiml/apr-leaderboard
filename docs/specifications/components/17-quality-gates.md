@@ -85,7 +85,7 @@ mdbook build    # outputs to docs/book/
 make check-contracts    # runs all falsification tests + contract structure validation
 ```
 
-**Test categories (64/65 passing, 2026-04-03):**
+**Test categories (67/68 passing, 2026-04-04):**
 
 | Category | Count | What it checks |
 |---|---|---|
@@ -106,6 +106,8 @@ make check-contracts    # runs all falsification tests + contract structure vali
 | leaderboard coverage | 2 | Eval run count, benchmark coverage |
 | HF parity | 1 | HumanEval gap < 5pp vs HF reference |
 | contract coverage | 1 | >= 25 contract YAMLs |
+| data quality | 2 | Zero duplicate instructions, no short responses |
+| quantization quality | 1 | 32B Q4K gap < 2pp vs HF FP16 |
 | contract structure | 29 | All YAMLs have metadata/equations/proof_obligations/falsification_tests |
 
 **Single known failure:** FT-GATE-001 (AC-022 compound gate) — MBPP at 76.2% vs 80% target. Closing via PMAT-008 (DPO) + PMAT-007 (distillation).

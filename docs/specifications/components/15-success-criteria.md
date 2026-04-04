@@ -49,9 +49,9 @@ Baselines measured via `apr run` + `scripts/eval-pass-at-k.sh` (greedy decoding,
 
 **Perplexity baseline:** 6.63 on WikiText-2 (1.5B Q4K, CPU). Cross-entropy: 1.89 nats.
 
-**Contract gate:** `make check-contracts` — 59/60 passing. 1 failure: AC-022 MBPP gate (76.2% < 80%). See §17.6.
+**Contract gate:** `make check-contracts` — 67/68 passing. 1 failure: AC-022 MBPP gate (76.2% < 80%). See §17.6.
 
-**Acceptance criteria:** 17/29 verified (59%). See §18. Critical path: PMAT-014 → PMAT-008 → PMAT-010 → PMAT-011 → AC-022.
+**Acceptance criteria:** 19/29 verified (66%). See §18. Critical path: PMAT-014 → PMAT-008 → PMAT-010 → PMAT-011 → AC-022.
 
 ## 15.5 Falsifiability
 

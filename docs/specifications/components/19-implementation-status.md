@@ -92,11 +92,11 @@ apr-leaderboard is a thin orchestrator — a Makefile + shell scripts — that c
 | YAML configs | 24 | — | models (7) + recipes (11) + eval (1) + pipeline (2) + data catalog (1) + distill (1) + data governance (1) |
 | Shell scripts | 22 + 4 canaries | — | 22 pipeline scripts + 4 GPU canary/falsification scripts |
 | Makefile targets | 56 | — | `make verify` + `make validate` + `make dogfood` |
-| Contract tests | 59/60 | 60/60 | `make check-contracts` 15 categories + structure ×28. 1 fail: MBPP gate. |
+| Contract tests | 67/68 | 68/68 | `make check-contracts` 18 categories + structure ×29. 1 fail: MBPP gate. |
 | Contract YAMLs | 28 | — | 28 provable contract YAMLs. New: binding-coverage, hf-parity, ties-sign-resolution. |
 | Make targets | 57 | — | All wired to real `apr` CLI |
 | PMAT work items | 8 | — | PMAT-006 (done), PMAT-007 (done-pipeline, merge re-run pending matmul fix), PMAT-008 (ready), PMAT-010 (pending), PMAT-011 (pending), PMAT-014 (in progress, 28%), PMAT-017 (done), PMAT-037 (done). See §27. |
-| Spec sections | 27 | — | §1-27: v2.5.0 update cycle |
+| Spec sections | 27 | — | §1-27: v2.5.1 update cycle |
 | Config validity | 22/22 | 22/22 | `bashrs config lint` in `make validate` (zero Python) |
 | Pipeline stages | 12 | — | import → distill → finetune → align → merge → prune → quantize → eval → submit → compile |
 
