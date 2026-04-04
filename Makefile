@@ -168,6 +168,9 @@ align:
 		--output "$(OUTPUT_DIR)/$(NAME)-aligned.apr" \
 		--verbose
 
+dpo-pipeline:
+	@bash scripts/run-dpo-pipeline.sh "$(or $(PREFS_DATA),data/preference-pairs.jsonl)" "$(CHECKPOINT)"
+
 merge:
 	@test -n "$(MODELS)" || { echo "ERROR: MODELS required (space-separated .apr paths)"; exit 1; }
 	$(APR) merge $(MODELS) \
