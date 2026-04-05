@@ -1,6 +1,6 @@
 # Acceptance Criteria Verification
 
-Detailed verification findings for individual acceptance criteria. Split from [Dogfooding Findings (S22)](22-dogfooding-findings.md) for file size compliance.
+Detailed verification findings for individual acceptance criteria. Split from [Dogfooding Findings (S22)](22a-dogfooding-baselines.md) for file size compliance.
 
 ## 24.1 Compile to Binary (AC-026)
 

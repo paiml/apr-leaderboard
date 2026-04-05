@@ -1,6 +1,6 @@
 # Training Infrastructure
 
-Training bricks, QLoRA readiness, GPU sharing, and wgpu proof findings. Split from [Dogfooding Findings](22-dogfooding-findings.md) for file size compliance.
+Training bricks, QLoRA readiness, GPU sharing, and wgpu proof findings. Split from [Dogfooding Findings](22a-dogfooding-baselines.md) for file size compliance.
 
 ## 23.1 Training & Serving Bricks (QLoRA Foundation)
 

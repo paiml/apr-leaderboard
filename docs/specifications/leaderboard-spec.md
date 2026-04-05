@@ -25,7 +25,7 @@ updated: "2026-04-04"
 | 6 | [CLI Toolchain](#6-cli-toolchain) | [06](components/06-cli-toolchain.md) | `apr` subcommands, Makefile targets, scripts |
 | 7 | [Technique Playbook](#7-technique-playbook) | [07](components/07-technique-playbook.md) | LoRA, QLoRA, distillation, pruning, quantization |
 | 8 | [Leaderboard Techniques](#8-leaderboard-winning-techniques) | [08](components/08-leaderboard-winning-techniques.md) | Speculative decoding, FIM, prompt strategies |
-| 9 | [Composite Recipes](#9-composite-recipes) | [09](components/09-composite-recipes.md) | Recipes A-K pipeline definitions |
+| 9 | [Composite Recipes](#9-composite-recipes) | [09a](components/09a-composite-recipes-core.md), [09b](components/09b-composite-recipes-advanced.md) | Recipes A-L pipeline definitions |
 | 10 | [Technique Interaction Matrix](#10-technique-interaction-matrix) | [10](components/10-technique-interaction-matrix.md) | Compatibility matrix for stacked techniques |
 | 11 | [Competitive Advantage](#11-competitive-advantage) | [11](components/11-competitive-advantage.md) | Why sovereign stack wins |
 | 12 | [Data Strategy](#12-data-strategy) | [12](components/12-data-strategy.md) | Training corpora, data lineage |
@@ -38,11 +38,11 @@ updated: "2026-04-04"
 | 19 | [Implementation Status](#19-implementation-status) | [19](components/19-implementation-status.md) | Tracking table for all targets |
 | 20 | [Scientific Foundation](#20-scientific-foundation) | [20](components/20-scientific-foundation.md) | Papers, references |
 | 21 | [Open Questions](#21-open-questions) | [21](components/21-open-questions.md) | Unresolved decisions |
-| 22 | [Dogfooding Findings](#22-dogfooding-findings) | [22](components/22-dogfooding-findings.md) | Real results, baseline scores, upstream fixes |
+| 22 | [Dogfooding Findings](#22-dogfooding-findings) | [22a](components/22a-dogfooding-baselines.md), [22b](components/22b-dogfooding-fixes.md) | Real results, baseline scores, upstream fixes |
 | 23 | [Training Infrastructure](#23-training-infrastructure) | [23](components/23-training-infrastructure.md) | Training bricks, QLoRA, GPU sharing, wgpu proof |
 | 24 | [AC Verification](#24-ac-verification) | [24](components/24-ac-verification.md) | Detailed acceptance criteria verification findings |
 | 25 | [GPU Compute Architecture](#25-gpu-compute-architecture) | [25](components/25-gpu-compute-architecture.md) | wgpu training, GPU sharing, compute parity |
-| 26 | [QLoRA Training Loop](#26-qlora-training-loop) | [26](components/26-qlora-training-loop.md) | 592 GFLOPS tiled GEMM, 13 KAIZEN fixes |
+| 26 | [QLoRA Training Loop](#26-qlora-training-loop) | [26a](components/26a-qlora-math-contracts.md), [26b](components/26b-qlora-contracts-implementation.md), [26c](components/26c-qlora-blockers-status.md) | 592 GFLOPS tiled GEMM, 13 KAIZEN fixes |
 | 27 | [PMAT Roadmap](#27-pmat-roadmap) | [27](components/27-pmat-roadmap.md) | Work item DAG, critical path, gap analysis |
 
 ---
@@ -203,7 +203,7 @@ n-sampling with reranking, code-specific tokenization.
 | K: Final Artifact | prune -> quantize -> compile -> eval | Submission |
 | L: DPO Alignment | DPO finetune -> merge -> quantize -> eval | MBPP gap closing |
 
--> [Full details](components/09-composite-recipes.md)
+-> [Full details](components/09a-composite-recipes-core.md)
 
 ---
 
@@ -362,7 +362,7 @@ self-consistency), benchmarks (HumanEval, LiveCodeBench, BigCodeBench).
 
 **Hardware:** gx10 (NVIDIA Blackwell GB10, 119 GB unified). Also verified on AMD Radeon Pro W5700X (wgpu/Vulkan).
 
--> [Full details](components/22-dogfooding-findings.md)
+-> [Full details](components/22a-dogfooding-baselines.md)
 
 ---
 
@@ -411,7 +411,8 @@ docs/specifications/
     +-- 06-cli-toolchain.md        <- apr subcommands, scripts
     +-- 07-technique-playbook.md   <- LoRA, QLoRA, distill, prune
     +-- 08-leaderboard-winning-techniques.md
-    +-- 09-composite-recipes.md    <- Recipes A-H
+    +-- 09a-composite-recipes-core.md <- Recipes A-F
+    +-- 09b-composite-recipes-advanced.md <- Recipes G-L
     +-- 10-technique-interaction-matrix.md
     +-- 11-competitive-advantage.md
     +-- 12-data-strategy.md        <- Training data, lineage
@@ -424,7 +425,8 @@ docs/specifications/
     +-- 19-implementation-status.md <- Tracking table
     +-- 20-scientific-foundation.md <- Papers
     +-- 21-open-questions.md       <- Unresolved
-    +-- 22-dogfooding-findings.md  <- Real results, GPU proofs
+    +-- 22a-dogfooding-baselines.md <- Baselines, import, inference
+    +-- 22b-dogfooding-fixes.md   <- EOS, upstream fixes, Qwen3
     +-- 23-training-infrastructure.md <- GPU sharing, QLoRA, wgpu
     +-- 24-ac-verification.md     <- AC verification findings
 ```
